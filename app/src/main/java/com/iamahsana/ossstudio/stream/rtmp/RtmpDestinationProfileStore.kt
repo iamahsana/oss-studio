@@ -51,6 +51,9 @@ object RtmpDestinationProfileStore {
     private const val KEY_ALIAS = "oss.rtmp.destination.v1"
     private const val TRANSFORMATION = "AES/GCM/NoPadding"
     private const val GCM_TAG_BITS = 128
+    private const val GCM_TAG_BYTES = GCM_TAG_BITS / 8
+    private const val GCM_IV_BYTES = 12
+    private const val FORMAT_VERSION = 1
 
     @Synchronized
     fun load(context: Context): List<RtmpDestinationProfile> {
@@ -58,8 +61,12 @@ object RtmpDestinationProfileStore {
             .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getString(BLOB, null) ?: return emptyList()
         val envelope = JSONObject(String(Base64.decode(encoded, Base64.NO_WRAP), Charsets.UTF_8))
+        val version = envelope.optInt("version", FORMAT_VERSION)
+        require(version == FORMAT_VERSION) { "Unsupported RTMP vault format version" }
         val iv = Base64.decode(envelope.getString("iv"), Base64.NO_WRAP)
         val ciphertext = Base64.decode(envelope.getString("data"), Base64.NO_WRAP)
+        require(iv.size == GCM_IV_BYTES) { "Invalid RTMP vault IV length" }
+        require(ciphertext.size >= GCM_TAG_BYTES) { "Invalid RTMP vault authentication tag" }
         val cipher = Cipher.getInstance(TRANSFORMATION)
         cipher.init(Cipher.DECRYPT_MODE, getOrCreateKey(), GCMParameterSpec(GCM_TAG_BITS, iv))
         val plain = cipher.doFinal(ciphertext)
@@ -99,6 +106,7 @@ object RtmpDestinationProfileStore {
         cipher.init(Cipher.ENCRYPT_MODE, getOrCreateKey())
         val ciphertext = cipher.doFinal(array.toString().toByteArray(Charsets.UTF_8))
         val envelope = JSONObject()
+            .put("version", FORMAT_VERSION)
             .put("iv", Base64.encodeToString(cipher.iv, Base64.NO_WRAP))
             .put("data", Base64.encodeToString(ciphertext, Base64.NO_WRAP))
         val encoded = Base64.encodeToString(envelope.toString().toByteArray(Charsets.UTF_8), Base64.NO_WRAP)

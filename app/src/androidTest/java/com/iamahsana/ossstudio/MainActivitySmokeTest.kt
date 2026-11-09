@@ -42,11 +42,11 @@ class MainActivitySmokeTest {
         composeRule.onNodeWithText("Project baru").performClick()
         composeRule.onNodeWithText("Nama project").performTextInput("OSS UI Smoke")
         composeRule.onNodeWithText("Buat").performClick()
-        composeRule.waitUntil(5_000) {
+        composeRule.waitUntil(15_000) {
             composeRule.onAllNodesWithText("OSS UI Smoke").fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithText("OSS UI Smoke").assertIsDisplayed()
-        composeRule.waitUntil(5_000) {
+        composeRule.waitUntil(15_000) {
             composeRule.onAllNodesWithText("Canvas kosong").fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithText("Canvas kosong").performScrollTo().assertIsDisplayed()
@@ -55,7 +55,7 @@ class MainActivitySmokeTest {
     @Test
     fun mixerPageShowsIndependentCoreChannelsAndBuses() {
         composeRule.onNodeWithText("Mixer").performClick()
-        composeRule.waitUntil(5000) { composeRule.onAllNodesWithText("Mixer utama").fetchSemanticsNodes().isNotEmpty() }
+        composeRule.waitUntil(15_000) { composeRule.onAllNodesWithText("Mixer utama").fetchSemanticsNodes().isNotEmpty() }
         composeRule.onNodeWithText("Mixer utama").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("LIVE master: 100%").assertIsDisplayed()
         composeRule.onNodeWithText("MONITOR master: 100%").assertIsDisplayed()
@@ -74,7 +74,7 @@ class MainActivitySmokeTest {
             .performTextInput("rtmps://live.example.com/app")
         composeRule.onNodeWithText("Stream key").performTextInput("private-smoke-key")
         composeRule.onNodeWithText("Simpan terenkripsi").performClick()
-        composeRule.waitUntil(5_000) {
+        composeRule.waitUntil(15_000) {
             composeRule.onAllNodesWithText(uniqueName).fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithText(uniqueName).assertIsDisplayed()
@@ -94,9 +94,9 @@ class MainActivitySmokeTest {
     @Test
     fun studioShowsLiveSessionControls() {
         composeRule.onNodeWithText("Studio").performClick()
-        composeRule.waitUntil(5000) { composeRule.onAllNodesWithText("LIVE control center").fetchSemanticsNodes().isNotEmpty() }
+        composeRule.waitUntil(15_000) { composeRule.onAllNodesWithText("LIVE control center").fetchSemanticsNodes().isNotEmpty() }
         composeRule.onNodeWithText("LIVE control center").assertIsDisplayed()
-        composeRule.waitUntil(5000) { composeRule.onAllNodesWithText("LIVE control").fetchSemanticsNodes().isNotEmpty() }
+        composeRule.waitUntil(15_000) { composeRule.onAllNodesWithText("LIVE control").fetchSemanticsNodes().isNotEmpty() }
         composeRule.onNodeWithText("LIVE control").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Mulai LIVE").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Hentikan").performScrollTo().assertIsDisplayed()

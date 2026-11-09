@@ -1,6 +1,7 @@
 package com.iamahsana.ossstudio.stream.rtmp
 
 import android.content.Context
+import android.util.Base64
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Assert.assertEquals
@@ -49,8 +50,12 @@ class RtmpDestinationProfileStoreTest {
             )
             val prefs = context.getSharedPreferences("oss_rtmp_destination_vault", Context.MODE_PRIVATE)
             val blob = prefs.getString("encrypted_profiles", null)!!
-            val changed = blob.dropLast(2) + if (blob.takeLast(2) == "AA") "BB" else "AA"
-            prefs.edit().putString("encrypted_profiles", changed).commit()
+            val envelope = org.json.JSONObject(String(Base64.decode(blob, Base64.NO_WRAP), Charsets.UTF_8))
+            val ciphertext = Base64.decode(envelope.getString("data"), Base64.NO_WRAP)
+            ciphertext[0] = (ciphertext[0].toInt() xor 0x01).toByte()
+            envelope.put("data", Base64.encodeToString(ciphertext, Base64.NO_WRAP))
+            val changed = Base64.encodeToString(envelope.toString().toByteArray(Charsets.UTF_8), Base64.NO_WRAP)
+            check(prefs.edit().putString("encrypted_profiles", changed).commit())
             assertThrows(Exception::class.java) { RtmpDestinationProfileStore.load(context) }
         } finally {
             RtmpDestinationProfileStore.clear(context)
