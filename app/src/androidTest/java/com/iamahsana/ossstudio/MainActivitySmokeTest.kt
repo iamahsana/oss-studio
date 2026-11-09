@@ -94,6 +94,8 @@ class MainActivitySmokeTest {
     @Test
     fun studioShowsLiveSessionControls() {
         composeRule.onNodeWithText("Studio").performClick()
+        composeRule.waitUntil(5000) { composeRule.onAllNodesWithText("LIVE control center").fetchSemanticsNodes().isNotEmpty() }
+        composeRule.onNodeWithText("LIVE control center").assertIsDisplayed()
         composeRule.waitUntil(5000) { composeRule.onAllNodesWithText("LIVE control").fetchSemanticsNodes().isNotEmpty() }
         composeRule.onNodeWithText("LIVE control").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Mulai LIVE").performScrollTo().assertIsDisplayed()
