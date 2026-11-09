@@ -48,8 +48,9 @@ fun StudioLiveControlScreen(context: Context, project: SceneProject?) {
         }
     }
 
-    val activeScene = project?.scenes?.firstOrNull { it.id == project.activeSceneId }
-        ?: project?.scenes?.firstOrNull()
+    val activeScene = project?.let { current ->
+        current.scenes.firstOrNull { it.id == current.activeSceneId } ?: current.scenes.firstOrNull()
+    }
     val sourceById = project?.sources?.associateBy { it.id }.orEmpty()
     val requiresProjection = activeScene?.elements?.any { element ->
         element.visible && sourceById[element.sourceId]?.let {
