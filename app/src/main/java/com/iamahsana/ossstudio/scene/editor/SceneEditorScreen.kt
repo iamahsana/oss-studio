@@ -65,6 +65,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -336,6 +337,7 @@ fun SceneEditorScreen(
                                 color = textColor,
                                 textAlign = alignment,
                                 fontWeight = if (source.settings["bold"] == "true") FontWeight.Bold else FontWeight.Normal,
+                                fontStyle = if (source.settings["italic"] == "true") FontStyle.Italic else FontStyle.Normal,
                                 fontSize = ((textSize * scale) / density.density).sp
                             )
                         } else {
