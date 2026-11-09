@@ -88,6 +88,9 @@ class SceneCanvasLayerController(
         this.hasShareScreen = hasShareScreen
         readyCallback = onReady
         failureCallback = onFailure
+        glAttempts = 0
+        glCheck?.let(mainHandler::removeCallbacks)
+        glCheck = null
         if (assetExecutor.isShutdown || assetExecutor.isTerminated) {
             assetExecutor = Executors.newSingleThreadExecutor()
         }
