@@ -102,6 +102,16 @@ object SceneAssetStorage {
         return ImportedSceneAsset(asset, sourceType, displayName)
     }
 
+
+    fun deleteAsset(context: Context, asset: SceneAsset): Boolean {
+        val root = context.filesDir.canonicalFile
+        val target = File(root, asset.relativePath).canonicalFile
+        require(target.path.startsWith(root.path + File.separator)) { "Asset path escaped app storage" }
+        if (!target.exists()) return false
+        require(target.isFile) { "Asset path is not a regular file" }
+        return target.delete()
+    }
+
     private fun sanitizeDisplayName(value: String): String =
         value.substringAfterLast('/').substringAfterLast('\\')
             .filter { it.code >= 0x20 && it.code != 0x7f }
