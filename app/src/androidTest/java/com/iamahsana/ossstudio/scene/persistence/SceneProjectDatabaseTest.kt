@@ -8,6 +8,8 @@ import com.iamahsana.ossstudio.scene.model.*
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 @RunWith(AndroidJUnit4::class)
 class SceneProjectDatabaseTest {
@@ -53,6 +55,32 @@ class SceneProjectDatabaseTest {
         } finally {
             db.close()
             context.deleteDatabase("oss_projects.db")
+        }
+    }
+
+    @Test fun closeFlushesNewestDebouncedSnapshot() {
+        val context=ApplicationProvider.getApplicationContext<Context>()
+        val id="autosave-close-test"
+        val db=SceneProjectDatabase(context)
+        val repository=SceneProjectRepository(db)
+        val saved=CountDownLatch(1)
+        val autosave=SceneProjectAutosave(repository, debounceMillis=10_000L, onSaved={ saved.countDown() })
+        val project=SceneProject(id=id,name="Before",createdAtEpochMillis=1,updatedAtEpochMillis=1)
+        try {
+            autosave.schedule(project)
+            autosave.schedule(project.copy(name="Latest",updatedAtEpochMillis=2))
+            autosave.close()
+            assertTrue("close must flush the pending snapshot", saved.await(5,TimeUnit.SECONDS))
+            val loaded=CountDownLatch(1)
+            var result: SceneProject? = null
+            repository.load(id) { outcome -> result=outcome.getOrNull();loaded.countDown() }
+            assertTrue(loaded.await(5,TimeUnit.SECONDS))
+            assertEquals("Latest",result?.name)
+        } finally {
+            autosave.close()
+            repository.close()
+            db.close()
+            db.delete(id)
         }
     }
 
