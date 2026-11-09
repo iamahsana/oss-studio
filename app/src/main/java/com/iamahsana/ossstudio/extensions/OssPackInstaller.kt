@@ -23,6 +23,7 @@ object OssPackInstaller {
             val expected = validation.manifest.files.associateBy { it.path }
             val written = mutableSetOf<String>()
             var manifestWritten = false
+            val manifestDigest = MessageDigest.getInstance("SHA-256")
             ZipInputStream(BufferedInputStream(FileInputStream(archive))).use { zip ->
                 while (true) {
                     val entry = zip.nextEntry ?: break
@@ -47,6 +48,7 @@ object OssPackInstaller {
                                 val read = zip.read(buffer)
                                 if (read < 0) break
                                 count += read
+                                manifestDigest.update(buffer, 0, read)
                                 require(count <= OssPackArchiveValidator.MAX_MANIFEST_BYTES) { "Manifest terlalu besar saat ekstraksi" }
                                 target.write(buffer, 0, read)
                             }
@@ -81,6 +83,9 @@ object OssPackInstaller {
                 }
             }
             require(manifestWritten) { "Manifest hilang saat ekstraksi" }
+            require(manifestDigest.digest().toHex().equals(validation.manifestSha256, ignoreCase = true)) {
+                "Manifest berubah saat ekstraksi"
+            }
             require(written == expected.keys) { "Daftar file berubah saat ekstraksi" }
             check(staging.renameTo(destination)) { "Tidak dapat menerbitkan ekstensi secara atomik" }
             return destination
