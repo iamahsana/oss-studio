@@ -39,7 +39,8 @@ class LiveSessionLifecycleCoordinatorTest {
                 override fun stop() { calls += "stop" }
                 override fun release() { calls += "release" }
             },
-            projectionSession = { calls += "projection" }
+            projectionSession = { calls += "projection" },
+            diagnosticLog = { _, _, _, _ -> }
         )
 
         val result = coordinator.shutdown()
