@@ -55,7 +55,9 @@ class OssAudioMixerSession(
         clock = AndroidPcmMixerClock,
         sampleRateHz = RootEncoderAudioCaptureSession.SAMPLE_RATE_HZ
     )
+    private val stopRequested = AtomicBoolean(false)
     private val cleanupInProgress = AtomicBoolean(false)
+    private val callbackLock = Any()
     private val cleanupCallbacks = mutableListOf<(StopResult) -> Unit>()
 
     @Volatile
@@ -95,9 +97,10 @@ class OssAudioMixerSession(
      */
     @Synchronized
     fun start(projection: MediaProjection?): Boolean {
-        check(state == State.NEW || state == State.STOPPED) {
-            "Audio mixer session cannot start from state $state"
+        check(state == State.NEW) {
+            "Audio mixer session can only start once; current state=$state"
         }
+        if (stopRequested.get()) return false
         state = State.STARTING
 
         if (!liveOutput.activateAfterEncoderPrepare()) {
@@ -133,6 +136,13 @@ class OssAudioMixerSession(
                     "Neither microphone nor internal playback capture is available",
                     "AUDIO_NO_SOURCE_AVAILABLE"
                 )
+                return false
+            }
+
+            if (stopRequested.get()) {
+                liveOutput.deactivate()
+                capture.stop()
+                state = State.FAILED
                 return false
             }
 
@@ -196,27 +206,26 @@ class OssAudioMixerSession(
      * A failed mixer join keeps capture sources alive for a safe retry.
      */
     fun stopAsync(onComplete: (StopResult) -> Unit) {
-        val alreadyStopped = synchronized(this) {
-            if (state == State.STOPPED) {
-                true
-            } else {
-                cleanupCallbacks += onComplete
-                if (!cleanupInProgress.compareAndSet(false, true)) {
-                    return
-                }
-                state = State.STOPPING
-                // start() is synchronized on this same instance, so this
-                // request cannot race ahead of a still-starting capture graph.
-                worker.requestStop()
-                false
-            }
-        }
-        if (alreadyStopped) {
+        if (state == State.STOPPED) {
             onComplete(StopResult(true, true, true, true))
             return
         }
 
+        synchronized(callbackLock) {
+            cleanupCallbacks += onComplete
+        }
+        stopRequested.set(true)
+        if (!cleanupInProgress.compareAndSet(false, true)) return
+
+        // Never wait for start()'s lifecycle lock on the caller (usually main)
+        // thread. The cleanup worker waits until start has either completed or
+        // observed stopRequested, then takes ownership of teardown.
         Thread({
+            synchronized(this) {
+                state = State.STOPPING
+                worker.requestStop()
+            }
+
             var mixerStopped = false
             var captureStopped = false
             var monitorStopped = false
@@ -254,17 +263,17 @@ class OssAudioMixerSession(
                     captureStopped = captureStopped,
                     monitorStopped = monitorStopped
                 )
-                val callbacks = synchronized(this) {
-                    state = if (result.completed) State.STOPPED else State.FAILED
-                    cleanupInProgress.set(false)
-                    cleanupCallbacks.toList().also { cleanupCallbacks.clear() }
-                }
+                state = if (result.completed) State.STOPPED else State.FAILED
+                cleanupInProgress.set(false)
                 log(
                     if (result.completed) OssLogLevel.INFO else OssLogLevel.ERROR,
                     if (result.completed) "audio_graph_stopped" else "audio_graph_cleanup_pending",
                     if (result.completed) "OSS audio graph fully stopped" else "OSS audio graph cleanup remains incomplete",
                     if (result.completed) null else "AUDIO_GRAPH_CLEANUP_PENDING"
                 )
+                val callbacks = synchronized(callbackLock) {
+                    cleanupCallbacks.toList().also { cleanupCallbacks.clear() }
+                }
                 callbacks.forEach { callback -> runCatching { callback(result) } }
             }
         }, "oss-audio-graph-cleanup").apply {
