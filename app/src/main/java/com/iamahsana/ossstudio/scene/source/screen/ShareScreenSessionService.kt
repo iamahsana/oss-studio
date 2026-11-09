@@ -3,19 +3,16 @@ package com.iamahsana.ossstudio.scene.source.screen
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
-import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
-import android.hardware.display.DisplayManager
+import android.content.pm.ServiceInfo
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.os.Binder
 import android.os.Build
 import android.os.IBinder
-import android.content.pm.ServiceInfo
 import androidx.core.content.ContextCompat
-import com.iamahsana.ossstudio.R
 import com.iamahsana.ossstudio.logging.OssLogContext
 import com.iamahsana.ossstudio.logging.OssLogLevel
 import com.iamahsana.ossstudio.logging.OssLogger
@@ -51,6 +48,12 @@ class ShareScreenSessionService : Service() {
             }
         }
         return START_NOT_STICKY
+    }
+
+    override fun onDestroy() {
+        releaseProjection(stopProjection = true)
+        log(OssLogLevel.INFO, "service_destroyed", "Share Screen service destroyed and projection released")
+        super.onDestroy()
     }
 
     fun getActiveProjection(): MediaProjection? = mediaProjection
@@ -104,6 +107,13 @@ class ShareScreenSessionService : Service() {
     }
 
     private fun finishSession(stopProjection: Boolean) {
+        releaseProjection(stopProjection)
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        stopSelf()
+        log(OssLogLevel.INFO, "service_session_finished", "Share Screen foreground session released")
+    }
+
+    private fun releaseProjection(stopProjection: Boolean) {
         val projection = mediaProjection
         val callback = projectionCallback
         mediaProjection = null
@@ -115,9 +125,6 @@ class ShareScreenSessionService : Service() {
         if (stopProjection) {
             runCatching { projection?.stop() }
         }
-        stopForeground(STOP_FOREGROUND_REMOVE)
-        stopSelf()
-        log(OssLogLevel.INFO, "service_session_finished", "Share Screen foreground session released")
     }
 
     private fun createNotificationChannel() {
