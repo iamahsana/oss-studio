@@ -23,6 +23,8 @@ import com.iamahsana.ossstudio.stream.rtmp.RtmpDestinationProfileStore
 import com.pedro.encoder.input.sources.audio.BufferAudioSource
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.math.max
+import kotlin.math.roundToInt
 
 /**
  * Android adapter joining service-owned MediaProjection, RootEncoder RTMP,
@@ -78,6 +80,25 @@ class AndroidLiveRuntimeFactory(
 
         override fun prepare(): Boolean {
             checkMainThread()
+            val project = activeProject
+            if (project == null) {
+                log(OssLogLevel.ERROR, "scene_project_unavailable", "No active scene project was supplied to the LIVE runtime", "SCENE_PROJECT_UNAVAILABLE")
+                return false
+            }
+            val scene = project.scenes.firstOrNull { it.id == project.activeSceneId } ?: project.scenes.firstOrNull()
+            if (scene == null) {
+                log(OssLogLevel.ERROR, "scene_unavailable", "Active project has no scene to stream", "SCENE_UNAVAILABLE")
+                return false
+            }
+            activeProject = project
+            val maxDimension = max(scene.canvas.width, scene.canvas.height).toFloat()
+            val scale = 1280f / maxDimension
+            fun evenDimension(value: Int): Int = (value.coerceAtLeast(2) / 2) * 2
+            activeStreamConfig = streamConfig.copy(
+                width = evenDimension((scene.canvas.width * scale).roundToInt()),
+                height = evenDimension((scene.canvas.height * scale).roundToInt())
+            )
+
             val bufferAudioSource = BufferAudioSource()
             val enabledProfiles = try {
                 RtmpDestinationProfileStore.load(appContext).filter { it.enabled }
@@ -136,13 +157,13 @@ class AndroidLiveRuntimeFactory(
                 )
                 if (!newMultiStream.prepare(
                         MultiRtmpStreamSession.Config(
-                            width = streamConfig.width,
-                            height = streamConfig.height,
-                            fps = streamConfig.fps,
-                            videoBitrate = streamConfig.videoBitrate,
-                            audioSampleRate = streamConfig.audioSampleRate,
-                            audioStereo = streamConfig.audioStereo,
-                            audioBitrate = streamConfig.audioBitrate
+                            width = activeStreamConfig.width,
+                            height = activeStreamConfig.height,
+                            fps = activeStreamConfig.fps,
+                            videoBitrate = activeStreamConfig.videoBitrate,
+                            audioSampleRate = activeStreamConfig.audioSampleRate,
+                            audioStereo = activeStreamConfig.audioStereo,
+                            audioBitrate = activeStreamConfig.audioBitrate
                         )
                     )
                 ) {
@@ -165,7 +186,7 @@ class AndroidLiveRuntimeFactory(
                     },
                     audioSource = bufferAudioSource
                 )
-                if (!newStream.prepare(streamConfig)) {
+                if (!newStream.prepare(activeStreamConfig)) {
                     runCatching { newStream.release() }
                     log(
                         OssLogLevel.ERROR,
@@ -338,8 +359,8 @@ class AndroidLiveRuntimeFactory(
                 overlay.attach(
                     project = project,
                     scene = scene,
-                    outputWidth = streamConfig.width,
-                    outputHeight = streamConfig.height,
+                    outputWidth = activeStreamConfig.width,
+                    outputHeight = activeStreamConfig.height,
                     hasShareScreen = shareElement != null,
                     onReady = { listener.onReady() },
                     onFailure = { listener.onFailure() }
@@ -367,8 +388,8 @@ class AndroidLiveRuntimeFactory(
             try {
                 layer.attach(
                     mediaProjection = projection,
-                    width = streamConfig.width,
-                    height = streamConfig.height,
+                    width = activeStreamConfig.width,
+                    height = activeStreamConfig.height,
                     densityDpi = appContext.resources.displayMetrics.densityDpi,
                     scaleX = transform.width / scene.canvas.width.toFloat() * 100f,
                     scaleY = transform.height / scene.canvas.height.toFloat() * 100f,
@@ -496,6 +517,7 @@ class AndroidLiveRuntimeFactory(
             stream?.release()
             stream = null
             singleDestinationProfile = null
+            activeProject = null
             if (audioMixerSession?.state == OssAudioMixerSession.State.STOPPED) {
                 audioMixerSession?.let(AudioMixerControlBus::detach)
                 audioMixerSession = null
