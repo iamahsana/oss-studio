@@ -102,6 +102,30 @@ class OssPackArchiveValidatorTest {
         } finally { archive.delete() }
     }
 
+    @Test fun rejectsUnsupportedCapabilities() {
+        val archive = createRawPackage(
+            """{"format":"oss-extension","formatVersion":1,"payloadType":"declarative","id":"com.example.overlay","name":"Example","version":"1.0.0","minOssVersion":"0.1.0","capabilities":["arbitrary-code"],"files":[]}"""
+        )
+        try {
+            val error = runCatching { OssPackArchiveValidator.validate(archive) }.exceptionOrNull()
+            assertTrue(error?.message.orEmpty().contains("Kapabilitas tidak didukung"))
+        } finally { archive.delete() }
+    }
+
+    @Test fun rejectsPayloadFilesMissingFromManifest() {
+        val payload = byteArrayOf(2, 4, 6)
+        val manifest = """{"format":"oss-extension","formatVersion":1,"payloadType":"declarative","id":"com.example.overlay","name":"Example","version":"1.0.0","minOssVersion":"0.1.0","capabilities":[],"files":[{"path":"assets/icon.png","sha256":"${sha256(payload)}","byteSize":3}]}"""
+        val archive = createRawPackage(
+            manifest,
+            "assets/icon.png" to payload,
+            "assets/hidden.png" to byteArrayOf(1, 1, 1)
+        )
+        try {
+            val error = runCatching { OssPackArchiveValidator.validate(archive) }.exceptionOrNull()
+            assertTrue(error?.message.orEmpty().contains("tidak sama"))
+        } finally { archive.delete() }
+    }
+
     private fun createPackage(payload: ByteArray, manifestHashOverride: String? = null): File {
         val hash = manifestHashOverride ?: sha256(payload)
         val manifest = """{"format":"oss-extension","formatVersion":1,"payloadType":"declarative","id":"com.example.overlay","name":"Example Overlay","version":"1.0.0","minOssVersion":"0.1.0","capabilities":["scene-overlay"],"files":[{"path":"assets/icon.png","sha256":"$hash","byteSize":""" + payload.size + "}]} "
