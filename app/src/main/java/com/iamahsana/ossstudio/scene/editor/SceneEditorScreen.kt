@@ -98,6 +98,8 @@ fun SceneEditorScreen(
 ) {
     var currentProject by remember(project.id) { mutableStateOf(project) }
     var selectedElementId by remember(project.id) { mutableStateOf<String?>(null) }
+    var multiSelectMode by remember(project.id) { mutableStateOf(false) }
+    var selectedElementIds by remember(project.id) { mutableStateOf<Set<String>>(emptySet()) }
     val history = remember(project.id) { SceneProjectHistory(project) }
     var historyVersion by remember(project.id) { mutableStateOf(0) }
     var showCanvasSettings by remember(project.id) { mutableStateOf(false) }
@@ -722,12 +724,60 @@ fun SceneEditorScreen(
                 modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                OutlinedButton(onClick = {
+                    multiSelectMode = !multiSelectMode
+                    selectedElementIds = if (multiSelectMode) {
+                        selectedElementId?.let(::setOf) ?: emptySet()
+                    } else {
+                        selectedElementIds
+                    }
+                }) { Text(if (multiSelectMode) "Selesai memilih" else "Pilih beberapa") }
+                val selectedGroupIds = scene.elements
+                    .filter { it.id in selectedElementIds }
+                    .mapNotNull { it.groupId }
+                    .distinct()
+                val canGroup = selectedElementIds.size >= 2 &&
+                    scene.elements.filter { it.id in selectedElementIds }.all { it.groupId == null }
+                if (canGroup) {
+                    OutlinedButton(onClick = {
+                        val updated = SceneProjectEditor.groupElements(
+                            currentProject, scene.id, selectedElementIds, System.currentTimeMillis()
+                        )
+                        applyProject(updated)
+                        multiSelectMode = false
+                        selectedElementId = selectedElementIds.firstOrNull()
+                        selectedElementIds = selectedElementId?.let(::setOf) ?: emptySet()
+                    }) { Text("Kelompokkan (" + selectedElementIds.size + ")") }
+                }
+                if (selectedGroupIds.size == 1) {
+                    OutlinedButton(onClick = {
+                        applyProject(SceneProjectEditor.ungroupElements(
+                            currentProject, scene.id, selectedGroupIds.single(), System.currentTimeMillis()
+                        ))
+                        multiSelectMode = false
+                        selectedElementIds = selectedElementId?.let(::setOf) ?: emptySet()
+                    }) { Text("Pisahkan grup") }
+                }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 scene.elements.sortedBy { it.zIndex }.forEach { element ->
                     val source = currentProject.sources.firstOrNull { it.id == element.sourceId }
+                    val chosen = element.id in selectedElementIds
                     OutlinedButton(onClick = {
-                        selectedElementId = element.id
+                        if (multiSelectMode) {
+                            selectedElementIds = if (chosen) selectedElementIds - element.id else selectedElementIds + element.id
+                            selectedElementId = element.id
+                        } else {
+                            selectedElementId = element.id
+                            selectedElementIds = setOf(element.id)
+                        }
                         editingText = source?.text.orEmpty()
-                    }) { Text(source?.displayName ?: "Element") }
+                    }) {
+                        Text((if (chosen && multiSelectMode) "✓ " else "") + (source?.displayName ?: "Element"))
+                    }
                 }
             }
         }
