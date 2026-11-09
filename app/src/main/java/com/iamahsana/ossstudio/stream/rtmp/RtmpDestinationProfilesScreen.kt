@@ -32,6 +32,7 @@ fun RtmpDestinationProfilesScreen(context: Context) {
     var profiles by remember { mutableStateOf(initialLoad.getOrDefault(emptyList())) }
     var showAddDialog by remember { mutableStateOf(false) }
     var pendingDelete by remember { mutableStateOf<RtmpDestinationProfile?>(null) }
+    var confirmVaultReset by remember { mutableStateOf(false) }
     var name by remember { mutableStateOf("") }
     var serverUrl by remember { mutableStateOf("") }
     var streamKey by remember { mutableStateOf("") }
@@ -47,7 +48,7 @@ fun RtmpDestinationProfilesScreen(context: Context) {
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Tujuan RTMP", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-            Button(onClick = {
+            Button(enabled = storeError == null, onClick = {
                 name = ""
                 serverUrl = ""
                 streamKey = ""
@@ -59,7 +60,10 @@ fun RtmpDestinationProfilesScreen(context: Context) {
             "Stream key dienkripsi dengan AES-GCM dan kunci yang disimpan Android Keystore. Kunci tidak ditampilkan pada daftar tujuan.",
             style = MaterialTheme.typography.bodySmall
         )
-        storeError?.let { Text("Vault: $it", color = MaterialTheme.colorScheme.error) }
+        storeError?.let {
+            Text("Vault tidak dapat dibuka: $it. Profil lama tidak akan ditimpa otomatis.", color = MaterialTheme.colorScheme.error)
+            OutlinedButton(onClick = { confirmVaultReset = true }) { Text("Reset vault") }
+        }
         if (profiles.isEmpty()) Text("Belum ada tujuan RTMP yang disimpan.")
         profiles.forEach { profile ->
             Card(Modifier.fillMaxWidth()) {
@@ -68,6 +72,7 @@ fun RtmpDestinationProfilesScreen(context: Context) {
                         Text(profile.name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
                         Switch(
                             checked = profile.enabled,
+                            enabled = storeError == null,
                             onCheckedChange = { enabled ->
                                 saveProfiles(profiles.map { if (it.id == profile.id) it.copy(enabled = enabled) else it })
                             }
@@ -76,7 +81,7 @@ fun RtmpDestinationProfilesScreen(context: Context) {
                     Text(profile.serverUrl, style = MaterialTheme.typography.bodySmall)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(if (profile.enabled) "Aktif" else "Dinonaktifkan", style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
-                        TextButton(onClick = { pendingDelete = profile }) { Text("Hapus") }
+                        TextButton(enabled = storeError == null, onClick = { pendingDelete = profile }) { Text("Hapus") }
                     }
                 }
             }
@@ -123,6 +128,28 @@ fun RtmpDestinationProfilesScreen(context: Context) {
                 }) { Text("Simpan terenkripsi") }
             },
             dismissButton = { TextButton(onClick = { showAddDialog = false }) { Text("Batal") } }
+        )
+    }
+
+
+    if (confirmVaultReset) {
+        AlertDialog(
+            onDismissRequest = { confirmVaultReset = false },
+            title = { Text("Reset vault RTMP?") },
+            text = { Text("Semua profil RTMP terenkripsi yang tersimpan akan dihapus. Tindakan ini tidak dapat dibatalkan.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    runCatching { RtmpDestinationProfileStore.clear(context) }
+                        .onSuccess {
+                            profiles = emptyList()
+                            storeError = null
+                            errorMessage = null
+                        }
+                        .onFailure { storeError = it.message ?: "Vault gagal direset" }
+                    confirmVaultReset = false
+                }) { Text("Reset") }
+            },
+            dismissButton = { TextButton(onClick = { confirmVaultReset = false }) { Text("Batal") } }
         )
     }
 
