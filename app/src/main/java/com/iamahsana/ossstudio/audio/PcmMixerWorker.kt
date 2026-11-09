@@ -52,6 +52,7 @@ class PcmMixerWorker(
     private val skippedBlocks = AtomicLong(0L)
     private val liveRejectedBlocks = AtomicLong(0L)
     private val monitorRejectedBlocks = AtomicLong(0L)
+    private val monitorSinkFailed = AtomicBoolean(false)
     private val operationId = UUID.randomUUID().toString()
     private val blockDurationMicros =
         engine.framesPerBlock.toLong() * MICROS_PER_SECOND / sampleRateHz
@@ -110,8 +111,26 @@ class PcmMixerWorker(
                 if (liveBytes < engine.liveOutput.size) {
                     liveRejectedBlocks.incrementAndGet()
                 }
-                if (!monitorSink.offerBlock(engine.monitorOutput, blockStartMicros)) {
+                // MONITOR is optional local playback. Its failure must not stop LIVE.
+                if (monitorSinkFailed.get()) {
                     monitorRejectedBlocks.incrementAndGet()
+                } else {
+                    try {
+                        if (!monitorSink.offerBlock(engine.monitorOutput, blockStartMicros)) {
+                            monitorRejectedBlocks.incrementAndGet()
+                        }
+                    } catch (error: Exception) {
+                        monitorRejectedBlocks.incrementAndGet()
+                        if (monitorSinkFailed.compareAndSet(false, true)) {
+                            log(
+                                OssLogLevel.WARN,
+                                "monitor_sink_disabled_after_error",
+                                "MONITOR output failed and was disabled; LIVE audio continues",
+                                "AUDIO_MONITOR_SINK_FAILED",
+                                error
+                            )
+                        }
+                    }
                 }
 
                 blockStartMicros += blockDurationMicros
