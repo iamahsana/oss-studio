@@ -12,6 +12,7 @@ import com.iamahsana.ossstudio.logging.OssLogger
 import com.pedro.encoder.input.gl.render.filters.`object`.SurfaceFilterRender
 import com.pedro.library.view.GlStreamInterface
 import java.util.UUID
+import kotlin.math.roundToInt
 
 /**
  * Routes an authorized MediaProjection into the active RootEncoder GL chain.
@@ -66,13 +67,15 @@ class ShareScreenLayerController(
         scaleX: Float = 100f,
         scaleY: Float = 100f,
         positionX: Float = 0f,
-        positionY: Float = 0f
+        positionY: Float = 0f,
+        rotationDegrees: Float = 0f
     ) {
         checkMainThread()
         require(width > 0 && height > 0 && densityDpi > 0) {
             "Share Screen dimensions and density must be positive"
         }
         require(scaleX > 0f && scaleY > 0f) { "Share Screen scale must be positive" }
+        require(rotationDegrees.isFinite()) { "Share Screen rotation must be finite" }
         check(state != State.WAITING_FOR_GL && state != State.WAITING_FOR_GL_SURFACE &&
             state != State.CAPTURING) {
             "Share Screen source is already attached"
@@ -124,7 +127,7 @@ class ShareScreenLayerController(
                 }
                 installSurfaceFilter(
                     mediaProjection, width, height, densityDpi,
-                    scaleX, scaleY, positionX, positionY
+                    scaleX, scaleY, positionX, positionY, rotationDegrees
                 )
             }
         }
@@ -145,7 +148,8 @@ class ShareScreenLayerController(
         scaleX: Float,
         scaleY: Float,
         positionX: Float,
-        positionY: Float
+        positionY: Float,
+        rotationDegrees: Float
     ) {
         checkMainThread()
         if (projection !== mediaProjection || state != State.WAITING_FOR_GL) return
@@ -193,6 +197,7 @@ class ShareScreenLayerController(
         }.apply {
             setScale(scaleX, scaleY)
             setPosition(positionX, positionY)
+            rotation = rotationDegrees.roundToInt()
         }
 
         surfaceFilter = filter
@@ -208,13 +213,16 @@ class ShareScreenLayerController(
         scaleX: Float,
         scaleY: Float,
         positionX: Float,
-        positionY: Float
+        positionY: Float,
+        rotationDegrees: Float = 0f
     ) {
         checkMainThread()
         require(scaleX > 0f && scaleY > 0f) { "Share Screen scale must be positive" }
+        require(rotationDegrees.isFinite()) { "Share Screen rotation must be finite" }
         val filter = surfaceFilter ?: return
         filter.setScale(scaleX, scaleY)
         filter.setPosition(positionX, positionY)
+        filter.rotation = rotationDegrees.roundToInt()
         log(
             level = OssLogLevel.DEBUG,
             event = "layer_transform_updated",
