@@ -87,7 +87,7 @@ fun RtmpDestinationProfilesScreen(context: Context) {
             }
         }
         Text(
-            "Profil tersimpan dan siap dipakai oleh pipeline RTMP. Kontrol LIVE multi-destinasi akan dihubungkan setelah jalur fan-out encoder dan compositor selesai.",
+            "Saat LIVE dimulai, semua profil aktif digunakan. Lebih dari satu tujuan memakai encoder bersama; kegagalan satu tujuan tidak otomatis memutus tujuan lain.",
             style = MaterialTheme.typography.bodySmall
         )
     }
