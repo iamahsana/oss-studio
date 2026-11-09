@@ -14,6 +14,9 @@ import com.iamahsana.ossstudio.scene.source.screen.ShareScreenSessionService
 import com.iamahsana.ossstudio.stream.AudioStopStatus
 import com.iamahsana.ossstudio.stream.LiveSessionController
 import com.iamahsana.ossstudio.stream.rtmp.RtmpStreamSession
+import com.iamahsana.ossstudio.stream.rtmp.MultiRtmpStreamSession
+import com.iamahsana.ossstudio.stream.rtmp.RtmpDestinationProfile
+import com.iamahsana.ossstudio.stream.rtmp.RtmpDestinationProfileStore
 import com.pedro.encoder.input.sources.audio.BufferAudioSource
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
@@ -62,31 +65,108 @@ class AndroidLiveRuntimeFactory(
         private var audioReady = false
 
         private var stream: RtmpStreamSession? = null
+        private var multiStream: MultiRtmpStreamSession? = null
+        private var singleDestinationProfile: RtmpDestinationProfile? = null
         private var audioMixerSession: OssAudioMixerSession? = null
 
         override fun prepare(): Boolean {
             checkMainThread()
             val bufferAudioSource = BufferAudioSource()
-            val newStream = RtmpStreamSession(
-                context = appContext,
-                listener = RtmpStreamSession.Listener { state, detail ->
-                    dispatchMain { onRtmpStateChanged(state, detail) }
-                },
-                audioSource = bufferAudioSource
-            )
-
-            if (!newStream.prepare(streamConfig)) {
-                runCatching { newStream.release() }
+            val enabledProfiles = try {
+                RtmpDestinationProfileStore.load(appContext).filter { it.enabled }
+            } catch (error: Exception) {
                 log(
                     OssLogLevel.ERROR,
-                    "encoder_prepare_failed",
-                    "RootEncoder could not prepare video/audio codecs",
-                    "LIVE_ENCODER_PREPARE_FAILED"
+                    "destination_vault_load_failed",
+                    "Unable to decrypt RTMP destination profiles",
+                    "RTMP_DESTINATION_VAULT_FAILED",
+                    error
                 )
                 return false
             }
 
-            stream = newStream
+            if (enabledProfiles.size > 1) {
+                val newMultiStream = MultiRtmpStreamSession(
+                    context = appContext,
+                    profiles = enabledProfiles,
+                    audioSource = bufferAudioSource,
+                    listener = object : MultiRtmpStreamSession.Listener {
+                        override fun onStateChanged(
+                            state: MultiRtmpStreamSession.State,
+                            destinations: List<MultiRtmpStreamSession.DestinationSnapshot>
+                        ) {
+                            dispatchMain {
+                                if (released || audioStopRequested.get()) return@dispatchMain
+                                when (state) {
+                                    MultiRtmpStreamSession.State.LIVE -> {
+                                        rtmpConnected = true
+                                        reportConnectedIfReady()
+                                    }
+                                    MultiRtmpStreamSession.State.FAILED -> {
+                                        if (destinations.none { it.state == MultiRtmpStreamSession.DestinationState.CONNECTED }) {
+                                            reportFailureOnce()
+                                        }
+                                    }
+                                    else -> Unit
+                                }
+                            }
+                        }
+
+                        override fun onDestinationChanged(
+                            destination: MultiRtmpStreamSession.DestinationSnapshot
+                        ) {
+                            log(
+                                if (destination.state == MultiRtmpStreamSession.DestinationState.CONNECTED) OssLogLevel.INFO else OssLogLevel.WARN,
+                                "rtmp_destination_state",
+                                "RTMP destination state: ${destination.state}",
+                                destination.id
+                            )
+                        }
+                    }
+                )
+                if (!newMultiStream.prepare(
+                        MultiRtmpStreamSession.Config(
+                            width = streamConfig.width,
+                            height = streamConfig.height,
+                            fps = streamConfig.fps,
+                            videoBitrate = streamConfig.videoBitrate,
+                            audioSampleRate = streamConfig.audioSampleRate,
+                            audioStereo = streamConfig.audioStereo,
+                            audioBitrate = streamConfig.audioBitrate
+                        )
+                    )
+                ) {
+                    runCatching { newMultiStream.release() }
+                    log(
+                        OssLogLevel.ERROR,
+                        "multi_encoder_prepare_failed",
+                        "RootEncoder could not prepare shared multi-destination codecs",
+                        "LIVE_MULTI_ENCODER_PREPARE_FAILED"
+                    )
+                    return false
+                }
+                multiStream = newMultiStream
+            } else {
+                singleDestinationProfile = enabledProfiles.singleOrNull()
+                val newStream = RtmpStreamSession(
+                    context = appContext,
+                    listener = RtmpStreamSession.Listener { state, detail ->
+                        dispatchMain { onRtmpStateChanged(state, detail) }
+                    },
+                    audioSource = bufferAudioSource
+                )
+                if (!newStream.prepare(streamConfig)) {
+                    runCatching { newStream.release() }
+                    log(
+                        OssLogLevel.ERROR,
+                        "encoder_prepare_failed",
+                        "RootEncoder could not prepare video/audio codecs",
+                        "LIVE_ENCODER_PREPARE_FAILED"
+                    )
+                    return false
+                }
+                stream = newStream
+            }
             val mixerSettings = AudioMixerSettingsStore.load(appContext)
             audioMixerSession = OssAudioMixerSession(
                 context = appContext,
@@ -134,7 +214,13 @@ class AndroidLiveRuntimeFactory(
             audioReady = false
             audioStopRequested.set(false)
 
-            checkNotNull(stream) { "RTMP pipeline was not prepared" }.start(endpoint)
+            when {
+                multiStream != null -> {
+                    if (multiStream?.startAll() == 0) reportFailureOnce()
+                }
+                else -> checkNotNull(stream) { "RTMP pipeline was not prepared" }
+                    .start(singleDestinationProfile?.endpoint() ?: endpoint)
+            }
 
             // RootEncoder starts BufferAudioSource as part of startStream().
             // Start the independent capture/mixer graph afterward so it writes
@@ -224,7 +310,8 @@ class AndroidLiveRuntimeFactory(
             try {
                 val layer = ShareScreenLayerController(
                     sourceId = "share-screen-$runtimeId",
-                    glInterface = checkNotNull(stream) { "RTMP pipeline was not prepared" }.glInterface()
+                    glInterface = multiStream?.glInterface()
+                        ?: checkNotNull(stream) { "RTMP pipeline was not prepared" }.glInterface()
                 )
                 screenLayer = layer
                 screenCheckAttempts = 0
@@ -301,7 +388,7 @@ class AndroidLiveRuntimeFactory(
 
         override fun stopRtmp() {
             checkMainThread()
-            stream?.stop()
+            multiStream?.stopAndRelease() ?: stream?.stop()
         }
 
         override fun stopAudio(completion: (AudioStopStatus) -> Unit) {
@@ -348,8 +435,11 @@ class AndroidLiveRuntimeFactory(
             released = true
             screenCheck?.let(mainHandler::removeCallbacks)
             screenCheck = null
+            multiStream?.release()
+            multiStream = null
             stream?.release()
             stream = null
+            singleDestinationProfile = null
             if (audioMixerSession?.state == OssAudioMixerSession.State.STOPPED) {
                 audioMixerSession?.let(AudioMixerControlBus::detach)
                 audioMixerSession = null
