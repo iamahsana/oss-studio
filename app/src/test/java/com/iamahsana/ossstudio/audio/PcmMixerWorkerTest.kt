@@ -20,9 +20,9 @@ class PcmMixerWorkerTest {
         val monitorBlocks = AtomicInteger()
         val worker = PcmMixerWorker(
             engine = engine,
-            liveSink = PcmLiveBlockSink { pcm, _, _, size ->
+            liveSink = PcmLiveBlockSink { pcm, _ ->
                 liveBlocks.incrementAndGet()
-                size.coerceAtMost(pcm.size)
+                pcm.size
             },
             monitorSink = PcmMonitorBlockSink { _, _ ->
                 monitorBlocks.incrementAndGet()
@@ -51,7 +51,7 @@ class PcmMixerWorkerTest {
         val failure = CountDownLatch(1)
         val worker = PcmMixerWorker(
             engine = engine,
-            liveSink = PcmLiveBlockSink { _, _, _, _ ->
+            liveSink = PcmLiveBlockSink { _, _ ->
                 throw IllegalStateException("test sink failure")
             },
             monitorSink = PcmMonitorBlockSink { _, _ -> true },

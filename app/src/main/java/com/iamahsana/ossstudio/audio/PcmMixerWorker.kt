@@ -10,12 +10,7 @@ import java.util.concurrent.locks.LockSupport
 
 /** Non-blocking destination for one already-mixed LIVE PCM block. */
 fun interface PcmLiveBlockSink {
-    fun submitBlock(
-        pcm: ByteArray,
-        timestampMicros: Long,
-        offset: Int = 0,
-        size: Int = pcm.size
-    ): Int
+    fun submitBlock(pcm: ByteArray, timestampMicros: Long): Int
 }
 
 /** Non-blocking MONITOR queue; actual device writes happen on its own thread. */
@@ -135,7 +130,7 @@ class PcmMixerWorker(
                 LockSupport.parkNanos((deadlineMicros - nowMicros) * NANOS_PER_MICRO)
                 if (Thread.interrupted() && !running.get()) break
             }
-        } catch (error: Throwable) {
+        } catch (error: Exception) {
             log(
                 OssLogLevel.ERROR,
                 "mixer_worker_failed",

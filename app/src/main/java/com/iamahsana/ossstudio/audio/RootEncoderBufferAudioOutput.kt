@@ -29,7 +29,10 @@ class RootEncoderBufferAudioOutput(
      * Submit one interleaved PCM16 little-endian block with its producer
      * timestamp in microseconds. Returns bytes accepted by RootEncoder.
      */
-    override fun submitBlock(
+    override fun submitBlock(pcm: ByteArray, timestampMicros: Long): Int =
+        submitBlock(pcm, timestampMicros, 0, pcm.size)
+
+    fun submitBlock(
         pcm: ByteArray,
         timestampMicros: Long,
         offset: Int,
