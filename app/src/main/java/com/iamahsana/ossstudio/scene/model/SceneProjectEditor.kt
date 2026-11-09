@@ -43,6 +43,57 @@ object SceneProjectEditor {
         )
     }
 
+    fun updateSource(project: SceneProject, source: SceneSource, nowEpochMillis: Long): SceneProject {
+        val sourceIndex = project.sources.indexOfFirst { it.id == source.id }
+        require(sourceIndex >= 0) { "Source does not exist" }
+        return project.copy(
+            sources = project.sources.toMutableList().also { it[sourceIndex] = source },
+            updatedAtEpochMillis = nextTimestamp(project, nowEpochMillis)
+        )
+    }
+
+    fun removeElement(
+        project: SceneProject,
+        sceneId: String,
+        elementId: String,
+        nowEpochMillis: Long
+    ): SceneProject {
+        val sceneIndex = project.scenes.indexOfFirst { it.id == sceneId }
+        require(sceneIndex >= 0) { "Scene does not exist" }
+        val scene = project.scenes[sceneIndex]
+        require(scene.elements.any { it.id == elementId }) { "Element does not exist" }
+        val remaining = scene.elements.filterNot { it.id == elementId }
+            .sortedBy { it.zIndex }
+            .mapIndexed { index, element -> element.copy(zIndex = index) }
+        return project.copy(
+            scenes = project.scenes.toMutableList().also {
+                it[sceneIndex] = scene.copy(elements = remaining)
+            },
+            updatedAtEpochMillis = nextTimestamp(project, nowEpochMillis)
+        )
+    }
+
+    fun setElementVisibility(
+        project: SceneProject,
+        sceneId: String,
+        elementId: String,
+        visible: Boolean,
+        nowEpochMillis: Long
+    ): SceneProject {
+        val sceneIndex = project.scenes.indexOfFirst { it.id == sceneId }
+        require(sceneIndex >= 0) { "Scene does not exist" }
+        val scene = project.scenes[sceneIndex]
+        require(scene.elements.any { it.id == elementId }) { "Element does not exist" }
+        return project.copy(
+            scenes = project.scenes.toMutableList().also { list ->
+                list[sceneIndex] = scene.copy(
+                    elements = scene.elements.map { if (it.id == elementId) it.copy(visible = visible) else it }
+                )
+            },
+            updatedAtEpochMillis = nextTimestamp(project, nowEpochMillis)
+        )
+    }
+
     fun addElement(
         project: SceneProject,
         sceneId: String,
