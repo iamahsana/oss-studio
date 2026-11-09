@@ -68,6 +68,38 @@ object SceneProjectEditor {
         )
     }
 
+    fun duplicateElement(
+        project: SceneProject,
+        sceneId: String,
+        elementId: String,
+        nowEpochMillis: Long
+    ): SceneProject {
+        val sceneIndex = project.scenes.indexOfFirst { it.id == sceneId }
+        require(sceneIndex >= 0) { "Scene does not exist" }
+        val scene = project.scenes[sceneIndex]
+        val original = scene.elements.firstOrNull { it.id == elementId }
+            ?: throw IllegalArgumentException("Element does not exist")
+        val nextZ = (scene.elements.maxOfOrNull { it.zIndex } ?: -1) + 1
+        val transform = original.transform
+        val duplicate = original.copy(
+            id = java.util.UUID.randomUUID().toString(),
+            transform = transform.copy(
+                x = (transform.x + 24f).coerceAtMost((scene.canvas.width - transform.width).coerceAtLeast(0f)),
+                y = (transform.y + 24f).coerceAtMost((scene.canvas.height - transform.height).coerceAtLeast(0f))
+            ),
+            visible = true,
+            locked = false,
+            zIndex = nextZ,
+            groupId = null
+        )
+        return project.copy(
+            scenes = project.scenes.toMutableList().also {
+                it[sceneIndex] = scene.copy(elements = scene.elements + duplicate)
+            },
+            updatedAtEpochMillis = nextTimestamp(project, nowEpochMillis)
+        )
+    }
+
     fun removeElement(
         project: SceneProject,
         sceneId: String,
