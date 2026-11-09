@@ -245,7 +245,7 @@ class SceneCanvasLayerController(
             .sortedBy { it.id }
             .joinToString("|") { source ->
                 val asset = source.assetId?.let(assets::get)
-                "${source.id}:${source.type}:${source.assetId}:${asset?.sha256}:${asset?.relativePath}"
+                "${source.id}:${source.type}:${source.enabled}:${source.assetId}:${asset?.sha256}:${asset?.relativePath}"
             }
     }
 
