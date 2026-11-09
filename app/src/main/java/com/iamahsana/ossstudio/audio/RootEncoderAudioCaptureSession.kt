@@ -73,14 +73,14 @@ class RootEncoderAudioCaptureSession(
     private val microphoneSink = RootEncoderPcmCaptureSink(microphoneQueue)
     private val internalSink = RootEncoderPcmCaptureSink(internalAudioQueue)
 
-    private data class OwnedCaptureSource(
-        val source: CaptureSource,
-        var startAttempted: Boolean = false,
-        var stopCompleted: Boolean = false,
-        var releaseCompleted: Boolean = false
-    ) {
-        val cleanupComplete: Boolean
-            get() = stopCompleted && releaseCompleted
+    private class OwnedCaptureSource(val source: CaptureSource) {
+        private val cleanup = CaptureSourceCleanup(
+            stopSource = source::stop,
+            releaseSource = source::release
+        )
+
+        fun markStartAttempted() = cleanup.markStartAttempted()
+        fun cleanup(): Boolean = cleanup.cleanup()
     }
 
     private var microphoneSource: OwnedCaptureSource? = null
@@ -129,10 +129,10 @@ class RootEncoderAudioCaptureSession(
             internalSink.endCapture()
 
             microphoneSource?.let { handle ->
-                if (cleanupSource(handle, "microphone")) microphoneSource = null
+                if (handle.cleanup()) microphoneSource = null
             }
             internalSource?.let { handle ->
-                if (cleanupSource(handle, "internal")) internalSource = null
+                if (handle.cleanup()) internalSource = null
             }
             // RootEncoder stores MediaProjection in a process-wide static.
             // Never release that lease while an InternalAudioSource may still
@@ -161,42 +161,6 @@ class RootEncoderAudioCaptureSession(
         }
     }
 
-    private fun cleanupSource(handle: OwnedCaptureSource, channel: String): Boolean {
-        if (handle.startAttempted && !handle.stopCompleted) {
-            try {
-                handle.source.stop()
-                handle.stopCompleted = true
-            } catch (error: Exception) {
-                log(
-                    OssLogLevel.ERROR,
-                    "${channel}_stop_failed",
-                    "${channel} source stop failed; ownership retained for safe retry",
-                    if (channel == "microphone") "AUDIO_MIC_STOP_FAILED" else "AUDIO_INTERNAL_STOP_FAILED",
-                    error
-                )
-                return false
-            }
-        } else {
-            handle.stopCompleted = true
-        }
-
-        if (!handle.releaseCompleted) {
-            try {
-                handle.source.release()
-                handle.releaseCompleted = true
-            } catch (error: Exception) {
-                log(
-                    OssLogLevel.ERROR,
-                    "${channel}_release_failed",
-                    "${channel} source release failed; ownership retained for safe retry",
-                    if (channel == "microphone") "AUDIO_MIC_RELEASE_FAILED" else "AUDIO_INTERNAL_RELEASE_FAILED",
-                    error
-                )
-                return false
-            }
-        }
-        return handle.cleanupComplete
-    }
 
     private fun startMicrophone(): SourceStatus {
         if (ContextCompat.checkSelfPermission(appContext, Manifest.permission.RECORD_AUDIO) !=
@@ -218,7 +182,7 @@ class RootEncoderAudioCaptureSession(
                 "RootEncoder microphone source initialization returned false"
             }
             microphoneSink.beginCapture()
-            handle.startAttempted = true
+            handle.markStartAttempted()
             source.start(microphoneSink)
             log(OssLogLevel.INFO, "microphone_started", "Independent microphone PCM capture started")
             SourceStatus(SourceState.RUNNING)
