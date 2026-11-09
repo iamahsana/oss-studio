@@ -3,6 +3,7 @@ package com.iamahsana.ossstudio.scene.editor
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.media.MediaMetadataRetriever
 import java.io.File
 import android.net.Uri
 import android.os.Handler
@@ -290,12 +291,13 @@ fun SceneEditorScreen(
                             SceneSourceType.CAMERA -> "Camera"
                             SceneSourceType.USB_VIDEO -> "USB Video"
                         }
-                        if (source.type == SceneSourceType.IMAGE || source.type == SceneSourceType.GIF) {
+                        if (source.type == SceneSourceType.IMAGE || source.type == SceneSourceType.GIF || source.type == SceneSourceType.VIDEO) {
                             val asset = currentProject.assets.firstOrNull { it.id == source.assetId }
                             if (asset != null) {
                                 SceneAssetImage(
                                     filePath = File(context.filesDir, asset.relativePath).absolutePath,
-                                    contentDescription = source.displayName
+                                    contentDescription = source.displayName,
+                                    isVideo = source.type == SceneSourceType.VIDEO
                                 )
                             } else {
                                 Text(label, color = Color.White, textAlign = TextAlign.Center)
@@ -449,9 +451,11 @@ fun SceneEditorScreen(
 }
 
 @Composable
-private fun SceneAssetImage(filePath: String, contentDescription: String) {
+private fun SceneAssetImage(filePath: String, contentDescription: String, isVideo: Boolean = false) {
     val bitmap = produceState<Bitmap?>(initialValue = null, key1 = filePath) {
-        value = withContext(Dispatchers.IO) { decodeEditorBitmap(filePath) }
+        value = withContext(Dispatchers.IO) {
+            if (isVideo) decodeVideoPreview(filePath) else decodeEditorBitmap(filePath)
+        }
     }.value
     if (bitmap != null) {
         Image(
@@ -477,4 +481,21 @@ private fun decodeEditorBitmap(path: String): Bitmap? {
         inSampleSize = sampleSize
         inPreferredConfig = Bitmap.Config.ARGB_8888
     })
+}
+
+private fun decodeVideoPreview(path: String): Bitmap? {
+    val retriever = MediaMetadataRetriever()
+    return try {
+        retriever.setDataSource(path)
+        retriever.getScaledFrameAtTime(
+            0L,
+            MediaMetadataRetriever.OPTION_CLOSEST_SYNC,
+            1280,
+            1280
+        )
+    } catch (_: Exception) {
+        null
+    } finally {
+        retriever.release()
+    }
 }
