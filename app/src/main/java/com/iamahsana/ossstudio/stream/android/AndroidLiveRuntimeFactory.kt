@@ -77,6 +77,7 @@ class AndroidLiveRuntimeFactory(
         private var audioMixerSession: OssAudioMixerSession? = null
         private var activeProject: SceneProject? = null
         private var activeStreamConfig: RtmpStreamSession.Config = streamConfig
+        private var sceneProjectSubscription: AutoCloseable? = null
 
         override fun prepare(): Boolean {
             checkMainThread()
@@ -91,6 +92,9 @@ class AndroidLiveRuntimeFactory(
                 return false
             }
             activeProject = project
+            sceneProjectSubscription = ActiveSceneProjectRegistry.subscribe { updated ->
+                dispatchMain { onActiveSceneProjectUpdated(updated) }
+            }
             val outputSize = sceneOutputResolution(scene.canvas)
             activeStreamConfig = streamConfig.copy(
                 width = outputSize.width,
@@ -229,6 +233,52 @@ class AndroidLiveRuntimeFactory(
                 "RootEncoder prepared with OSS BufferAudioSource; independent mixer is ready to start"
             )
             return true
+        }
+
+
+        private fun onActiveSceneProjectUpdated(updated: SceneProject?) {
+            checkMainThread()
+            val current = activeProject ?: return
+            if (updated == null || updated.id != current.id) {
+                log(OssLogLevel.WARN, "live_project_switch_ignored", "Changing projects requires stopping and restarting LIVE")
+                return
+            }
+            val scene = updated.scenes.firstOrNull { it.id == updated.activeSceneId }
+                ?: updated.scenes.firstOrNull()
+            if (scene == null) {
+                log(OssLogLevel.WARN, "live_scene_update_ignored", "Updated project has no active scene")
+                return
+            }
+            val sources = updated.sources.associateBy { it.id }
+            val shareElement = scene.elements.firstOrNull { element ->
+                element.visible && sources[element.sourceId]?.let {
+                    it.enabled && it.type == SceneSourceType.SHARE_SCREEN
+                } == true
+            }
+            val currentScene = current.scenes.firstOrNull { it.id == current.activeSceneId }
+                ?: current.scenes.firstOrNull()
+            val currentSources = current.sources.associateBy { it.id }
+            val hadShareScreen = currentScene?.elements?.any { element ->
+                element.visible && currentSources[element.sourceId]?.let {
+                    it.enabled && it.type == SceneSourceType.SHARE_SCREEN
+                } == true
+            } == true
+            if (hadShareScreen != (shareElement != null)) {
+                log(OssLogLevel.WARN, "live_share_screen_toggle_ignored", "Adding or removing Share Screen requires restarting LIVE")
+                return
+            }
+            activeProject = updated
+            sceneCanvasLayer?.update(updated, scene)
+            shareElement?.let { element ->
+                val transform = element.transform
+                screenLayer?.updateTransform(
+                    scaleX = transform.width / scene.canvas.width.toFloat() * 100f,
+                    scaleY = transform.height / scene.canvas.height.toFloat() * 100f,
+                    positionX = transform.x / scene.canvas.width.toFloat() * 100f,
+                    positionY = transform.y / scene.canvas.height.toFloat() * 100f,
+                    rotationDegrees = transform.rotationDegrees
+                )
+            }
         }
 
         override fun startRtmp(
@@ -515,6 +565,8 @@ class AndroidLiveRuntimeFactory(
             stream?.release()
             stream = null
             singleDestinationProfile = null
+            sceneProjectSubscription?.close()
+            sceneProjectSubscription = null
             activeProject = null
             if (audioMixerSession?.state == OssAudioMixerSession.State.STOPPED) {
                 audioMixerSession?.let(AudioMixerControlBus::detach)
