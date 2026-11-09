@@ -63,6 +63,20 @@ class MainActivitySmokeTest {
             composeRule.onAllNodesWithText("Canvas kosong").fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithText("Canvas kosong").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Undo").assertIsDisplayed()
+        composeRule.onNodeWithText("Redo").assertIsDisplayed()
+
+        composeRule.onNodeWithText("Pengaturan canvas").performScrollTo().performClick()
+        composeRule.onNodeWithText("Portrait · 9:16 · 1080 × 1920").assertIsDisplayed()
+        composeRule.onNodeWithText("Landscape · 16:9 · 1920 × 1080").performClick()
+
+        composeRule.onNodeWithText("Tambah teks").performScrollTo().performClick()
+        composeRule.onNodeWithTag("scene-resize-handle").assertIsDisplayed()
+        composeRule.onNodeWithText("Undo").performScrollTo().performClick()
+        assertTrue(composeRule.onAllNodesWithTag("scene-resize-handle").fetchSemanticsNodes().isEmpty())
+        composeRule.onNodeWithText("Redo").performScrollTo().performClick()
+        composeRule.onNodeWithText("Text").performScrollTo().performClick()
+        composeRule.onNodeWithTag("scene-resize-handle").assertIsDisplayed()
     }
 
     @Test
