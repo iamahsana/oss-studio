@@ -31,7 +31,7 @@ Use:
 - `MicrophoneSource` for mic PCM capture.
 - `InternalAudioSource` for Android 10+ playback capture, subject to MediaProjection and playback-capture policy. RootEncoder 2.8.1 stores its projection in the process-wide `MediaProjectionHandler`; the OSS adapter must enforce one active projection-backed audio session, stop/unregister the source before clearing that reference, and never allow overlapping sessions to overwrite it.
 - `BufferAudioSource` as the single encoder-facing PCM source. RootEncoder 2.8.1 accepts `ByteArray` PCM through `setBuffer`, including a timestamp-in-microseconds overload; it emits silence where no data is supplied. OSS mixer output therefore uses interleaved PCM16 little-endian `ByteArray` buffers to avoid an unnecessary format conversion.
-- RootEncoder's AAC encoder and RTMP transport for encoding and delivery.
+- RootEncoder's AAC encoder and RTMP transport for encoding and delivery. `RtmpStreamSession` requires an explicit `AudioSource`; it has no default `NoAudioSource` or video-only fallback.
 
 Do not use `MixAudioSource` as the main mixer. It combines mic and internal playback before OSS can apply independent channel routing, monitoring, or Song Request policy. It is not part of the default product path and must not introduce a source-mode picker.
 
@@ -51,7 +51,7 @@ The implemented PCM path now consists of `RootEncoderPcmCaptureSink` (copies Roo
 ## PCM contract
 
 - PCM signed 16-bit little-endian initially.
-- One negotiated sample rate and channel layout per session (default 48 kHz stereo; fallback only after encoder/device capability validation).
+- One negotiated sample rate and channel layout per session (default 48 kHz stereo; fallback only after encoder/device capability validation). The RTMP session default audio encoder rate is aligned to 48 kHz; capture adapters must resample any source that cannot provide that format before queueing.
 - Timestamp-based alignment; late frames are counted and dropped, gaps become silence.
 - Saturating accumulation to avoid integer overflow and clipping.
 - Gain and pan are applied per channel before bus summation.
