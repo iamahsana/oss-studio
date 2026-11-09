@@ -32,11 +32,13 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.runtime.produceState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -82,13 +84,6 @@ fun SceneEditorScreen(
         SceneProjectRepository(SceneProjectStoreProvider.database(context))
     }
     val autosave = remember(repository) { SceneProjectAutosave(repository) }
-    DisposableEffect(autosave, repository) {
-        onDispose {
-            autosave.close()
-            repository.close()
-        }
-    }
-
     val latestProject = rememberUpdatedState(currentProject)
     fun applyProject(updated: SceneProject) {
         currentProject = updated
@@ -162,6 +157,7 @@ fun SceneEditorScreen(
     val selectedElement = scene?.elements?.firstOrNull { it.id == selectedElementId }
     val selectedSource = currentProject.sources.firstOrNull { it.id == selectedElement?.sourceId }
     var editingText by remember(selectedElementId) { mutableStateOf(selectedSource?.text.orEmpty()) }
+    var confirmRemoveSource by remember(selectedElementId) { mutableStateOf(false) }
 
     fun addSource(type: SceneSourceType, text: String? = null) {
         val activeScene = scene ?: return
@@ -401,6 +397,7 @@ fun SceneEditorScreen(
                                 ))
                                 selectedElementId = null
                             }) { Text("Hapus elemen") }
+                            OutlinedButton(onClick = { confirmRemoveSource = true }) { Text("Hapus sumber") }
                         }
                     }
                 }
@@ -419,6 +416,35 @@ fun SceneEditorScreen(
                 }
             }
         }
+    }
+
+    if (confirmRemoveSource && selectedSource != null) {
+        AlertDialog(
+            onDismissRequest = { confirmRemoveSource = false },
+            title = { Text("Hapus sumber?") },
+            text = { Text("Sumber ini dan semua elemen yang menggunakannya akan dihapus dari seluruh scene.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    val previousAssets = currentProject.assets
+                    val updated = SceneProjectEditor.removeSource(
+                        currentProject, selectedSource.id, System.currentTimeMillis()
+                    )
+                    val retainedAssetIds = updated.assets.mapTo(mutableSetOf()) { it.id }
+                    val removedAssets = previousAssets.filterNot { it.id in retainedAssetIds }
+                    applyProject(updated)
+                    selectedElementId = null
+                    confirmRemoveSource = false
+                    removedAssets.forEach { asset ->
+                        runCatching {
+                            importExecutor.execute { runCatching { SceneAssetStorage.deleteAsset(context, asset) } }
+                        }
+                    }
+                }) { Text("Hapus") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmRemoveSource = false }) { Text("Batal") }
+            }
+        )
     }
 }
 
