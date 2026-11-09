@@ -14,12 +14,12 @@ import com.pedro.library.view.GlStreamInterface
 import java.util.UUID
 
 /**
- * Routes an already-authorized MediaProjection into a SurfaceFilterRender that
- * is inserted into RootEncoder's existing GL filter chain.
+ * Routes an authorized MediaProjection into the active RootEncoder GL chain.
  *
- * Permission UI and the mediaProjection foreground service intentionally live
- * outside this class. The caller must obtain a fresh, user-authorized projection
- * and satisfy the Android version-specific foreground-service requirements.
+ * The projection foreground service owns MediaProjection lifetime. This
+ * controller owns only its GL filter and VirtualDisplay attachment. Call
+ * detach() when removing the layer; call stop() only when the user explicitly
+ * wants the projection itself stopped.
  *
  * All public lifecycle methods must be called on the main thread.
  */
@@ -30,6 +30,7 @@ class ShareScreenLayerController(
 
     enum class State {
         IDLE,
+        WAITING_FOR_GL,
         WAITING_FOR_GL_SURFACE,
         CAPTURING,
         STOPPED,
@@ -45,13 +46,16 @@ class ShareScreenLayerController(
     private var virtualDisplay: VirtualDisplay? = null
     private var surfaceFilter: SurfaceFilterRender? = null
     private var projectionCallback: MediaProjection.Callback? = null
+    private var pendingGlCheck: Runnable? = null
+    private var glWaitAttempts = 0
     private var operationId = UUID.randomUUID().toString()
 
     /**
-     * Attach Share Screen as one layer in the current scene.
+     * Attach Share Screen to the current scene. If RootEncoder's GL worker is
+     * still starting, wait for it for at most five seconds instead of failing
+     * immediately. No preview surface is created.
      *
      * scale and position use RootEncoder Sprite percentage units (0..100).
-     * A 100x100 scale fills the scene canvas.
      */
     fun attach(
         mediaProjection: MediaProjection,
@@ -68,16 +72,15 @@ class ShareScreenLayerController(
             "Share Screen dimensions and density must be positive"
         }
         require(scaleX > 0f && scaleY > 0f) { "Share Screen scale must be positive" }
-        check(state != State.WAITING_FOR_GL_SURFACE && state != State.CAPTURING) {
+        check(state != State.WAITING_FOR_GL && state != State.WAITING_FOR_GL_SURFACE &&
+            state != State.CAPTURING) {
             "Share Screen source is already attached"
-        }
-        check(glInterface.isRunning()) {
-            "RootEncoder GL output must be running before attaching a Share Screen layer"
         }
 
         operationId = UUID.randomUUID().toString()
         projection = mediaProjection
-        state = State.WAITING_FOR_GL_SURFACE
+        state = State.WAITING_FOR_GL
+        glWaitAttempts = 0
 
         val callback = object : MediaProjection.Callback() {
             override fun onStop() {
@@ -91,6 +94,54 @@ class ShareScreenLayerController(
         }
         projectionCallback = callback
         mediaProjection.registerCallback(callback, mainHandler)
+
+        val attachWhenReady = object : Runnable {
+            override fun run() {
+                if (projection !== mediaProjection || state != State.WAITING_FOR_GL) return
+                if (!glInterface.isRunning()) {
+                    glWaitAttempts++
+                    if (glWaitAttempts >= MAX_GL_WAIT_ATTEMPTS) {
+                        log(
+                            level = OssLogLevel.ERROR,
+                            event = "gl_start_timeout",
+                            errorCode = "SCREEN_GL_START_TIMEOUT",
+                            message = "RootEncoder GL output did not become ready within five seconds"
+                        )
+                        releaseInternal(stopProjection = false, finalState = State.FAILED)
+                        return
+                    }
+                    mainHandler.postDelayed(this, GL_RETRY_INTERVAL_MS)
+                    return
+                }
+                installSurfaceFilter(
+                    mediaProjection, width, height, densityDpi,
+                    scaleX, scaleY, positionX, positionY
+                )
+            }
+        }
+        pendingGlCheck = attachWhenReady
+        attachWhenReady.run()
+        log(
+            level = OssLogLevel.INFO,
+            event = "layer_attach_requested",
+            message = "Share Screen attachment queued while waiting for RootEncoder GL readiness"
+        )
+    }
+
+    private fun installSurfaceFilter(
+        mediaProjection: MediaProjection,
+        width: Int,
+        height: Int,
+        densityDpi: Int,
+        scaleX: Float,
+        scaleY: Float,
+        positionX: Float,
+        positionY: Float
+    ) {
+        checkMainThread()
+        if (projection !== mediaProjection || state != State.WAITING_FOR_GL) return
+        pendingGlCheck = null
+        state = State.WAITING_FOR_GL_SURFACE
 
         val filter = SurfaceFilterRender { surfaceTexture ->
             checkMainThread()
@@ -126,7 +177,9 @@ class ShareScreenLayerController(
                     errorCode = "SCREEN_CAPTURE_START_FAILED",
                     message = error.message ?: "Unable to start Share Screen capture"
                 )
-                releaseInternal(stopProjection = true, finalState = State.FAILED)
+                // The foreground service, not this layer controller, owns the
+                // projection token and decides when the whole session ends.
+                releaseInternal(stopProjection = false, finalState = State.FAILED)
             }
         }.apply {
             setScale(scaleX, scaleY)
@@ -137,8 +190,8 @@ class ShareScreenLayerController(
         glInterface.addFilter(filter)
         log(
             level = OssLogLevel.INFO,
-            event = "layer_attach_requested",
-            message = "Share Screen layer added to RootEncoder GL filter queue"
+            event = "gl_filter_queued",
+            message = "Share Screen SurfaceFilterRender queued on RootEncoder GL thread"
         )
     }
 
@@ -160,10 +213,13 @@ class ShareScreenLayerController(
         )
     }
 
-    /**
-     * User-initiated stop. Releases the virtual display before removing the
-     * SurfaceFilterRender, then stops the projection session.
-     */
+    /** Remove only the scene layer; keep the service-owned projection active. */
+    fun detach() {
+        checkMainThread()
+        releaseInternal(stopProjection = false, finalState = State.STOPPED)
+    }
+
+    /** User explicitly ends screen capture and the underlying projection. */
     fun stop() {
         checkMainThread()
         releaseInternal(stopProjection = true, finalState = State.STOPPED)
@@ -171,6 +227,9 @@ class ShareScreenLayerController(
 
     private fun releaseInternal(stopProjection: Boolean, finalState: State) {
         checkMainThread()
+        pendingGlCheck?.let(mainHandler::removeCallbacks)
+        pendingGlCheck = null
+
         val oldProjection = projection
         val oldCallback = projectionCallback
         val oldFilter = surfaceFilter
@@ -236,10 +295,12 @@ class ShareScreenLayerController(
             event = event,
             message = message,
             errorCode = errorCode,
-            context = OssLogContext(
-                sourceId = sourceId,
-                operationId = operationId
-            )
+            context = OssLogContext(sourceId = sourceId, operationId = operationId)
         )
+    }
+
+    companion object {
+        private const val GL_RETRY_INTERVAL_MS = 50L
+        private const val MAX_GL_WAIT_ATTEMPTS = 100
     }
 }
