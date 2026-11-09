@@ -80,6 +80,15 @@ class MainActivitySmokeTest {
         assertTrue(composeRule.onAllNodesWithTag("scene-resize-handle").fetchSemanticsNodes().isEmpty())
         composeRule.onNodeWithText("Redo").performScrollTo().performClick()
         composeRule.onNodeWithText("Teks baru").performScrollTo().assertIsDisplayed()
+
+        composeRule.onNodeWithText("Tambah teks").performScrollTo().performClick()
+        composeRule.onNodeWithText("Pilih beberapa").performScrollTo().performClick()
+        composeRule.onAllNodesWithTag("scene-element-item").onFirst().performScrollTo().performClick()
+        composeRule.onAllNodesWithTag("scene-element-item").onLast().performScrollTo().performClick()
+        composeRule.onNodeWithText("Kelompokkan (2)").performScrollTo().performClick()
+        composeRule.onNodeWithText("Pisahkan grup").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Pisahkan grup").performClick()
+        assertTrue(composeRule.onAllNodesWithText("Pisahkan grup").fetchSemanticsNodes().isEmpty())
     }
 
     @Test

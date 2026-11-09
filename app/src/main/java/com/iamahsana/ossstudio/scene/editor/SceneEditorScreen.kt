@@ -777,7 +777,9 @@ fun SceneEditorScreen(
                 scene.elements.sortedBy { it.zIndex }.forEach { element ->
                     val source = currentProject.sources.firstOrNull { it.id == element.sourceId }
                     val chosen = element.id in selectedElementIds
-                    OutlinedButton(onClick = {
+                    OutlinedButton(
+                        modifier = Modifier.testTag("scene-element-item"),
+                        onClick = {
                         if (multiSelectMode) {
                             selectedElementIds = if (chosen) selectedElementIds - element.id else selectedElementIds + element.id
                             selectedElementId = element.id
