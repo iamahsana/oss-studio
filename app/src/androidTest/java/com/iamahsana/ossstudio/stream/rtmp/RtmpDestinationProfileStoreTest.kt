@@ -56,4 +56,16 @@ class RtmpDestinationProfileStoreTest {
             RtmpDestinationProfileStore.clear(context)
         }
     }
+    @Test fun endpointCombinesServerAndKeyWithoutDuplicateSeparators() {
+        val profile = RtmpDestinationProfile(
+            name = "Endpoint",
+            serverUrl = "rtmp://live.example.com/app/",
+            streamKey = "/stream-key"
+        )
+        assertEquals("rtmp://live.example.com/app/stream-key", profile.endpoint())
+        assertThrows(IllegalArgumentException::class.java) {
+            RtmpDestinationProfile(name = "Whitespace", serverUrl = " rtmp://live.example.com/app", streamKey = "key")
+        }
+    }
+
 }
