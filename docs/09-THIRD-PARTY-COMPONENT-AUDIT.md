@@ -100,3 +100,19 @@ The earlier AndroidX metadata failure was corrected by enabling `android.useAndr
 ## Emulator compatibility automation (2026-11-09)
 
 The Android CI workflow now includes a separate emulator smoke-test matrix for API 29, 32, 35, and 36. Instrumentation tests launch the application, verify the Home screen, navigate to Editor, and verify the Editor page. This is a UI/lifecycle smoke test only; it does not simulate hardware encoder quality, MediaProjection behavior on OEM devices, audio routing, thermal throttling, or real network performance. CI results must be reviewed before treating any API level as passed.
+
+
+### OSS multi-destination prototype status (2026-11-09)
+
+The first implementation boundary is now in the app source:
+
+- `RtmpDestinationPort` defines the destination contract.
+- `RootEncoderRtmpDestination` wraps one upstream `RtmpClient`, retains a stable destination ID, exposes connection state, and writes sanitized destination-specific diagnostics.
+- `RtmpDestinationManager` registers independent destinations, fans encoded audio/video buffers to connected destinations, catches dispatch/configuration failures per destination, and tracks dispatch-failure counters.
+- Instrumentation tests cover duplicate-ID rejection, connected-only dispatch, destination removal, and one destination throwing during video dispatch while another still receives the frame.
+
+The fan-out manager uses the upstream sender's per-client bounded queue. This prevents socket I/O from being performed by the manager's dispatch call, but each client performs a buffer copy and queue attempt synchronously. Therefore fan-out cost still grows with destination count. The current prototype does not yet connect this manager to a custom `StreamBase` subclass or the real encoder callbacks. It is a tested-in-isolation architecture component, not a working multi-RTMP LIVE feature.
+
+### CI run management
+
+The Android workflow now cancels superseded runs on the same Git ref. This avoids a backlog of redundant matrix jobs while several commits are pushed in quick succession. The newest run remains the source of truth for the final code state.
