@@ -3,6 +3,7 @@ package com.iamahsana.ossstudio
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import com.iamahsana.ossstudio.logging.OssLogger
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -38,6 +39,14 @@ private enum class AppPage(val label: String, val symbol: String) {
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        OssLogger.initialize(applicationContext)
+        OssLogger.log(
+            level = com.iamahsana.ossstudio.logging.OssLogLevel.INFO,
+            subsystem = "OSS/App",
+            component = "MainActivity",
+            event = "activity_created",
+            message = "OSS Studio launch activity created"
+        )
         setContent { OssApp() }
     }
 }
