@@ -7,6 +7,7 @@ import com.iamahsana.ossstudio.scene.model.SceneAsset
 import com.iamahsana.ossstudio.scene.model.SceneSourceType
 import java.io.File
 import java.io.FileOutputStream
+import java.io.FileInputStream
 import java.security.MessageDigest
 import java.util.Locale
 import java.util.UUID
@@ -85,6 +86,9 @@ object SceneAssetStorage {
                 }
             }
             require(totalBytes > 0L) { "File media kosong" }
+            require(hasValidContentSignature(temporary, mimeType)) {
+                "Isi file tidak sesuai dengan format media yang dipilih"
+            }
             check(temporary.renameTo(target)) { "Unable to finalize imported media" }
         } catch (error: Throwable) {
             temporary.delete()
@@ -102,6 +106,34 @@ object SceneAssetStorage {
         return ImportedSceneAsset(asset, sourceType, displayName)
     }
 
+
+
+    internal fun hasValidContentSignature(file: File, mimeType: String): Boolean {
+        if (!file.isFile || file.length() < 4L) return false
+        val header = ByteArray(12)
+        val count = FileInputStream(file).use { it.read(header) }
+        if (count < 4) return false
+        fun ascii(offset: Int, value: String): Boolean {
+            val bytes = value.toByteArray(Charsets.US_ASCII)
+            return offset + bytes.size <= count &&
+                bytes.indices.all { header[offset + it] == bytes[it] }
+        }
+        return when (mimeType.substringBefore(';').trim().lowercase(Locale.ROOT)) {
+            "image/jpeg" -> header[0] == 0xFF.toByte() && header[1] == 0xD8.toByte() && header[2] == 0xFF.toByte()
+            "image/png" -> count >= 8 && header.copyOfRange(0, 8).contentEquals(
+                byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A)
+            )
+            "image/webp" -> count >= 12 && ascii(0, "RIFF") && ascii(8, "WEBP")
+            "image/gif" -> ascii(0, "GIF87a") || ascii(0, "GIF89a")
+            "video/webm" -> count >= 4 && header[0] == 0x1A.toByte() &&
+                header[1] == 0x45.toByte() && header[2] == 0xDF.toByte() && header[3] == 0xA3.toByte()
+            "video/mp4" -> count >= 12 && ascii(4, "ftyp") &&
+                listOf("isom", "iso2", "mp41", "mp42", "avc1", "M4V ", "dash").any { ascii(8, it) }
+            "video/quicktime" -> count >= 12 && ascii(4, "ftyp") && ascii(8, "qt  ")
+            "video/3gpp" -> count >= 12 && ascii(4, "ftyp") && ascii(8, "3gp")
+            else -> false
+        }
+    }
 
     fun deleteAsset(context: Context, asset: SceneAsset): Boolean {
         val root = context.filesDir.canonicalFile
