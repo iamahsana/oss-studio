@@ -210,6 +210,7 @@ class SceneCanvasLayerController(
         checkMainThread()
         val currentProject = project ?: return
         val currentScene = scene ?: return
+        val sources = currentProject.sources.associateBy { it.id }
         val canvas = surface.lockCanvas(null)
         try {
             canvas.drawColor(
@@ -218,7 +219,6 @@ class SceneCanvasLayerController(
             )
             val scaleX = outputWidth.toFloat() / currentScene.canvas.width
             val scaleY = outputHeight.toFloat() / currentScene.canvas.height
-            val sources = currentProject.sources.associateBy { it.id }
             currentScene.elements.asSequence()
                 .filter { it.visible }
                 .sortedBy { it.zIndex }
@@ -319,7 +319,7 @@ class SceneCanvasLayerController(
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             this.color = color
             textSize = size.coerceIn(8f, 512f)
-            typeface = Typeface.create(Typeface.DEFAULT, typefaceStyle)
+            this.typeface = Typeface.create(Typeface.DEFAULT, typefaceStyle)
             textAlign = alignment
             alpha = (opacity * 255f).toInt().coerceIn(0, 255)
         }
