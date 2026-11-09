@@ -28,18 +28,15 @@ import androidx.compose.ui.unit.dp
 
 @Composable
 fun RtmpDestinationProfilesScreen(context: Context) {
-    var profiles by remember {
-        mutableStateOf(runCatching { RtmpDestinationProfileStore.load(context) }.getOrDefault(emptyList()))
-    }
+    val initialLoad = remember(context) { runCatching { RtmpDestinationProfileStore.load(context) } }
+    var profiles by remember { mutableStateOf(initialLoad.getOrDefault(emptyList())) }
     var showAddDialog by remember { mutableStateOf(false) }
     var pendingDelete by remember { mutableStateOf<RtmpDestinationProfile?>(null) }
     var name by remember { mutableStateOf("") }
     var serverUrl by remember { mutableStateOf("") }
     var streamKey by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
-    var storeError by remember {
-        mutableStateOf(runCatching { RtmpDestinationProfileStore.load(context) }.exceptionOrNull()?.message)
-    }
+    var storeError by remember { mutableStateOf(initialLoad.exceptionOrNull()?.message) }
 
     fun saveProfiles(updated: List<RtmpDestinationProfile>) {
         runCatching { RtmpDestinationProfileStore.save(context, updated) }
