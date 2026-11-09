@@ -72,6 +72,7 @@ import androidx.compose.ui.unit.sp
 import com.iamahsana.ossstudio.scene.model.SceneProject
 import com.iamahsana.ossstudio.scene.model.Scene
 import com.iamahsana.ossstudio.scene.model.CanvasSize
+import com.iamahsana.ossstudio.scene.model.CropRect
 import com.iamahsana.ossstudio.scene.model.SceneProjectEditor
 import com.iamahsana.ossstudio.scene.model.SceneSource
 import com.iamahsana.ossstudio.scene.model.SceneSourceType
@@ -385,6 +386,63 @@ fun SceneEditorScreen(
                             },
                             valueRange = 0f..1f
                         )
+                        if (selectedSource.type in setOf(SceneSourceType.IMAGE, SceneSourceType.GIF, SceneSourceType.VIDEO)) {
+                            val crop = selectedElement.crop
+                            Text("Crop media", style = MaterialTheme.typography.labelLarge)
+                            Text("Kiri: ${(crop.left * 100f).toInt()}%")
+                            val maxLeft = (crop.right - 0.01f).coerceAtLeast(0f)
+                            Slider(
+                                value = crop.left.coerceIn(0f, maxLeft),
+                                onValueChange = { value ->
+                                    applyProject(SceneProjectEditor.updateElementCrop(
+                                        currentProject, scene.id, selectedElement.id,
+                                        crop.copy(left = value.coerceAtMost(maxLeft)), System.currentTimeMillis()
+                                    ))
+                                },
+                                valueRange = 0f..maxLeft
+                            )
+                            Text("Kanan: ${(crop.right * 100f).toInt()}%")
+                            val minRight = (crop.left + 0.01f).coerceAtMost(1f)
+                            Slider(
+                                value = crop.right.coerceIn(minRight, 1f),
+                                onValueChange = { value ->
+                                    applyProject(SceneProjectEditor.updateElementCrop(
+                                        currentProject, scene.id, selectedElement.id,
+                                        crop.copy(right = value.coerceAtLeast(minRight)), System.currentTimeMillis()
+                                    ))
+                                },
+                                valueRange = minRight..1f
+                            )
+                            Text("Atas: ${(crop.top * 100f).toInt()}%")
+                            val maxTop = (crop.bottom - 0.01f).coerceAtLeast(0f)
+                            Slider(
+                                value = crop.top.coerceIn(0f, maxTop),
+                                onValueChange = { value ->
+                                    applyProject(SceneProjectEditor.updateElementCrop(
+                                        currentProject, scene.id, selectedElement.id,
+                                        crop.copy(top = value.coerceAtMost(maxTop)), System.currentTimeMillis()
+                                    ))
+                                },
+                                valueRange = 0f..maxTop
+                            )
+                            Text("Bawah: ${(crop.bottom * 100f).toInt()}%")
+                            val minBottom = (crop.top + 0.01f).coerceAtMost(1f)
+                            Slider(
+                                value = crop.bottom.coerceIn(minBottom, 1f),
+                                onValueChange = { value ->
+                                    applyProject(SceneProjectEditor.updateElementCrop(
+                                        currentProject, scene.id, selectedElement.id,
+                                        crop.copy(bottom = value.coerceAtLeast(minBottom)), System.currentTimeMillis()
+                                    ))
+                                },
+                                valueRange = minBottom..1f
+                            )
+                            OutlinedButton(onClick = {
+                                applyProject(SceneProjectEditor.updateElementCrop(
+                                    currentProject, scene.id, selectedElement.id, CropRect(), System.currentTimeMillis()
+                                ))
+                            }) { Text("Reset crop") }
+                        }
                         Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                             Text("Sumber aktif di semua scene", modifier = Modifier.weight(1f))
                             Switch(
