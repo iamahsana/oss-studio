@@ -51,6 +51,7 @@ import com.iamahsana.ossstudio.scene.persistence.SceneProjectStoreProvider
 import com.iamahsana.ossstudio.scene.editor.SceneEditorScreen
 import com.iamahsana.ossstudio.audio.AudioMixerScreen
 import com.iamahsana.ossstudio.stream.rtmp.RtmpDestinationProfilesScreen
+import com.iamahsana.ossstudio.stream.android.ProjectionServiceRegistry
 
 private enum class AppPage(val label: String, val symbol: String) {
     HOME("Home", "⌂"),
