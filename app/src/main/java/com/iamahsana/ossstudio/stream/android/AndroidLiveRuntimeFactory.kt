@@ -6,10 +6,12 @@ import android.os.Looper
 import com.iamahsana.ossstudio.logging.OssLogContext
 import com.iamahsana.ossstudio.logging.OssLogLevel
 import com.iamahsana.ossstudio.logging.OssLogger
+import com.iamahsana.ossstudio.audio.RootEncoderAudioMixer
 import com.iamahsana.ossstudio.scene.source.screen.ShareScreenLayerController
 import com.iamahsana.ossstudio.scene.source.screen.ShareScreenSessionService
 import com.iamahsana.ossstudio.stream.LiveSessionController
 import com.iamahsana.ossstudio.stream.rtmp.RtmpStreamSession
+import com.pedro.encoder.input.sources.audio.NoAudioSource
 import java.util.UUID
 
 /**
@@ -55,39 +57,66 @@ class AndroidLiveRuntimeFactory(
         private var streamConnectedReported = false
         private var streamFailureReported = false
 
-        private val stream = RtmpStreamSession(
-            appContext,
-            RtmpStreamSession.Listener { state, _ ->
-                when (state) {
-                    RtmpStreamSession.State.LIVE -> dispatchMain {
-                        if (!streamConnectedReported && !released) {
-                            streamConnectedReported = true
-                            streamListener?.onConnected()
-                        }
-                    }
-                    RtmpStreamSession.State.FAILED -> dispatchMain {
-                        if (!streamFailureReported && !released) {
-                            streamFailureReported = true
-                            streamListener?.onFailure()
-                        }
-                    }
-                    else -> Unit
-                }
-            }
-        )
+        private var stream: RtmpStreamSession? = null
+        private var audioMixer: RootEncoderAudioMixer? = null
 
         override fun prepare(): Boolean {
             checkMainThread()
-            if (!allowVideoOnly) {
+            val audioSource = if (allowVideoOnly) {
                 log(
                     OssLogLevel.WARN,
-                    "video_only_blocked",
-                    "LIVE blocked: audio mixer is not connected; explicit video-only consent is required",
-                    "LIVE_AUDIO_NOT_READY"
+                    "video_only_mode_selected",
+                    "Explicit video-only mode selected; no audio will be sent"
                 )
-                return false
+                NoAudioSource()
+            } else {
+                val projection = projectionService()?.getActiveProjection()
+                if (projection == null) {
+                    log(
+                        OssLogLevel.ERROR,
+                        "audio_projection_unavailable",
+                        "Audio mixer requires an active user-approved MediaProjection session",
+                        "LIVE_AUDIO_PROJECTION_UNAVAILABLE"
+                    )
+                    return false
+                }
+                val mixer = RootEncoderAudioMixer(projection, runtimeId)
+                audioMixer = mixer
+                mixer.source
             }
-            return stream.prepare(streamConfig)
+
+            val createdStream = RtmpStreamSession(
+                context = appContext,
+                listener = RtmpStreamSession.Listener { state, _ ->
+                    when (state) {
+                        RtmpStreamSession.State.LIVE -> dispatchMain {
+                            if (!streamConnectedReported && !released) {
+                                streamConnectedReported = true
+                                streamListener?.onConnected()
+                            }
+                        }
+                        RtmpStreamSession.State.FAILED -> dispatchMain {
+                            if (!streamFailureReported && !released) {
+                                streamFailureReported = true
+                                streamListener?.onFailure()
+                            }
+                        }
+                        else -> Unit
+                    }
+                },
+                audioSource = audioSource
+            )
+            stream = createdStream
+            val prepared = createdStream.prepare(streamConfig)
+            if (!prepared) {
+                log(
+                    OssLogLevel.ERROR,
+                    "stream_prepare_failed",
+                    "RootEncoder could not prepare the configured audio/video pipeline",
+                    "LIVE_PIPELINE_PREPARE_FAILED"
+                )
+            }
+            return prepared
         }
 
         override fun startRtmp(
@@ -96,7 +125,7 @@ class AndroidLiveRuntimeFactory(
         ) {
             checkMainThread()
             streamListener = listener
-            stream.start(endpoint)
+            checkNotNull(stream) { "RTMP pipeline was not prepared" }.start(endpoint)
         }
 
         override fun attachScreen(listener: LiveSessionController.ScreenListener) {
@@ -116,7 +145,7 @@ class AndroidLiveRuntimeFactory(
             try {
                 val layer = ShareScreenLayerController(
                     sourceId = "share-screen-$runtimeId",
-                    glInterface = stream.glInterface()
+                    glInterface = checkNotNull(stream) { "RTMP pipeline was not prepared" }.glInterface()
                 )
                 screenLayer = layer
                 screenCheckAttempts = 0
@@ -193,7 +222,7 @@ class AndroidLiveRuntimeFactory(
 
         override fun stopRtmp() {
             checkMainThread()
-            stream.stop()
+            stream?.stop()
         }
 
         override fun stopProjection(): Boolean {
@@ -211,7 +240,7 @@ class AndroidLiveRuntimeFactory(
             released = true
             screenCheck?.let(mainHandler::removeCallbacks)
             screenCheck = null
-            stream.release()
+            stream?.release()
         }
 
         private fun dispatchMain(action: () -> Unit) {
