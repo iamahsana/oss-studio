@@ -108,12 +108,16 @@ object OssLogger {
 
         val writer = executor
         if (writer == null) {
-            Log.w(TAG, "Logger used before initialize; event dropped")
+            // Android's Log implementation is unavailable in plain JVM unit tests.
+            // Treat pre-initialization as a dropped diagnostic, never as an app failure.
+            droppedRecords.incrementAndGet()
             return
         }
         try {
             writer.execute {
-                Log.println(level.androidPriority, safeSubsystem.take(23), safeMessage)
+                runCatching {
+                    Log.println(level.androidPriority, safeSubsystem.take(23), safeMessage)
+                }
                 appendRecord(record)
             }
         } catch (_: RuntimeException) {
@@ -131,7 +135,7 @@ object OssLogger {
             }
             file.appendText(record + "\n", Charsets.UTF_8)
         } catch (error: Exception) {
-            Log.e(TAG, "Unable to persist diagnostic record", error)
+            runCatching { Log.e(TAG, "Unable to persist diagnostic record", error) }
         }
     }
 
