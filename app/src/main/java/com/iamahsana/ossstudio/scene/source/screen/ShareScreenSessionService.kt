@@ -26,11 +26,21 @@ class ShareScreenSessionService : Service() {
 
     inner class LocalBinder : Binder() {
         fun getService(): ShareScreenSessionService = this@ShareScreenSessionService
+
+        fun observeProjectionState(listener: (Boolean) -> Unit) {
+            projectionStateListener = listener
+            listener(mediaProjection != null)
+        }
+
+        fun clearProjectionStateListener() {
+            projectionStateListener = null
+        }
     }
 
     private val binder = LocalBinder()
     private var mediaProjection: MediaProjection? = null
     private var projectionCallback: MediaProjection.Callback? = null
+    private var projectionStateListener: ((Boolean) -> Unit)? = null
     private var operationId: String = UUID.randomUUID().toString()
 
     override fun onBind(intent: Intent?): IBinder = binder
@@ -94,6 +104,7 @@ class ShareScreenSessionService : Service() {
             projection.registerCallback(callback, android.os.Handler(mainLooper))
             mediaProjection = projection
             projectionCallback = callback
+            notifyProjectionState(active = true)
             log(OssLogLevel.INFO, "projection_ready", "Share Screen permission session is ready")
         } catch (error: Exception) {
             log(
@@ -108,9 +119,22 @@ class ShareScreenSessionService : Service() {
 
     private fun finishSession(stopProjection: Boolean) {
         releaseProjection(stopProjection)
+        notifyProjectionState(active = false)
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
         log(OssLogLevel.INFO, "service_session_finished", "Share Screen foreground session released")
+    }
+
+    private fun notifyProjectionState(active: Boolean) {
+        runCatching { projectionStateListener?.invoke(active) }
+            .onFailure {
+                log(
+                    OssLogLevel.WARN,
+                    "projection_state_listener_failed",
+                    it.message ?: "Unable to notify Share Screen state observer",
+                    "SCREEN_STATE_OBSERVER_FAILED"
+                )
+            }
     }
 
     private fun releaseProjection(stopProjection: Boolean) {
