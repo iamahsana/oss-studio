@@ -1,6 +1,9 @@
 package com.iamahsana.ossstudio.scene.editor
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import java.io.File
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
@@ -23,6 +26,10 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.Image
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.runtime.produceState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Button
@@ -60,6 +67,8 @@ import com.iamahsana.ossstudio.scene.persistence.SceneProjectStoreProvider
 import kotlin.math.roundToInt
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @Composable
 fun SceneEditorScreen(
@@ -276,12 +285,24 @@ fun SceneEditorScreen(
                             SceneSourceType.CAMERA -> "Camera"
                             SceneSourceType.USB_VIDEO -> "USB Video"
                         }
-                        Text(
-                            label,
-                            color = Color.White,
-                            textAlign = TextAlign.Center,
-                            style = MaterialTheme.typography.bodySmall
-                        )
+                        if (source.type == SceneSourceType.IMAGE || source.type == SceneSourceType.GIF) {
+                            val asset = currentProject.assets.firstOrNull { it.id == source.assetId }
+                            if (asset != null) {
+                                SceneAssetImage(
+                                    filePath = File(context.filesDir, asset.relativePath).absolutePath,
+                                    contentDescription = source.displayName
+                                )
+                            } else {
+                                Text(label, color = Color.White, textAlign = TextAlign.Center)
+                            }
+                        } else {
+                            Text(
+                                label,
+                                color = Color.White,
+                                textAlign = TextAlign.Center,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
                     }
                 }
                 if (scene.elements.none { it.visible }) {
@@ -390,4 +411,35 @@ fun SceneEditorScreen(
             }
         }
     }
+}
+
+@Composable
+private fun SceneAssetImage(filePath: String, contentDescription: String) {
+    val bitmap = produceState<Bitmap?>(initialValue = null, filePath) {
+        value = withContext(Dispatchers.IO) { decodeEditorBitmap(filePath) }
+    }.value
+    if (bitmap != null) {
+        Image(
+            bitmap = bitmap.asImageBitmap(),
+            contentDescription = contentDescription,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
+        )
+    } else {
+        Text("Memuat media…", color = Color.White, textAlign = TextAlign.Center)
+    }
+}
+
+private fun decodeEditorBitmap(path: String): Bitmap? {
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    BitmapFactory.decodeFile(path, bounds)
+    if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+    var sampleSize = 1
+    while (bounds.outWidth / sampleSize > 2048 || bounds.outHeight / sampleSize > 2048) {
+        sampleSize *= 2
+    }
+    return BitmapFactory.decodeFile(path, BitmapFactory.Options().apply {
+        inSampleSize = sampleSize
+        inPreferredConfig = Bitmap.Config.RGB_565
+    })
 }
