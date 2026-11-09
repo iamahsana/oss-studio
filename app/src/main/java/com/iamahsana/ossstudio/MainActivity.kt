@@ -1,7 +1,16 @@
 package com.iamahsana.ossstudio
 
+import android.app.Activity
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import android.content.ServiceConnection
+import android.media.projection.MediaProjectionManager
 import android.os.Bundle
+import android.os.IBinder
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.setContent
 import com.iamahsana.ossstudio.logging.OssLogger
 import com.iamahsana.ossstudio.logging.OssLogLevel
@@ -21,12 +30,18 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
+import com.iamahsana.ossstudio.scene.source.screen.ShareScreenSessionService
 
 private enum class AppPage(val label: String, val symbol: String) {
     HOME("Home", "⌂"),
@@ -56,6 +71,7 @@ class MainActivity : ComponentActivity() {
 private fun OssApp() {
     var selectedPage by rememberSaveable { mutableStateOf(AppPage.HOME.name) }
     val page = AppPage.valueOf(selectedPage)
+    val context = LocalContext.current
 
     MaterialTheme(colorScheme = lightColorScheme()) {
         Scaffold(
@@ -85,14 +101,14 @@ private fun OssApp() {
                 modifier = Modifier.fillMaxSize().padding(padding),
                 color = MaterialTheme.colorScheme.background
             ) {
-                PageContent(page)
+                PageContent(page, context)
             }
         }
     }
 }
 
 @Composable
-private fun PageContent(page: AppPage) {
+private fun PageContent(page: AppPage, context: Context) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -124,6 +140,9 @@ private fun PageContent(page: AppPage) {
                     Text(pageDescription(page), style = MaterialTheme.typography.bodyMedium)
                 }
             }
+        }
+        if (page == AppPage.EDITOR) {
+            item { ShareScreenPermissionPanel(context) }
         }
         if (page == AppPage.HOME) {
             item {
@@ -168,4 +187,122 @@ private fun pageDescription(page: AppPage): String = when (page) {
     AppPage.MIXER -> "Manage audio sources, levels, and LIVE/monitor routing."
     AppPage.EXTENSIONS -> "Discover and manage optional OSS modules."
     AppPage.SETTINGS -> "Manage your account, appearance, storage, and preferences."
+}
+
+
+@Composable
+private fun ShareScreenPermissionPanel(context: Context) {
+    var projectionActive by remember { mutableStateOf(false) }
+    var serviceBound by remember { mutableStateOf(false) }
+    var statusMessage by remember { mutableStateOf("Izin perekaman layar belum diberikan.") }
+    var binder by remember { mutableStateOf<ShareScreenSessionService.LocalBinder?>(null) }
+
+    val connection = remember {
+        object : ServiceConnection {
+            override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
+                val localBinder = service as? ShareScreenSessionService.LocalBinder
+                binder = localBinder
+                serviceBound = localBinder != null
+                localBinder?.observeProjectionState { active ->
+                    projectionActive = active
+                    statusMessage = if (active) {
+                        "Sesi izin perekaman layar aktif."
+                    } else {
+                        "Sesi perekaman layar tidak aktif."
+                    }
+                }
+            }
+
+            override fun onServiceDisconnected(name: ComponentName?) {
+                binder = null
+                serviceBound = false
+                projectionActive = false
+                statusMessage = "Koneksi ke layanan Share Screen terputus."
+            }
+        }
+    }
+
+    DisposableEffect(context) {
+        val bound = context.bindService(
+            Intent(context, ShareScreenSessionService::class.java),
+            connection,
+            Context.BIND_AUTO_CREATE
+        )
+        onDispose {
+            binder?.clearProjectionStateListener()
+            if (bound) context.unbindService(connection)
+        }
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val resultData = result.data
+        if (result.resultCode == Activity.RESULT_OK && resultData != null) {
+            statusMessage = "Izin diterima. Memulai layanan perekaman layar..."
+            runCatching {
+                ShareScreenSessionService.start(context, result.resultCode, resultData)
+            }.onFailure { error ->
+                statusMessage = "Gagal memulai layanan: ${error.message ?: "kesalahan tidak diketahui"}"
+                OssLogger.log(
+                    level = OssLogLevel.ERROR,
+                    subsystem = "OSS/Permissions/Screen",
+                    component = "ShareScreenPermissionPanel",
+                    event = "service_start_request_failed",
+                    errorCode = "SCREEN_SERVICE_START_REQUEST_FAILED",
+                    message = error.message ?: "Unable to request Share Screen service start",
+                    throwable = error
+                )
+            }
+        } else {
+            statusMessage = "Izin perekaman layar ditolak atau dibatalkan."
+            OssLogger.log(
+                level = OssLogLevel.WARN,
+                subsystem = "OSS/Permissions/Screen",
+                component = "ShareScreenPermissionPanel",
+                event = "permission_denied",
+                errorCode = "SCREEN_PERMISSION_DENIED",
+                message = "User denied or cancelled Android screen capture permission"
+            )
+        }
+    }
+
+    Surface(
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text("Share Screen", style = MaterialTheme.typography.titleLarge)
+            Text(statusMessage, style = MaterialTheme.typography.bodyMedium)
+            Text(
+                "Tahap ini menguji izin Android dan masa hidup layanan. Layer Share Screen belum dikirim ke LIVE sampai pipeline encoder dan scene GL selesai diintegrasikan.",
+                style = MaterialTheme.typography.bodySmall
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                androidx.compose.material3.Button(
+                    enabled = !projectionActive && serviceBound,
+                    onClick = {
+                        val manager = context.getSystemService(Context.MEDIA_PROJECTION_SERVICE)
+                            as MediaProjectionManager
+                        permissionLauncher.launch(manager.createScreenCaptureIntent())
+                    }
+                ) {
+                    Text("Aktifkan")
+                }
+                androidx.compose.material3.OutlinedButton(
+                    enabled = projectionActive,
+                    onClick = {
+                        ShareScreenSessionService.stop(context)
+                        statusMessage = "Perintah penghentian dikirim."
+                    }
+                ) {
+                    Text("Hentikan")
+                }
+            }
+        }
+    }
 }
