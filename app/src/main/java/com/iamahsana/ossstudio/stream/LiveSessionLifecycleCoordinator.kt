@@ -57,6 +57,7 @@ class LiveSessionLifecycleCoordinator(
     fun shutdown(): ShutdownResult {
         shutdownResult?.let { return it }
         val failures = mutableListOf<String>()
+        activeFailures = failures
 
         runStage("screen_layer_detach", "Share Screen layer detached") {
             screenLayer.detach()
@@ -71,6 +72,7 @@ class LiveSessionLifecycleCoordinator(
             streamPipeline.release()
         }
 
+        activeFailures = null
         return ShutdownResult(
             completed = failures.isEmpty(),
             failedStages = failures.toList()
