@@ -6,7 +6,6 @@ import com.iamahsana.ossstudio.logging.OssLogLevel
 import com.iamahsana.ossstudio.logging.OssLogger
 import com.pedro.common.ConnectChecker
 import com.pedro.encoder.input.sources.audio.AudioSource
-import com.pedro.encoder.input.sources.audio.NoAudioSource
 import com.pedro.encoder.input.sources.video.NoVideoSource
 import com.pedro.library.rtmp.RtmpStream
 import com.pedro.library.view.GlStreamInterface
@@ -15,10 +14,10 @@ import java.util.UUID
 /**
  * Owns one RootEncoder RTMP pipeline for the first end-to-end LIVE integration.
  *
- * NoVideoSource/NoAudioSource deliberately leave capture ownership to OSS:
- * Share Screen is inserted into this stream's GL chain. AudioSource is injected
- * so the Android runtime can provide the upstream RootEncoder mixer when a
- * valid MediaProjection is already available.
+ * NoVideoSource deliberately leaves video capture ownership to OSS: Share Screen
+ * is inserted into this stream's GL chain. AudioSource is mandatory and must be
+ * the OSS mixer-backed BufferAudioSource. There is intentionally no silent or
+ * video-only default audio source.
  *
  * All lifecycle methods must be called from the main thread. RootEncoder owns
  * its internal GL/codec/network workers.
@@ -26,7 +25,7 @@ import java.util.UUID
 class RtmpStreamSession(
     context: Context,
     private val listener: Listener? = null,
-    audioSource: AudioSource = NoAudioSource()
+    audioSource: AudioSource
 ) : ConnectChecker {
 
     enum class State {
