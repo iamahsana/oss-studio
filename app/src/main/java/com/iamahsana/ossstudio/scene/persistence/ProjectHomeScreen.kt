@@ -128,10 +128,17 @@ fun ProjectHomeScreen(
                     working = true
                     repository.load(target.id) { loadResult ->
                         val project = loadResult.getOrNull()
+                        if (project == null) {
+                            mainHandler.post {
+                                working = false
+                                errorMessage = loadResult.exceptionOrNull()?.message ?: "Project tidak dapat dibaca; file media tidak dihapus."
+                            }
+                            return@load
+                        }
                         repository.delete(target.id) { deleteResult ->
                             deleteResult.onSuccess { deleted ->
                                 if (deleted) {
-                                    project?.assets?.forEach { asset ->
+                                    project.assets.forEach { asset ->
                                         runCatching { SceneAssetStorage.deleteAsset(context, asset) }
                                     }
                                 }
