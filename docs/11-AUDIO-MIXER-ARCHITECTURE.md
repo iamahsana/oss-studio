@@ -59,9 +59,16 @@ The implemented PCM path now consists of `RootEncoderPcmCaptureSink` (copies Roo
 - Timestamp-based alignment; late frames are counted and dropped, gaps become silence.
 - Saturating accumulation to avoid integer overflow and clipping.
 - Gain and pan are applied per channel before bus summation.
-- Current mixer core uses saturating PCM16 output to prevent integer wraparound. A proper look-ahead or low-latency limiter/headroom stage remains a required follow-up before public LIVE testing; hard clipping alone is not considered final mastering.
+- Current mixer core applies independent block-level peak limiting to LIVE and MONITOR before writing saturating PCM16 output. This avoids integer wraparound and prevents the two buses from sharing limiter gain. Device-level mastering and loudness validation remain separate verification tasks.
 - Fixed-capacity SPSC (single-producer/single-consumer) PCM frame queues per capture source, with preallocated slots, timestamp metadata, and drop/oversize counters. Queue-full policy drops the newest frame rather than blocking a capture callback. Reusable mixer/output buffers; bounded memory and no per-frame allocation in the hot path.
 - Metering uses peak and RMS windows; UI receives sampled snapshots off the audio thread.
+
+
+## User-facing mixer controls
+
+The Mixer page exposes the two currently implemented core capture strips: Microphone and Internal/Game audio. Each strip has 0–200% gain, mute, solo, stereo pan/balance, independent LIVE and MONITOR routing, and a sampled peak meter. LIVE and MONITOR master gains are independent. These settings are persisted in app-private SharedPreferences; no captured audio or stream credentials are stored there.
+
+Changes are applied to the active `OssAudioMixerSession` through `AudioMixerControlBus` without restarting the capture graph. A new LIVE session loads the saved configuration before capture starts. Source availability remains runtime-derived: microphone permission controls mic availability, while internal capture additionally requires an active MediaProjection and source-app playback-capture policy permission. The UI does not offer a pre-LIVE mic/internal mode picker.
 
 ## Android platform limits
 
