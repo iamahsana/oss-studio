@@ -39,16 +39,19 @@ class SceneProjectDatabaseTest {
     @Test fun versionOneDatabaseMigratesRecoveryTableWithoutLosingProjects() {
         val context=ApplicationProvider.getApplicationContext<Context>()
         context.deleteDatabase("oss_projects.db")
+        val project=SceneProject(id="migration-test",name="Migrated",createdAtEpochMillis=1,updatedAtEpochMillis=1)
         val legacy=SQLiteDatabase.openOrCreateDatabase(context.getDatabasePath("oss_projects.db"),null)
         try {
             legacy.execSQL("CREATE TABLE projects(id TEXT PRIMARY KEY NOT NULL,name TEXT NOT NULL,updated_at INTEGER NOT NULL,document TEXT NOT NULL)")
             legacy.execSQL("CREATE INDEX index_projects_updated_at ON projects(updated_at DESC)")
+            legacy.execSQL("INSERT INTO projects(id,name,updated_at,document) VALUES(?,?,?,?)",
+                arrayOf(project.id,project.name,project.updatedAtEpochMillis,SceneProjectJsonCodec.encode(project)))
             legacy.version=1
         } finally { legacy.close() }
 
         val db=SceneProjectDatabase(context)
         try {
-            val project=SceneProject(id="migration-test",name="Migrated",createdAtEpochMillis=1,updatedAtEpochMillis=1)
+            assertEquals(project,db.get(project.id))
             db.saveRecovery(project,2L)
             assertEquals(project,db.getRecovery(project.id))
             assertEquals(2,db.readableDatabase.version)
