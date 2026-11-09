@@ -375,6 +375,27 @@ fun SceneEditorScreen(
                 ) {
                     Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("Elemen dipilih: ${selectedSource.displayName}", style = MaterialTheme.typography.titleSmall)
+                        Text("Opacity: ${(selectedElement.opacity * 100f).toInt()}%")
+                        Slider(
+                            value = selectedElement.opacity,
+                            onValueChange = {
+                                applyProject(SceneProjectEditor.setElementOpacity(
+                                    currentProject, scene.id, selectedElement.id, it, System.currentTimeMillis()
+                                ))
+                            },
+                            valueRange = 0f..1f
+                        )
+                        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                            Text("Sumber aktif di semua scene", modifier = Modifier.weight(1f))
+                            Switch(
+                                checked = selectedSource.enabled,
+                                onCheckedChange = { enabled ->
+                                    applyProject(SceneProjectEditor.updateSource(
+                                        currentProject, selectedSource.copy(enabled = enabled), System.currentTimeMillis()
+                                    ))
+                                }
+                            )
+                        }
                         if (selectedSource.type == SceneSourceType.TEXT) {
                             OutlinedTextField(
                                 value = editingText,
