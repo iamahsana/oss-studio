@@ -4,6 +4,8 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import com.iamahsana.ossstudio.audio.OssAudioMixerSession
+import com.iamahsana.ossstudio.audio.AudioMixerSettingsStore
+import com.iamahsana.ossstudio.audio.AudioMixerControlBus
 import com.iamahsana.ossstudio.logging.OssLogContext
 import com.iamahsana.ossstudio.logging.OssLogLevel
 import com.iamahsana.ossstudio.logging.OssLogger
@@ -85,9 +87,13 @@ class AndroidLiveRuntimeFactory(
             }
 
             stream = newStream
+            val mixerSettings = AudioMixerSettingsStore.load(appContext)
             audioMixerSession = OssAudioMixerSession(
                 context = appContext,
                 bufferAudioSource = bufferAudioSource,
+                initialChannelConfigs = arrayOf(mixerSettings.microphone, mixerSettings.internalAudio),
+                initialLiveMasterGain = mixerSettings.liveMasterGain,
+                initialMonitorMasterGain = mixerSettings.monitorMasterGain,
                 onCaptureStatus = { snapshot ->
                 log(
                     if (snapshot.hasAnySource) OssLogLevel.INFO else OssLogLevel.WARN,
@@ -107,6 +113,7 @@ class AndroidLiveRuntimeFactory(
                     dispatchMain { reportFailureOnce() }
                 }
             )
+            AudioMixerControlBus.attach(checkNotNull(audioMixerSession))
             log(
                 OssLogLevel.INFO,
                 "runtime_prepared",
@@ -314,6 +321,7 @@ class AndroidLiveRuntimeFactory(
                             "AUDIO_GRAPH_CLEANUP_PENDING"
                         )
                     }
+                    if (result.completed) AudioMixerControlBus.detach(mixer)
                     completion(
                         AudioStopStatus(
                             mixerStopped = result.mixerStopped,
@@ -343,6 +351,7 @@ class AndroidLiveRuntimeFactory(
             stream?.release()
             stream = null
             if (audioMixerSession?.state == OssAudioMixerSession.State.STOPPED) {
+                audioMixerSession?.let(AudioMixerControlBus::detach)
                 audioMixerSession = null
             }
         }
