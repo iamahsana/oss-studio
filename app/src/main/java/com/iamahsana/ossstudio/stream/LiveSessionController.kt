@@ -83,6 +83,10 @@ class LiveSessionController(
                     failAndCleanup("RTMP connection failed")
                 }
             })
+            // Some adapters may report an immediate connection failure from
+            // startRtmp(). Never attach a source after teardown has begun.
+            if (stopping) return false
+
             newRuntime.attachScreen(object : ScreenListener {
                 override fun onReady() {
                     if (stopping || runtime !== newRuntime) return
@@ -95,7 +99,7 @@ class LiveSessionController(
                     failAndCleanup("Share Screen source failed to attach")
                 }
             })
-            true
+            !stopping
         } catch (error: Exception) {
             failAndCleanup(error.message ?: "LIVE startup failed")
             false
