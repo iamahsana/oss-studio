@@ -9,7 +9,7 @@ import android.view.Surface
 import com.iamahsana.ossstudio.logging.OssLogContext
 import com.iamahsana.ossstudio.logging.OssLogLevel
 import com.iamahsana.ossstudio.logging.OssLogger
-import com.pedro.encoder.input.gl.render.filters.object.SurfaceFilterRender
+import com.pedro.encoder.input.gl.render.filters.`object`.SurfaceFilterRender
 import com.pedro.library.view.GlStreamInterface
 import java.util.UUID
 
