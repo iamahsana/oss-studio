@@ -74,7 +74,7 @@ class MainActivitySmokeTest {
         composeRule.onNodeWithText("Landscape · 16:9 · 1920 × 1080").performClick()
 
         composeRule.onNodeWithText("Tambah teks").performScrollTo().performClick()
-        composeRule.onNodeWithTag("scene-resize-handle").assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-resize-handle").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Undo").performScrollTo().performClick()
         assertTrue(composeRule.onAllNodesWithTag("scene-resize-handle").fetchSemanticsNodes().isEmpty())
         composeRule.onNodeWithText("Redo").performScrollTo().performClick()
