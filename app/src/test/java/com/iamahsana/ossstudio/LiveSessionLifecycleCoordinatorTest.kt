@@ -119,9 +119,12 @@ class LiveSessionLifecycleCoordinatorTest {
         var result: LiveSessionLifecycleCoordinator.ShutdownResult? = null
         coordinator.shutdownAsync { result = it }
 
-        assertEquals(listOf("detach", "audio", "rtmp_stop", "projection"), calls)
+        assertEquals(listOf("detach", "audio"), calls)
         assertFalse(result?.completed == true)
-        assertEquals(listOf("audio_stop", "rtmp_release_skipped"), result?.failedStages)
+        assertEquals(
+            listOf("audio_stop", "rtmp_stop_skipped", "projection_stop_skipped", "rtmp_release_skipped"),
+            result?.failedStages
+        )
     }
 
     @Test
@@ -156,10 +159,39 @@ class LiveSessionLifecycleCoordinatorTest {
         assertTrue(second?.completed == true)
         assertEquals(
             listOf(
-                "detach", "audio_1", "rtmp_stop", "projection",
+                "detach", "audio_1",
                 "detach", "audio_2", "rtmp_stop", "projection", "release"
             ),
             calls
+        )
+    }
+
+
+    @Test
+    fun asyncShutdownKeepsProjectionWhenCaptureCleanupIsIncomplete() {
+        val calls = mutableListOf<String>()
+        val coordinator = LiveSessionLifecycleCoordinator(
+            screenLayer = { calls += "detach" },
+            streamPipeline = object : LiveSessionLifecycleCoordinator.StreamPipeline {
+                override fun stopAudio(completion: (AudioStopStatus) -> Unit) {
+                    calls += "audio"
+                    completion(AudioStopStatus(true, false, true))
+                }
+                override fun stop() { calls += "rtmp_stop" }
+                override fun release() { calls += "release" }
+            },
+            projectionSession = { calls += "projection"; true },
+            diagnosticLog = { _, _, _, _ -> }
+        )
+
+        var result: LiveSessionLifecycleCoordinator.ShutdownResult? = null
+        coordinator.shutdownAsync { result = it }
+
+        assertEquals(listOf("detach", "audio", "rtmp_stop", "release"), calls)
+        assertFalse(result?.completed == true)
+        assertEquals(
+            listOf("audio_stop", "projection_stop_skipped"),
+            result?.failedStages
         )
     }
 
