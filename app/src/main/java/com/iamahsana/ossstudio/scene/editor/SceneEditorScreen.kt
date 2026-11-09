@@ -142,6 +142,10 @@ fun SceneEditorScreen(
                                     },
                                     onFailure = { mediaStatus = it.message ?: "Gagal mengimpor media" }
                                 )
+                            } else {
+                                result.getOrNull()?.let { imported ->
+                                    runCatching { SceneAssetStorage.deleteAsset(context, imported.asset) }
+                                }
                             }
                         }
                     } else {
