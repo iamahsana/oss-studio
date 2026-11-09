@@ -35,8 +35,9 @@ fun StudioLiveControlScreen(context: Context, project: SceneProject?) {
     val controller = remember(context) { LiveSessionControllerRegistry.getOrCreate(context) }
     var sessionState by remember { mutableStateOf(LiveSessionControllerRegistry.state) }
     var detail by remember { mutableStateOf(LiveSessionControllerRegistry.detail) }
-    var profiles by remember { mutableStateOf(loadProfiles(context).first) }
-    var profileError by remember { mutableStateOf(loadProfiles(context).second) }
+    val initialProfiles = remember(context) { loadProfiles(context) }
+    var profiles by remember { mutableStateOf(initialProfiles.first) }
+    var profileError by remember { mutableStateOf(initialProfiles.second) }
     var actionMessage by remember { mutableStateOf<String?>(null) }
     val mainHandler = remember { Handler(Looper.getMainLooper()) }
 
