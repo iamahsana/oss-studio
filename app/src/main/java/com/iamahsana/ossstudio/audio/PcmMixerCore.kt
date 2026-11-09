@@ -6,9 +6,10 @@ import kotlin.math.sqrt
 /**
  * Allocation-free PCM16 stereo mixer core.
  *
- * Buffers are interleaved L/R samples. The caller owns capture queues,
- * timestamps/resampling and the encoder/device sinks; this class only applies
- * channel controls and routes frames to the independent LIVE and MONITOR buses.
+ * Buffers use interleaved signed 16-bit little-endian PCM (L, R). This matches
+ * RootEncoder's encoder-facing BufferAudioSource ByteArray contract, allowing
+ * the LIVE bus to be handed off without a format conversion or per-block copy.
+ * The caller owns capture queues, timestamps/resampling and output sinks.
  */
 data class ChannelMixConfig(
     val gain: Float = 1f,
@@ -32,17 +33,17 @@ data class ChannelMixConfig(
 class PcmMixerCore {
     /**
      * Mix [frameCount] stereo frames from [inputs] into independent buses.
+     * Each frame occupies four bytes: L low/high, then R low/high.
      *
-     * Each input is nullable to represent a source that is not currently
-     * producing PCM. Missing input contributes silence and a zero meter.
+     * A null input represents a source that is not currently producing PCM.
      * Output buffers and meter arrays must be preallocated by the caller.
      */
     fun mixInto(
-        inputs: Array<ShortArray?>,
+        inputs: Array<ByteArray?>,
         configs: Array<ChannelMixConfig>,
         frameCount: Int,
-        liveOutput: ShortArray,
-        monitorOutput: ShortArray,
+        liveOutput: ByteArray,
+        monitorOutput: ByteArray,
         liveMasterGain: Float = 1f,
         monitorMasterGain: Float = 1f,
         channelPeak: FloatArray,
@@ -57,8 +58,9 @@ class PcmMixerCore {
         require(liveMasterGain in 0f..2f && monitorMasterGain in 0f..2f) {
             "Master gain must be between 0% and 200%"
         }
-        val sampleCount = frameCount * CHANNELS
-        require(liveOutput.size >= sampleCount && monitorOutput.size >= sampleCount) {
+        require(frameCount <= Int.MAX_VALUE / BYTES_PER_FRAME) { "Frame count is too large" }
+        val byteCount = frameCount * BYTES_PER_FRAME
+        require(liveOutput.size >= byteCount && monitorOutput.size >= byteCount) {
             "Output buffers are too small"
         }
         require(channelPeak.size >= inputs.size && channelRms.size >= inputs.size) {
@@ -70,7 +72,7 @@ class PcmMixerCore {
         }
         for (i in inputs.indices) {
             val input = inputs[i]
-            require(input == null || input.size >= sampleCount) { "Input buffer $i is too small" }
+            require(input == null || input.size >= byteCount) { "Input buffer $i is too small" }
         }
 
         var liveHasSolo = false
@@ -95,70 +97,98 @@ class PcmMixerCore {
             val rightGain = config.gain * if (config.pan < 0f) 1f + config.pan else 1f
             var peak = 0f
             var sumSquares = 0.0
-            for (sampleIndex in 0 until sampleCount) {
-                val isLeft = sampleIndex and 1 == 0
-                val raw = input[sampleIndex].toFloat() / PCM_SCALE
-                val gained = raw * if (isLeft) leftGain else rightGain
-                val magnitude = abs(gained)
-                if (magnitude > peak) peak = magnitude
-                sumSquares += gained.toDouble() * gained.toDouble()
+            var byteIndex = 0
+            while (byteIndex < byteCount) {
+                val left = readPcm16(input, byteIndex).toFloat() / PCM_SCALE * leftGain
+                val right = readPcm16(input, byteIndex + 2).toFloat() / PCM_SCALE * rightGain
+                val leftMagnitude = abs(left)
+                val rightMagnitude = abs(right)
+                if (leftMagnitude > peak) peak = leftMagnitude
+                if (rightMagnitude > peak) peak = rightMagnitude
+                sumSquares += left.toDouble() * left.toDouble()
+                sumSquares += right.toDouble() * right.toDouble()
+                byteIndex += BYTES_PER_FRAME
             }
             channelPeak[channelIndex] = peak.coerceAtMost(1f)
             channelRms[channelIndex] =
-                if (sampleCount == 0) 0f else sqrt(sumSquares / sampleCount).toFloat().coerceAtMost(1f)
+                if (byteCount == 0) 0f else sqrt(sumSquares / (frameCount * CHANNELS)).toFloat().coerceAtMost(1f)
         }
 
         var liveMax = 0f
         var monitorMax = 0f
         var liveSquares = 0.0
         var monitorSquares = 0.0
+        var byteIndex = 0
 
-        for (sampleIndex in 0 until sampleCount) {
-            val isLeft = sampleIndex and 1 == 0
-            var liveSum = 0f
-            var monitorSum = 0f
+        while (byteIndex < byteCount) {
+            var liveLeft = 0f
+            var liveRight = 0f
+            var monitorLeft = 0f
+            var monitorRight = 0f
 
             for (channelIndex in inputs.indices) {
                 val input = inputs[channelIndex] ?: continue
                 val config = configs[channelIndex]
                 if (config.muted) continue
 
-                val liveAllowed = config.routeToLive &&
-                    (!liveHasSolo || config.solo)
-                val monitorAllowed = config.routeToMonitor &&
-                    (!monitorHasSolo || config.solo)
+                val liveAllowed = config.routeToLive && (!liveHasSolo || config.solo)
+                val monitorAllowed = config.routeToMonitor && (!monitorHasSolo || config.solo)
                 if (!liveAllowed && !monitorAllowed) continue
 
-                val panGain = if (isLeft) {
-                    if (config.pan > 0f) 1f - config.pan else 1f
-                } else {
-                    if (config.pan < 0f) 1f + config.pan else 1f
+                val leftGain = config.gain * if (config.pan > 0f) 1f - config.pan else 1f
+                val rightGain = config.gain * if (config.pan < 0f) 1f + config.pan else 1f
+                if (liveAllowed) {
+                    liveLeft += readPcm16(input, byteIndex).toFloat() / PCM_SCALE * leftGain
+                    liveRight += readPcm16(input, byteIndex + 2).toFloat() / PCM_SCALE * rightGain
                 }
-                val value = input[sampleIndex].toFloat() / PCM_SCALE *
-                    config.gain * panGain
-                if (liveAllowed) liveSum += value
-                if (monitorAllowed) monitorSum += value
+                if (monitorAllowed) {
+                    monitorLeft += readPcm16(input, byteIndex).toFloat() / PCM_SCALE * leftGain
+                    monitorRight += readPcm16(input, byteIndex + 2).toFloat() / PCM_SCALE * rightGain
+                }
             }
 
-            liveSum *= liveMasterGain
-            monitorSum *= monitorMasterGain
-            val liveMagnitude = abs(liveSum)
-            val monitorMagnitude = abs(monitorSum)
-            if (liveMagnitude > liveMax) liveMax = liveMagnitude
-            if (monitorMagnitude > monitorMax) monitorMax = monitorMagnitude
-            liveSquares += liveSum.toDouble() * liveSum.toDouble()
-            monitorSquares += monitorSum.toDouble() * monitorSum.toDouble()
+            liveLeft *= liveMasterGain
+            liveRight *= liveMasterGain
+            monitorLeft *= monitorMasterGain
+            monitorRight *= monitorMasterGain
 
-            liveOutput[sampleIndex] = toPcm16(liveSum)
-            monitorOutput[sampleIndex] = toPcm16(monitorSum)
+            val ll = abs(liveLeft)
+            val lr = abs(liveRight)
+            val ml = abs(monitorLeft)
+            val mr = abs(monitorRight)
+            if (ll > liveMax) liveMax = ll
+            if (lr > liveMax) liveMax = lr
+            if (ml > monitorMax) monitorMax = ml
+            if (mr > monitorMax) monitorMax = mr
+            liveSquares += liveLeft.toDouble() * liveLeft.toDouble()
+            liveSquares += liveRight.toDouble() * liveRight.toDouble()
+            monitorSquares += monitorLeft.toDouble() * monitorLeft.toDouble()
+            monitorSquares += monitorRight.toDouble() * monitorRight.toDouble()
+
+            writePcm16(liveOutput, byteIndex, toPcm16(liveLeft))
+            writePcm16(liveOutput, byteIndex + 2, toPcm16(liveRight))
+            writePcm16(monitorOutput, byteIndex, toPcm16(monitorLeft))
+            writePcm16(monitorOutput, byteIndex + 2, toPcm16(monitorRight))
+            byteIndex += BYTES_PER_FRAME
         }
 
+        val sampleCount = frameCount * CHANNELS
         livePeak[0] = liveMax.coerceAtMost(1f)
         monitorPeak[0] = monitorMax.coerceAtMost(1f)
         liveRms[0] = if (sampleCount == 0) 0f else
             sqrt(liveSquares / sampleCount).toFloat().coerceAtMost(1f)
         monitorRms[0] = if (sampleCount == 0) 0f else
             sqrt(monitorSquares / sampleCount).toFloat().coerceAtMost(1f)
+    }
+
+    private fun readPcm16(buffer: ByteArray, offset: Int): Int {
+        val value = (buffer[offset].toInt() and 0xFF) or (buffer[offset + 1].toInt() shl 8)
+        return value.toShort().toInt()
+    }
+
+    private fun writePcm16(buffer: ByteArray, offset: Int, value: Short) {
+        buffer[offset] = (value.toInt() and 0xFF).toByte()
+        buffer[offset + 1] = (value.toInt() shr 8).toByte()
     }
 
     private fun toPcm16(value: Float): Short {
@@ -169,6 +199,7 @@ class PcmMixerCore {
 
     private companion object {
         const val CHANNELS = 2
+        const val BYTES_PER_FRAME = 4
         const val PCM_SCALE = 32768f
     }
 }
