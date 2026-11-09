@@ -6,7 +6,6 @@ import android.os.Looper
 import com.iamahsana.ossstudio.logging.OssLogContext
 import com.iamahsana.ossstudio.logging.OssLogLevel
 import com.iamahsana.ossstudio.logging.OssLogger
-import com.iamahsana.ossstudio.audio.RootEncoderAudioMixer
 import com.iamahsana.ossstudio.scene.source.screen.ShareScreenLayerController
 import com.iamahsana.ossstudio.scene.source.screen.ShareScreenSessionService
 import com.iamahsana.ossstudio.stream.LiveSessionController
@@ -58,7 +57,6 @@ class AndroidLiveRuntimeFactory(
         private var streamFailureReported = false
 
         private var stream: RtmpStreamSession? = null
-        private var audioMixer: RootEncoderAudioMixer? = null
 
         override fun prepare(): Boolean {
             checkMainThread()
@@ -70,19 +68,13 @@ class AndroidLiveRuntimeFactory(
                 )
                 NoAudioSource()
             } else {
-                val projection = projectionService()?.getActiveProjection()
-                if (projection == null) {
-                    log(
-                        OssLogLevel.ERROR,
-                        "audio_projection_unavailable",
-                        "Audio mixer requires an active user-approved MediaProjection session",
-                        "LIVE_AUDIO_PROJECTION_UNAVAILABLE"
-                    )
-                    return false
-                }
-                val mixer = RootEncoderAudioMixer(projection, runtimeId)
-                audioMixer = mixer
-                mixer.source
+                log(
+                    OssLogLevel.ERROR,
+                    "audio_mixer_not_ready",
+                    "LIVE blocked: independent-channel OSS mixer and LIVE/MONITOR routing are not integrated yet",
+                    "LIVE_AUDIO_MIXER_NOT_READY"
+                )
+                return false
             }
 
             val createdStream = RtmpStreamSession(
