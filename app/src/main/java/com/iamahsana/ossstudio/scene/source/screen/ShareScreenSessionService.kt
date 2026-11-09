@@ -35,6 +35,12 @@ class ShareScreenSessionService : Service() {
         fun clearProjectionStateListener() {
             projectionStateListener = null
         }
+
+        /**
+         * Synchronously asks the owning service to release MediaProjection.
+         * Returns true only after the service has cleared its projection handle.
+         */
+        fun stopProjectionSession(): Boolean = this@ShareScreenSessionService.stopProjectionSession()
     }
 
     private val binder = LocalBinder()
@@ -68,6 +74,15 @@ class ShareScreenSessionService : Service() {
     }
 
     fun getActiveProjection(): MediaProjection? = mediaProjection
+
+    /**
+     * Must be invoked through the bound service on its main thread. Resource
+     * release and the inactive state notification complete before this returns.
+     */
+    fun stopProjectionSession(): Boolean {
+        finishSession(stopProjection = true)
+        return mediaProjection == null
+    }
 
     private fun startSession(intent: Intent) {
         if (mediaProjection != null) {
