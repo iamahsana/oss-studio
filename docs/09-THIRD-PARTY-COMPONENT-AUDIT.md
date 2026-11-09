@@ -116,3 +116,10 @@ The fan-out manager uses the upstream sender's per-client bounded queue. This pr
 ### CI run management
 
 The Android workflow now cancels superseded runs on the same Git ref. This avoids a backlog of redundant matrix jobs while several commits are pushed in quick succession. The newest run remains the source of truth for the final code state.
+
+
+### Share Screen layer controller prototype (2026-11-09)
+
+An initial `ShareScreenLayerController` now routes an already-authorized Android `MediaProjection` into RootEncoder's upstream `SurfaceFilterRender`, then inserts that filter into the existing `GlStreamInterface` chain. The controller supports scene-space scale/position updates, releases the virtual display before removing the filter, handles system projection stop, and emits source-correlated diagnostics.
+
+This is deliberately only the projection-to-scene-layer adapter. It does not request capture permission or start the required mediaProjection foreground service; those responsibilities must be implemented in a dedicated Android service/permission flow. It has not yet been runtime-validated. CI compilation and lifecycle tests must pass before APK testing, followed by physical-device checks on Android 10 and Android 14+ / 16.
