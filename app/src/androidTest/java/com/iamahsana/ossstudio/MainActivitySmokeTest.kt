@@ -9,7 +9,7 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
-import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.onNodeWithTag
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.iamahsana.ossstudio.stream.rtmp.RtmpDestinationProfileStore
@@ -98,7 +98,7 @@ class MainActivitySmokeTest {
     private fun scrollUntilVisible(text: String) {
         repeat(8) {
             if (composeRule.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty()) return
-            composeRule.onRoot().performTouchInput { swipeUp() }
+            composeRule.onNodeWithTag("page-content").performTouchInput { swipeUp() }
         }
         composeRule.waitUntil(15_000) {
             composeRule.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty()
