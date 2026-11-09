@@ -9,8 +9,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -85,29 +83,27 @@ fun ProjectHomeScreen(
         if (!loading && projects.isEmpty()) {
             Text("Belum ada project. Buat project pertama untuk mulai menyusun scene.")
         }
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(projects, key = { it.id }) { project ->
-                Card(
-                    modifier = Modifier.fillMaxWidth().clickable(enabled = !working) {
-                        working = true
-                        repository.load(project.id) { result ->
-                            mainHandler.post {
-                                working = false
-                                result.fold(
-                                    onSuccess = { loaded ->
-                                        if (loaded != null) onOpenProject(loaded)
-                                        else errorMessage = "Project tidak ditemukan."
-                                    },
-                                    onFailure = { errorMessage = it.message ?: "Gagal membuka project" }
-                                )
-                            }
+        projects.forEach { project ->
+            Card(
+                modifier = Modifier.fillMaxWidth().clickable(enabled = !working) {
+                    working = true
+                    repository.load(project.id) { result ->
+                        mainHandler.post {
+                            working = false
+                            result.fold(
+                                onSuccess = { loaded ->
+                                    if (loaded != null) onOpenProject(loaded)
+                                    else errorMessage = "Project tidak ditemukan."
+                                },
+                                onFailure = { errorMessage = it.message ?: "Gagal membuka project" }
+                            )
                         }
                     }
-                ) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(project.name, style = MaterialTheme.typography.titleMedium)
-                        Text("Diperbarui ${project.updatedAtEpochMillis}", style = MaterialTheme.typography.bodySmall)
-                    }
+                }
+            ) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(project.name, style = MaterialTheme.typography.titleMedium)
+                    Text("Diperbarui ${project.updatedAtEpochMillis}", style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
