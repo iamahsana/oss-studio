@@ -101,9 +101,10 @@ fun SceneEditorScreen(
     val mediaPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         if (uri != null) {
             mediaStatus = "Mengimpor media…"
+            val projectId = currentProject.id
             runCatching {
                 importExecutor.execute {
-                    val result = runCatching { SceneAssetStorage.importUri(context, currentProject.id, uri) }
+                    val result = runCatching { SceneAssetStorage.importUri(context, projectId, uri) }
                     if (importActive.get()) {
                         mainHandler.post {
                             if (importActive.get()) {
