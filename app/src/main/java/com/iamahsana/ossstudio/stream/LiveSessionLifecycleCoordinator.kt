@@ -31,6 +31,11 @@ class LiveSessionLifecycleCoordinator(
     interface StreamPipeline {
         fun stop()
         fun release()
+
+        /** Optional asynchronous audio teardown, completed before RTMP stops. */
+        fun stopAudio(completion: (Boolean) -> Unit) {
+            completion(true)
+        }
     }
 
     fun interface ProjectionSession {
@@ -47,6 +52,9 @@ class LiveSessionLifecycleCoordinator(
 
     @Volatile
     private var shutdownResult: ShutdownResult? = null
+
+    private var shutdownInProgress = false
+    private val pendingCallbacks = mutableListOf<(ShutdownResult) -> Unit>()
 
     /**
      * Teardown order:
@@ -81,6 +89,77 @@ class LiveSessionLifecycleCoordinator(
             completed = failures.isEmpty(),
             failedStages = failures.toList()
         ).also { shutdownResult = it }
+    }
+
+    /**
+     * Non-blocking teardown variant. The audio graph must stop its mixer worker
+     * and capture sources on a background executor before RTMP/GL and the
+     * projection are stopped. The completion is delivered by the audio owner;
+     * Android adapters must marshal it back to the main thread.
+     */
+    fun shutdownAsync(onComplete: (ShutdownResult) -> Unit) {
+        val failures = mutableListOf<String>()
+        synchronized(this) {
+            shutdownResult?.let {
+                onComplete(it)
+                return
+            }
+            if (shutdownInProgress) {
+                pendingCallbacks += onComplete
+                return
+            }
+            shutdownInProgress = true
+        }
+
+        runStage(failures, "screen_layer_detach", "Share Screen layer detached") {
+            screenLayer.detach()
+        }
+
+        val callbackOnce = java.util.concurrent.atomic.AtomicBoolean(false)
+        val finishAfterAudio: (Boolean) -> Unit = { audioStopped ->
+            if (callbackOnce.compareAndSet(false, true)) {
+                if (!audioStopped) {
+                    failures += "audio_stop"
+                    logSafely(
+                        OssLogLevel.ERROR,
+                        "audio_stop_failed",
+                        "Audio mixer/capture teardown did not complete",
+                        "AUDIO_STOP_FAILED"
+                    )
+                } else {
+                    logSafely(OssLogLevel.INFO, "audio_stop_completed", "Audio mixer/capture teardown completed")
+                }
+
+                runStage(failures, "rtmp_stop", "RTMP pipeline stopped") {
+                    streamPipeline.stop()
+                }
+                runStage(failures, "projection_stop", "MediaProjection service stopped") {
+                    check(projectionSession.stop()) {
+                        "MediaProjection owner could not confirm release"
+                    }
+                }
+                runStage(failures, "rtmp_release", "RTMP pipeline resources released") {
+                    streamPipeline.release()
+                }
+
+                val result = ShutdownResult(failures.isEmpty(), failures.toList())
+                val callbacks = synchronized(this) {
+                    shutdownResult = result
+                    shutdownInProgress = false
+                    val copy = pendingCallbacks.toList()
+                    pendingCallbacks.clear()
+                    copy
+                }
+                runCatching { onComplete(result) }
+                callbacks.forEach { callback -> runCatching { callback(result) } }
+            }
+        }
+
+        try {
+            streamPipeline.stopAudio(finishAfterAudio)
+        } catch (_: Exception) {
+            finishAfterAudio(false)
+        }
     }
 
     private fun runStage(

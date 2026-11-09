@@ -31,6 +31,9 @@ class LiveSessionController(
         fun attachScreen(listener: ScreenListener)
         fun detachScreen()
         fun stopRtmp()
+        fun stopAudio(completion: (Boolean) -> Unit) {
+            completion(true)
+        }
         fun stopProjection(): Boolean
         fun releaseRtmp()
     }
@@ -142,6 +145,30 @@ class LiveSessionController(
         return result
     }
 
+    /**
+     * Asynchronous stop path for Android runtimes. Audio capture and mixer
+     * worker teardown completes off-main before RTMP and MediaProjection stop.
+     */
+    fun stopAsync(onComplete: ((LiveSessionLifecycleCoordinator.ShutdownResult) -> Unit)? = null) {
+        val current = teardown ?: run {
+            setState(State.STOPPED)
+            return
+        }
+        if (stopping) return
+        stopping = true
+        setState(State.STOPPING)
+        current.shutdownAsync { result ->
+            setState(if (result.completed) State.STOPPED else State.FAILED)
+            log(
+                if (result.completed) OssLogLevel.INFO else OssLogLevel.ERROR,
+                if (result.completed) "session_stopped" else "session_stop_incomplete",
+                if (result.completed) "LIVE session stopped" else "LIVE cleanup had failed stages",
+                if (result.completed) null else "LIVE_CLEANUP_INCOMPLETE"
+            )
+            runCatching { onComplete?.invoke(result) }
+        }
+    }
+
     private fun updateLiveState() {
         if (rtmpConnected && screenReady && !stopping) {
             setState(State.LIVE)
@@ -168,6 +195,7 @@ class LiveSessionController(
         screenLayer = { target.detachScreen() },
         streamPipeline = object : LiveSessionLifecycleCoordinator.StreamPipeline {
             override fun stop() = target.stopRtmp()
+            override fun stopAudio(completion: (Boolean) -> Unit) = target.stopAudio(completion)
             override fun release() = target.releaseRtmp()
         },
         projectionSession = { target.stopProjection() }
