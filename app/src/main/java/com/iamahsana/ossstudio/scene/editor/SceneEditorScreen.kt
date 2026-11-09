@@ -155,8 +155,8 @@ fun SceneEditorScreen(
                                     onDragStart = { selectedElementId = element.id },
                                     onDrag = { change, amount ->
                                         change.consume()
-                                        dragX = (dragX + amount.x / scale).coerceAtLeast(0f)
-                                        dragY = (dragY + amount.y / scale).coerceAtLeast(0f)
+                                        dragX = (dragX + amount.x / scale).coerceIn(0f, (scene.canvas.width - transform.width).coerceAtLeast(0f))
+                                        dragY = (dragY + amount.y / scale).coerceIn(0f, (scene.canvas.height - transform.height).coerceAtLeast(0f))
                                         val updated = SceneProjectEditor.updateTransform(
                                             latestProject.value,
                                             scene.id,
