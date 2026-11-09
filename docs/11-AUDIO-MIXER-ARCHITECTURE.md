@@ -30,7 +30,7 @@ Pinned encoder dependency: RootEncoder 2.8.1.
 Use:
 - `MicrophoneSource` for mic PCM capture.
 - `InternalAudioSource` for Android 10+ playback capture, subject to MediaProjection and playback-capture policy.
-- `BufferAudioSource` as the single encoder-facing PCM source. Its `setBuffer` API accepts PCM16 data and timestamps, and it emits silence when no data is supplied.
+- `BufferAudioSource` as the single encoder-facing PCM source. RootEncoder 2.8.1 accepts `ByteArray` PCM through `setBuffer`, including a timestamp-in-microseconds overload; it emits silence where no data is supplied. OSS mixer output therefore uses interleaved PCM16 little-endian `ByteArray` buffers to avoid an unnecessary format conversion.
 - RootEncoder's AAC encoder and RTMP transport for encoding and delivery.
 
 Do not use `MixAudioSource` as the main mixer. It combines mic and internal playback before OSS can apply independent channel routing, monitoring, or Song Request policy. It is not part of the default product path and must not introduce a source-mode picker.
@@ -56,7 +56,7 @@ The mixer must not block capture, encoder, GL, or UI threads. Capture callbacks 
 - Saturating accumulation to avoid integer overflow and clipping.
 - Gain and pan are applied per channel before bus summation.
 - Limiter / headroom policy on each bus before output.
-- Fixed-capacity queues and reusable buffers; bounded memory and no per-frame allocation in the hot path.
+- Fixed-capacity SPSC (single-producer/single-consumer) PCM frame queues per capture source, with preallocated slots, timestamp metadata, and drop/oversize counters. Queue-full policy drops the newest frame rather than blocking a capture callback. Reusable mixer/output buffers; bounded memory and no per-frame allocation in the hot path.
 - Metering uses peak and RMS windows; UI receives sampled snapshots off the audio thread.
 
 ## Android platform limits
@@ -76,7 +76,7 @@ MONITOR output is subject to Android audio routing, focus, latency, Bluetooth de
 
 ## Verification gates
 
-1. Unit tests: PCM alignment, gain, pan, mute, solo, routing, saturating sum, silence gaps, late-frame drops, and queue overflow.
+1. Unit tests: PCM16 little-endian decoding/encoding, gain, pan, mute, solo, independent LIVE/MONITOR routing and master gain, saturating sum, peak/RMS meters, bounded SPSC FIFO ordering, timestamps, oversized frames, and queue overflow.
 2. Android tests: automatic channel startup with both sources available; microphone-only availability; internal-only availability; both independently; and denied playback capture. These are test conditions, not user-facing pre-LIVE modes.
 3. Routing tests: Song Request LIVE-only; MONITOR-only source; mute/solo; separate master levels.
 4. Device tests: speaker, wired headset, USB audio, Bluetooth where supported; report latency and OEM restrictions.
