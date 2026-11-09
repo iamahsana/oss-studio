@@ -61,6 +61,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
@@ -375,6 +376,7 @@ fun SceneEditorScreen(
                                 modifier = Modifier
                                     .align(Alignment.BottomEnd)
                                     .size(18.dp)
+                                    .testTag("scene-resize-handle")
                                     .clip(RoundedCornerShape(5.dp))
                                     .background(MaterialTheme.colorScheme.primary)
                                     .pointerInput(element.id, scale, scene.id) {
