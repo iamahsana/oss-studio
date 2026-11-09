@@ -87,6 +87,7 @@ class PcmMixerEngine(
      * Control changes are copied as one immutable configuration snapshot.
      * Call from UI/control code; never from an audio capture callback.
      */
+    @Synchronized
     fun updateChannelConfig(index: Int, config: ChannelMixConfig) {
         val next = configs.copyOf()
         next[index] = config
