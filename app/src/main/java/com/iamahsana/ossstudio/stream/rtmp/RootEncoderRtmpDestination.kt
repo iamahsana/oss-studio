@@ -19,9 +19,9 @@ import java.util.UUID
  * higher-level destination manager and are not implied by this adapter.
  */
 class RootEncoderRtmpDestination(
-    private val destinationId: String,
+    override val destinationId: String,
     private val listener: Listener? = null
-) : ConnectChecker {
+) : RtmpDestinationPort, ConnectChecker {
 
     enum class State {
         DISCONNECTED,
@@ -42,34 +42,34 @@ class RootEncoderRtmpDestination(
     var state: State = State.DISCONNECTED
         private set
 
-    val isStreaming: Boolean
+    override val isStreaming: Boolean
         get() = client.isStreaming
 
-    fun setVideoCodec(codec: VideoCodec) {
+    override fun setVideoCodec(codec: VideoCodec) {
         client.setVideoCodec(codec)
     }
 
-    fun setAudioCodec(codec: AudioCodec) {
+    override fun setAudioCodec(codec: AudioCodec) {
         client.setAudioCodec(codec)
     }
 
-    fun setVideoFormat(width: Int, height: Int, fps: Int) {
+    override fun setVideoFormat(width: Int, height: Int, fps: Int) {
         client.setVideoResolution(width, height)
         client.setFps(fps)
     }
 
-    fun setAudioFormat(sampleRate: Int, stereo: Boolean) {
+    override fun setAudioFormat(sampleRate: Int, stereo: Boolean) {
         client.setAudioInfo(sampleRate, stereo)
     }
 
-    fun setVideoInfo(sps: ByteBuffer, pps: ByteBuffer?, vps: ByteBuffer?) {
+    override fun setVideoInfo(sps: ByteBuffer, pps: ByteBuffer?, vps: ByteBuffer?) {
         client.setVideoInfo(sps, pps, vps)
     }
 
     /**
      * The endpoint is passed only to RootEncoder and is never included in OSS logs.
      */
-    fun connect(endpoint: String) {
+    override fun connect(endpoint: String) {
         operationId = UUID.randomUUID().toString()
         log(
             level = OssLogLevel.INFO,
@@ -79,7 +79,7 @@ class RootEncoderRtmpDestination(
         client.connect(endpoint)
     }
 
-    fun disconnect() {
+    override fun disconnect() {
         log(
             level = OssLogLevel.INFO,
             event = "disconnect_requested",
@@ -93,11 +93,11 @@ class RootEncoderRtmpDestination(
      * into its own destination queue; callers must not mutate the buffer until
      * this method returns.
      */
-    fun sendVideo(buffer: ByteBuffer, info: MediaCodec.BufferInfo) {
+    override fun sendVideo(buffer: ByteBuffer, info: MediaCodec.BufferInfo) {
         client.sendVideo(buffer, info)
     }
 
-    fun sendAudio(buffer: ByteBuffer, info: MediaCodec.BufferInfo) {
+    override fun sendAudio(buffer: ByteBuffer, info: MediaCodec.BufferInfo) {
         client.sendAudio(buffer, info)
     }
 
