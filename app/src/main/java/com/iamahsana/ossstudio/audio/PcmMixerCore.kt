@@ -85,9 +85,7 @@ class PcmMixerCore {
         for (channelIndex in inputs.indices) {
             val input = inputs[channelIndex]
             val config = configs[channelIndex]
-            if (input == null || config.muted ||
-                (liveHasSolo && (!config.solo || !config.routeToLive) &&
-                    monitorHasSolo && (!config.solo || !config.routeToMonitor))) {
+            if (input == null || config.muted) {
                 channelPeak[channelIndex] = 0f
                 channelRms[channelIndex] = 0f
                 continue
@@ -165,7 +163,7 @@ class PcmMixerCore {
 
     private fun toPcm16(value: Float): Short {
         val bounded = value.coerceIn(-1f, 1f)
-        return (bounded * if (bounded < 0f) 32768f else 32767f).toInt()
+        return (bounded * 32768f).toInt()
             .coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
     }
 
