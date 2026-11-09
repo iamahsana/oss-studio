@@ -83,16 +83,31 @@ class LiveSessionLifecycleCoordinator(
         runStage(failures, "screen_layer_detach", "Share Screen layer detached") {
             screenLayer.detach()
         }
-        runStage(failures, "rtmp_stop", "RTMP pipeline stopped") {
-            streamPipeline.stop()
-        }
-        runStage(failures, "projection_stop", "MediaProjection service stopped") {
-            check(projectionSession.stop()) {
-                "MediaProjection owner could not confirm release"
+        if ("screen_layer_detach" in failures) {
+            // The screen layer may still reference the RootEncoder GL chain.
+            // Keep RTMP and MediaProjection alive so the exact layer handles
+            // can be retried before their owning resources are destroyed.
+            failures += "rtmp_stop_skipped"
+            failures += "projection_stop_skipped"
+            failures += "rtmp_release_skipped"
+            logSafely(
+                OssLogLevel.ERROR,
+                "stream_teardown_retained",
+                "RTMP and MediaProjection retained because Share Screen cleanup is incomplete",
+                "STREAM_TEARDOWN_SKIPPED_SCREEN_LAYER_ACTIVE"
+            )
+        } else {
+            runStage(failures, "rtmp_stop", "RTMP pipeline stopped") {
+                streamPipeline.stop()
             }
-        }
-        runStage(failures, "rtmp_release", "RTMP pipeline resources released") {
-            streamPipeline.release()
+            runStage(failures, "projection_stop", "MediaProjection service stopped") {
+                check(projectionSession.stop()) {
+                    "MediaProjection owner could not confirm release"
+                }
+            }
+            runStage(failures, "rtmp_release", "RTMP pipeline resources released") {
+                streamPipeline.release()
+            }
         }
 
         return ShutdownResult(
@@ -145,26 +160,40 @@ class LiveSessionLifecycleCoordinator(
                 }
 
                 if (audioStatus.mixerStopped) {
-                    runStage(failures, "rtmp_stop", "RTMP pipeline stopped") {
-                        streamPipeline.stop()
-                    }
-                    if (audioStatus.captureStopped) {
-                        runStage(failures, "projection_stop", "MediaProjection service stopped") {
-                            check(projectionSession.stop()) {
-                                "MediaProjection owner could not confirm release"
-                            }
-                        }
-                    } else {
+                    if ("screen_layer_detach" in failures) {
+                        // The layer may still be attached to the GL chain.
+                        // Preserve both owners until a later detach retry succeeds.
+                        failures += "rtmp_stop_skipped"
                         failures += "projection_stop_skipped"
+                        failures += "rtmp_release_skipped"
                         logSafely(
                             OssLogLevel.ERROR,
-                            "projection_stop_skipped",
-                            "MediaProjection retained because an audio capture source may still own it",
-                            "PROJECTION_RELEASE_SKIPPED_CAPTURE_ACTIVE"
+                            "stream_teardown_retained",
+                            "RTMP and MediaProjection retained because Share Screen cleanup is incomplete",
+                            "STREAM_TEARDOWN_SKIPPED_SCREEN_LAYER_ACTIVE"
                         )
-                    }
-                    runStage(failures, "rtmp_release", "RTMP pipeline resources released") {
-                        streamPipeline.release()
+                    } else {
+                        runStage(failures, "rtmp_stop", "RTMP pipeline stopped") {
+                            streamPipeline.stop()
+                        }
+                        if (audioStatus.captureStopped) {
+                            runStage(failures, "projection_stop", "MediaProjection service stopped") {
+                                check(projectionSession.stop()) {
+                                    "MediaProjection owner could not confirm release"
+                                }
+                            }
+                        } else {
+                            failures += "projection_stop_skipped"
+                            logSafely(
+                                OssLogLevel.ERROR,
+                                "projection_stop_skipped",
+                                "MediaProjection retained because an audio capture source may still own it",
+                                "PROJECTION_RELEASE_SKIPPED_CAPTURE_ACTIVE"
+                            )
+                        }
+                        runStage(failures, "rtmp_release", "RTMP pipeline resources released") {
+                            streamPipeline.release()
+                        }
                     }
                 } else {
                     // The mixer may still submit PCM into BufferAudioSource and
