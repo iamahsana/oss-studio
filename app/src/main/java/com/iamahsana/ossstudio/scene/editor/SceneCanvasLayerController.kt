@@ -95,17 +95,21 @@ class SceneCanvasLayerController(
         operationId = java.util.UUID.randomUUID().toString()
 
         assetExecutor.execute {
-            val decoded = decodeSceneAssets(project, scene)
+            val result = runCatching { decodeSceneAssets(project, scene) }
             mainHandler.post {
                 if (state != State.LOADING_ASSETS) {
-                    decoded.bitmaps.values.forEach { if (!it.isRecycled) it.recycle() }
+                    result.getOrNull()?.bitmaps?.values?.forEach { if (!it.isRecycled) it.recycle() }
                     return@post
                 }
-                cachedBitmaps = decoded.bitmaps
-                cachedMovies = decoded.movies
-                assetSignature = assetSignature(project, scene)
-                state = State.WAITING_FOR_GL
-                waitForGl()
+                result.onSuccess { decoded ->
+                    cachedBitmaps = decoded.bitmaps
+                    cachedMovies = decoded.movies
+                    assetSignature = assetSignature(project, scene)
+                    state = State.WAITING_FOR_GL
+                    waitForGl()
+                }.onFailure { error ->
+                    fail(error.message ?: "Scene asset decoding failed")
+                }
             }
         }
     }
