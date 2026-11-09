@@ -35,7 +35,6 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -171,25 +170,6 @@ private fun PageContent(page: AppPage, context: Context, activeProject: ScenePro
         if (page == AppPage.HOME) {
             item { ProjectHomeScreen(context, onOpenProject) }
         }
-        if (page == AppPage.EDITOR) {
-            item {
-                Text(
-                    activeProject?.let { "Project: ${it.name}" } ?: "Pilih atau buat project dari Home terlebih dahulu.",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun QuickCard(title: String, modifier: Modifier = Modifier) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(18.dp),
-        color = MaterialTheme.colorScheme.secondaryContainer
-    ) {
-        Text(title, modifier = Modifier.padding(16.dp), style = MaterialTheme.typography.labelLarge)
     }
 }
 
