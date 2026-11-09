@@ -32,7 +32,7 @@ class LiveSessionLifecycleCoordinatorTest {
     }
 
     @Test
-    fun shutdownContinuesAfterStageFailureAndReportsIt() {
+    fun screenLayerFailureRetainsGlOwnersForRetry() {
         val calls = mutableListOf<String>()
         val coordinator = LiveSessionLifecycleCoordinator(
             screenLayer = { calls += "detach"; error("GL unavailable") },
@@ -47,8 +47,12 @@ class LiveSessionLifecycleCoordinatorTest {
         val result = coordinator.shutdown()
 
         assertFalse(result.completed)
-        assertEquals(listOf("screen_layer_detach"), result.failedStages)
-        assertEquals(listOf("detach", "stop", "projection", "release"), calls)
+        assertEquals(
+            listOf("screen_layer_detach", "rtmp_stop_skipped",
+                "projection_stop_skipped", "rtmp_release_skipped"),
+            result.failedStages
+        )
+        assertEquals(listOf("detach"), calls)
     }
 
     @Test
@@ -97,6 +101,38 @@ class LiveSessionLifecycleCoordinatorTest {
         audioCompletion?.invoke(AudioStopStatus(true, true, true))
         assertEquals(listOf("detach", "audio", "rtmp_stop", "projection", "release"), calls)
         assertTrue(result?.completed == true)
+    }
+
+
+    @Test
+    fun asyncScreenLayerFailureRetainsRtmpAndProjectionForRetry() {
+        val calls = mutableListOf<String>()
+        val coordinator = LiveSessionLifecycleCoordinator(
+            screenLayer = { calls += "detach"; error("GL filter still attached") },
+            streamPipeline = object : LiveSessionLifecycleCoordinator.StreamPipeline {
+                override fun stopAudio(completion: (AudioStopStatus) -> Unit) {
+                    calls += "audio"
+                    completion(AudioStopStatus(true, true, true))
+                }
+                override fun stop() { calls += "rtmp_stop" }
+                override fun release() { calls += "release" }
+            },
+            projectionSession = { calls += "projection"; true },
+            diagnosticLog = { _, _, _, _ -> }
+        )
+
+        var result: LiveSessionLifecycleCoordinator.ShutdownResult? = null
+        coordinator.shutdownAsync { result = it }
+
+        assertEquals(listOf("detach", "audio"), calls)
+        assertFalse(result?.completed == true)
+        assertEquals(
+            listOf(
+                "screen_layer_detach", "rtmp_stop_skipped",
+                "projection_stop_skipped", "rtmp_release_skipped"
+            ),
+            result?.failedStages
+        )
     }
 
     @Test
