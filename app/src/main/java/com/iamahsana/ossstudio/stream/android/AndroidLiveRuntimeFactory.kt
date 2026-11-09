@@ -23,8 +23,6 @@ import com.iamahsana.ossstudio.stream.rtmp.RtmpDestinationProfileStore
 import com.pedro.encoder.input.sources.audio.BufferAudioSource
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
-import kotlin.math.max
-import kotlin.math.roundToInt
 
 /**
  * Android adapter joining service-owned MediaProjection, RootEncoder RTMP,
@@ -91,12 +89,10 @@ class AndroidLiveRuntimeFactory(
                 return false
             }
             activeProject = project
-            val maxDimension = max(scene.canvas.width, scene.canvas.height).toFloat()
-            val scale = 1280f / maxDimension
-            fun evenDimension(value: Int): Int = (value.coerceAtLeast(2) / 2) * 2
+            val outputSize = sceneOutputResolution(scene.canvas)
             activeStreamConfig = streamConfig.copy(
-                width = evenDimension((scene.canvas.width * scale).roundToInt()),
-                height = evenDimension((scene.canvas.height * scale).roundToInt())
+                width = outputSize.width,
+                height = outputSize.height
             )
 
             val bufferAudioSource = BufferAudioSource()
