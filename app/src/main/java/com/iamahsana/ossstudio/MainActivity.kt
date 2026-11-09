@@ -9,6 +9,8 @@ import android.content.ServiceConnection
 import android.media.projection.MediaProjectionManager
 import android.os.Bundle
 import android.os.IBinder
+import android.os.Handler
+import android.os.Looper
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -44,6 +46,8 @@ import androidx.core.content.ContextCompat
 import com.iamahsana.ossstudio.scene.source.screen.ShareScreenSessionService
 import com.iamahsana.ossstudio.scene.model.SceneProject
 import com.iamahsana.ossstudio.scene.persistence.ProjectHomeScreen
+import com.iamahsana.ossstudio.scene.persistence.SceneProjectRepository
+import com.iamahsana.ossstudio.scene.persistence.SceneProjectStoreProvider
 import com.iamahsana.ossstudio.scene.editor.SceneEditorScreen
 
 private enum class AppPage(val label: String, val symbol: String) {
@@ -73,9 +77,30 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun OssApp() {
     var selectedPage by rememberSaveable { mutableStateOf(AppPage.HOME.name) }
+    var activeProjectId by rememberSaveable { mutableStateOf<String?>(null) }
     var activeProject by remember { mutableStateOf<SceneProject?>(null) }
     val page = AppPage.valueOf(selectedPage)
     val context = LocalContext.current
+    val projectLoader = remember(context) {
+        SceneProjectRepository(SceneProjectStoreProvider.database(context))
+    }
+    val mainHandler = remember { Handler(Looper.getMainLooper()) }
+    DisposableEffect(projectLoader) {
+        onDispose { projectLoader.close() }
+    }
+    androidx.compose.runtime.LaunchedEffect(activeProjectId) {
+        val projectId = activeProjectId
+        if (projectId != null && activeProject?.id != projectId) {
+            projectLoader.load(projectId) { result ->
+                mainHandler.post {
+                    result.fold(
+                        onSuccess = { activeProject = it },
+                        onFailure = { activeProject = null }
+                    )
+                }
+            }
+        }
+    }
 
     MaterialTheme(colorScheme = lightColorScheme()) {
         Scaffold(
@@ -110,6 +135,7 @@ private fun OssApp() {
                     context = context,
                     activeProject = activeProject,
                     onOpenProject = { project ->
+                        activeProjectId = project.id
                         activeProject = project
                         selectedPage = AppPage.EDITOR.name
                     },
