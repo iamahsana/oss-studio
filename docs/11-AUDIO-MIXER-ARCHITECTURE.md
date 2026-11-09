@@ -76,7 +76,7 @@ MONITOR output is subject to Android audio routing, focus, latency, Bluetooth de
 
 ## Verification gates
 
-1. Unit tests: PCM16 little-endian decoding/encoding, gain, pan, mute, solo, independent LIVE/MONITOR routing and master gain, saturating sum, peak/RMS meters, bounded SPSC FIFO ordering, timestamps, oversized frames, and queue overflow.
+1. Unit tests: PCM16 little-endian decoding/encoding, gain, pan, mute, solo, independent LIVE/MONITOR routing and master gain, saturating sum, peak/RMS meters, bounded SPSC FIFO ordering, timestamps, oversized frames, queue overflow, timestamp alignment, adjacent frames, gaps, late frames, and frames spanning output blocks.
 2. Android tests: automatic channel startup with both sources available; microphone-only availability; internal-only availability; both independently; and denied playback capture. These are test conditions, not user-facing pre-LIVE modes.
 3. Routing tests: Song Request LIVE-only; MONITOR-only source; mute/solo; separate master levels.
 4. Device tests: speaker, wired headset, USB audio, Bluetooth where supported; report latency and OEM restrictions.
