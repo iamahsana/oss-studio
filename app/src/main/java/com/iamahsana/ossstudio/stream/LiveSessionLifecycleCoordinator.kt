@@ -144,25 +144,40 @@ class LiveSessionLifecycleCoordinator(
                     logSafely(OssLogLevel.INFO, "audio_stop_completed", "Audio mixer/capture/monitor teardown completed")
                 }
 
-                runStage(failures, "rtmp_stop", "RTMP pipeline stopped") {
-                    streamPipeline.stop()
-                }
-                runStage(failures, "projection_stop", "MediaProjection service stopped") {
-                    check(projectionSession.stop()) {
-                        "MediaProjection owner could not confirm release"
-                    }
-                }
                 if (audioStatus.mixerStopped) {
+                    runStage(failures, "rtmp_stop", "RTMP pipeline stopped") {
+                        streamPipeline.stop()
+                    }
+                    if (audioStatus.captureStopped) {
+                        runStage(failures, "projection_stop", "MediaProjection service stopped") {
+                            check(projectionSession.stop()) {
+                                "MediaProjection owner could not confirm release"
+                            }
+                        }
+                    } else {
+                        failures += "projection_stop_skipped"
+                        logSafely(
+                            OssLogLevel.ERROR,
+                            "projection_stop_skipped",
+                            "MediaProjection retained because an audio capture source may still own it",
+                            "PROJECTION_RELEASE_SKIPPED_CAPTURE_ACTIVE"
+                        )
+                    }
                     runStage(failures, "rtmp_release", "RTMP pipeline resources released") {
                         streamPipeline.release()
                     }
                 } else {
+                    // The mixer may still submit PCM into BufferAudioSource and
+                    // capture may still be feeding its queues. Keep the entire
+                    // downstream ownership chain alive for a safe retry.
+                    failures += "rtmp_stop_skipped"
+                    failures += "projection_stop_skipped"
                     failures += "rtmp_release_skipped"
                     logSafely(
                         OssLogLevel.ERROR,
-                        "rtmp_release_skipped",
-                        "RootEncoder resources retained because mixer worker may still be writing PCM",
-                        "RTMP_RELEASE_SKIPPED_AUDIO_WORKER_ACTIVE"
+                        "downstream_teardown_skipped",
+                        "RTMP, MediaProjection and encoder resources retained because the mixer worker may still be active",
+                        "DOWNSTREAM_TEARDOWN_SKIPPED_AUDIO_WORKER_ACTIVE"
                     )
                 }
 
