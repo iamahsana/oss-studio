@@ -92,6 +92,7 @@ class ShareScreenLayerController(
 
         val callback = object : MediaProjection.Callback() {
             override fun onStop() {
+                projectionStopCompleted = true
                 log(
                     level = OssLogLevel.WARN,
                     event = "projection_stopped_by_system",
