@@ -34,7 +34,8 @@ class LiveSessionLifecycleCoordinator(
     }
 
     fun interface ProjectionSession {
-        fun stop()
+        /** Returns false when the owner cannot confirm projection release. */
+        fun stop(): Boolean
     }
 
     data class ShutdownResult(
@@ -68,7 +69,9 @@ class LiveSessionLifecycleCoordinator(
             streamPipeline.stop()
         }
         runStage(failures, "projection_stop", "MediaProjection service stopped") {
-            projectionSession.stop()
+            check(projectionSession.stop()) {
+                "MediaProjection owner could not confirm release"
+            }
         }
         runStage(failures, "rtmp_release", "RTMP pipeline resources released") {
             streamPipeline.release()
