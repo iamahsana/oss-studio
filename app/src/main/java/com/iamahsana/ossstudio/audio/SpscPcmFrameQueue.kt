@@ -44,6 +44,9 @@ class SpscPcmFrameQueue(
     private val dropped = AtomicLong(0L)
     private val oversized = AtomicLong(0L)
 
+    val frameBufferCapacityBytes: Int
+        get() = maxFrameBytes
+
     val droppedFrames: Long
         get() = dropped.get()
 
