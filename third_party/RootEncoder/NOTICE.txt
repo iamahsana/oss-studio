@@ -1,0 +1,12 @@
+RootEncoder
+
+Copyright (C) 2024 pedroSG94 and contributors
+Source: https://github.com/pedroSG94/RootEncoder
+Version reviewed: 2.8.1
+License: Apache License 2.0
+License text: LICENSE.txt
+
+OSS currently includes RootEncoder 2.8.1 as a provisional dependency-resolution
+candidate. This attribution is retained for the dependency currently declared
+in the Android app. Runtime integration and production adoption remain subject
+to API, lifecycle, security, device, and performance acceptance tests.
