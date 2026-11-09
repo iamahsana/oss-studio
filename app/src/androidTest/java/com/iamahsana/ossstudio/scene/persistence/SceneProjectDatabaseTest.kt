@@ -10,7 +10,7 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class SceneProjectDatabaseTest {
-    @Test fun saveLoadRecentAndDeleteAreConsistent() {
+    @Test fun saveLoadRecentDeleteAndRecoveryAreConsistent() {
         val db=SceneProjectDatabase(ApplicationProvider.getApplicationContext<Context>())
         val id="scene-db-test"
         try {
@@ -21,8 +21,11 @@ class SceneProjectDatabaseTest {
             db.save(project)
             assertEquals(project,db.get(id))
             assertTrue(db.listRecent().any { it.id==id })
+            db.saveRecovery(project.copy(name="Last known good"),3L)
+            assertEquals("Last known good",db.getRecovery(id)?.name)
             assertTrue(db.delete(id))
             assertNull(db.get(id))
+            assertNull(db.getRecovery(id))
         } finally { db.delete(id);db.close() }
     }
 }
