@@ -9,6 +9,9 @@ import com.iamahsana.ossstudio.audio.AudioMixerControlBus
 import com.iamahsana.ossstudio.logging.OssLogContext
 import com.iamahsana.ossstudio.logging.OssLogLevel
 import com.iamahsana.ossstudio.logging.OssLogger
+import com.iamahsana.ossstudio.scene.editor.SceneCanvasLayerController
+import com.iamahsana.ossstudio.scene.model.SceneProject
+import com.iamahsana.ossstudio.scene.model.SceneSourceType
 import com.iamahsana.ossstudio.scene.source.screen.ShareScreenLayerController
 import com.iamahsana.ossstudio.scene.source.screen.ShareScreenSessionService
 import com.iamahsana.ossstudio.stream.AudioStopStatus
@@ -31,7 +34,8 @@ import java.util.concurrent.atomic.AtomicBoolean
 class AndroidLiveRuntimeFactory(
     context: Context,
     private val projectionService: () -> ShareScreenSessionService?,
-    private val streamConfig: RtmpStreamSession.Config = RtmpStreamSession.Config()
+    private val streamConfig: RtmpStreamSession.Config = RtmpStreamSession.Config(),
+    private val sceneProvider: () -> SceneProject? = { null }
 ) : LiveSessionController.RuntimeFactory {
 
     private val appContext = context.applicationContext
@@ -40,14 +44,16 @@ class AndroidLiveRuntimeFactory(
         return AndroidLiveRuntime(
             appContext = appContext,
             projectionService = projectionService,
-            streamConfig = streamConfig
+            streamConfig = streamConfig,
+            sceneProvider = sceneProvider
         )
     }
 
     private class AndroidLiveRuntime(
         private val appContext: Context,
         private val projectionService: () -> ShareScreenSessionService?,
-        private val streamConfig: RtmpStreamSession.Config
+        private val streamConfig: RtmpStreamSession.Config,
+        private val sceneProvider: () -> SceneProject?
     ) : LiveSessionController.Runtime {
 
         private val mainHandler = Handler(Looper.getMainLooper())
@@ -55,6 +61,7 @@ class AndroidLiveRuntimeFactory(
         private val audioStopRequested = AtomicBoolean(false)
 
         private var screenLayer: ShareScreenLayerController? = null
+        private var sceneCanvasLayer: SceneCanvasLayerController? = null
         private var screenCheck: Runnable? = null
         private var screenCheckAttempts = 0
         private var released = false
@@ -299,48 +306,87 @@ class AndroidLiveRuntimeFactory(
 
         override fun attachScreen(listener: LiveSessionController.ScreenListener) {
             checkMainThread()
+            val project = sceneProvider()
+            if (project == null) {
+                log(OssLogLevel.ERROR, "scene_project_unavailable", "Cannot start LIVE without an active scene project", "SCENE_PROJECT_UNAVAILABLE")
+                listener.onFailure()
+                return
+            }
+            val scene = project.scenes.firstOrNull { it.id == project.activeSceneId }
+                ?: project.scenes.firstOrNull()
+            if (scene == null) {
+                log(OssLogLevel.ERROR, "scene_unavailable", "Active project has no scene", "SCENE_UNAVAILABLE")
+                listener.onFailure()
+                return
+            }
+            val sources = project.sources.associateBy { it.id }
+            val shareElement = scene.elements.firstOrNull { element ->
+                element.visible && sources[element.sourceId]?.let {
+                    it.enabled && it.type == SceneSourceType.SHARE_SCREEN
+                } == true
+            }
+            val glInterface = multiStream?.glInterface()
+                ?: stream?.glInterface()
+                ?: run { listener.onFailure(); return }
+            val overlay = SceneCanvasLayerController(
+                context = appContext,
+                sourceId = "scene-overlay-$runtimeId",
+                glInterface = glInterface
+            )
+            sceneCanvasLayer = overlay
+            val attachOverlay = {
+                overlay.attach(
+                    project = project,
+                    scene = scene,
+                    outputWidth = streamConfig.width,
+                    outputHeight = streamConfig.height,
+                    hasShareScreen = shareElement != null,
+                    onReady = { listener.onReady() },
+                    onFailure = { listener.onFailure() }
+                )
+            }
+
+            if (shareElement == null) {
+                attachOverlay()
+                return
+            }
             val projection = projectionService()?.getActiveProjection()
             if (projection == null) {
-                log(
-                    OssLogLevel.ERROR,
-                    "projection_unavailable",
-                    "Cannot attach Share Screen because the foreground service has no active projection",
-                    "SCREEN_PROJECTION_UNAVAILABLE"
-                )
+                log(OssLogLevel.ERROR, "projection_unavailable", "The active scene contains Share Screen but no MediaProjection is available", "SCREEN_PROJECTION_UNAVAILABLE")
                 listener.onFailure()
                 return
             }
 
+            val transform = shareElement.transform
+            val layer = ShareScreenLayerController(
+                sourceId = shareElement.sourceId,
+                glInterface = glInterface
+            )
+            screenLayer = layer
+            screenCheckAttempts = 0
             try {
-                val layer = ShareScreenLayerController(
-                    sourceId = "share-screen-$runtimeId",
-                    glInterface = multiStream?.glInterface()
-                        ?: checkNotNull(stream) { "RTMP pipeline was not prepared" }.glInterface()
-                )
-                screenLayer = layer
-                screenCheckAttempts = 0
                 layer.attach(
                     mediaProjection = projection,
                     width = streamConfig.width,
                     height = streamConfig.height,
-                    densityDpi = appContext.resources.displayMetrics.densityDpi
+                    densityDpi = appContext.resources.displayMetrics.densityDpi,
+                    scaleX = transform.width / scene.canvas.width.toFloat() * 100f,
+                    scaleY = transform.height / scene.canvas.height.toFloat() * 100f,
+                    positionX = transform.x / scene.canvas.width.toFloat() * 100f,
+                    positionY = transform.y / scene.canvas.height.toFloat() * 100f,
+                    rotationDegrees = transform.rotationDegrees
                 )
-                watchScreenReadiness(layer, listener)
+                watchScreenReadiness(layer, listener, attachOverlay)
             } catch (error: Exception) {
-                log(
-                    OssLogLevel.ERROR,
-                    "screen_attach_exception",
-                    error.message ?: "Share Screen attach failed",
-                    "SCREEN_SOURCE_ATTACH_FAILED",
-                    error
-                )
+                log(OssLogLevel.ERROR, "screen_attach_exception", error.message ?: "Share Screen attach failed", "SCREEN_SOURCE_ATTACH_FAILED", error)
                 listener.onFailure()
             }
         }
 
         private fun watchScreenReadiness(
             layer: ShareScreenLayerController,
-            listener: LiveSessionController.ScreenListener
+            listener: LiveSessionController.ScreenListener,
+            onReady: () -> Unit = { listener.onReady() }
         ) {
             val check = object : Runnable {
                 override fun run() {
@@ -353,7 +399,7 @@ class AndroidLiveRuntimeFactory(
                                 "screen_source_ready",
                                 "Share Screen VirtualDisplay is attached to RootEncoder GL"
                             )
-                            listener.onReady()
+                            onReady()
                         }
                         ShareScreenLayerController.State.FAILED,
                         ShareScreenLayerController.State.STOPPED -> {
@@ -386,8 +432,14 @@ class AndroidLiveRuntimeFactory(
             checkMainThread()
             screenCheck?.let(mainHandler::removeCallbacks)
             screenCheck = null
-            screenLayer?.detach()
-            screenLayer = null
+            sceneCanvasLayer?.let {
+                it.detach()
+                sceneCanvasLayer = null
+            }
+            screenLayer?.let {
+                it.detach()
+                screenLayer = null
+            }
         }
 
         override fun stopRtmp() {
