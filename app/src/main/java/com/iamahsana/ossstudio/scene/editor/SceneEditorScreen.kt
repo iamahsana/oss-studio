@@ -382,10 +382,14 @@ fun SceneEditorScreen(
                                                 transform.height
                                             )
                                             val latest = latestProject.value
+                                            val latestTransform = latest.scenes
+                                                .firstOrNull { it.id == scene.id }
+                                                ?.elements?.firstOrNull { it.id == element.id }?.transform
+                                                ?: transform
                                             val updated = if (element.groupId != null) {
                                                 SceneProjectEditor.translateGroup(
                                                     latest, scene.id, element.groupId,
-                                                    dragX - transform.x, dragY - transform.y,
+                                                    dragX - latestTransform.x, dragY - latestTransform.y,
                                                     System.currentTimeMillis()
                                                 )
                                             } else {
