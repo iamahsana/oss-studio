@@ -5,9 +5,6 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
-import androidx.test.core.app.ApplicationProvider
-import android.content.Context
-import com.iamahsana.ossstudio.scene.persistence.SceneProjectStoreProvider
 import org.junit.Rule
 import org.junit.Test
 
@@ -35,13 +32,6 @@ class MainActivitySmokeTest {
         composeRule.onNodeWithText("Buat").performClick()
         composeRule.onNodeWithText("OSS UI Smoke").assertIsDisplayed()
         composeRule.onNodeWithText("Canvas kosong").assertIsDisplayed()
-    }
-
-    @org.junit.After
-    fun removeSmokeProject() {
-        val context = ApplicationProvider.getApplicationContext<Context>()
-        val database = SceneProjectStoreProvider.database(context)
-        database.listRecent().filter { it.name == "OSS UI Smoke" }.forEach { database.delete(it.id) }
     }
 
 }
