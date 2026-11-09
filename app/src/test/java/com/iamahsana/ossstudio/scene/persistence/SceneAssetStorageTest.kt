@@ -35,6 +35,10 @@ class SceneAssetStorageTest {
         assertSignature("video/mp4", mp4, true)
         assertSignature("image/png", jpeg, false)
         assertSignature("video/mp4", "not a video".toByteArray(), false)
+        assertSignature("image/gif", "GIF8".toByteArray(), false)
+        assertSignature("video/webm", byteArrayOf(0x1A, 0x45, 0xDF.toByte(), 0xA3.toByte()), true)
+        assertSignature("video/quicktime", "0000ftypqt  ".toByteArray(), true)
+        assertSignature("video/3gpp", "0000ftyp3gp6".toByteArray(), true)
     }
 
     private fun assertSignature(mime: String, bytes: ByteArray, expected: Boolean) {
