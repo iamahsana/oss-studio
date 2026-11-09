@@ -36,6 +36,8 @@ data class SceneProject(
     val updatedAtEpochMillis: Long,
     val activeSceneId: String? = null,
     val scenes: List<Scene> = emptyList(),
+    val sources: List<SceneSource> = emptyList(),
+    val assets: List<SceneAsset> = emptyList(),
     val version: Int = CURRENT_VERSION
 ) {
     init {
@@ -46,6 +48,22 @@ data class SceneProject(
         require(version > 0)
         require(scenes.map { it.id }.distinct().size == scenes.size) {
             "Scene IDs must be unique within a project"
+        }
+        require(scenes.all { it.projectId == id }) {
+            "Every scene must belong to this project"
+        }
+        require(sources.map { it.id }.distinct().size == sources.size) {
+            "Source IDs must be unique within a project"
+        }
+        require(assets.map { it.id }.distinct().size == assets.size) {
+            "Asset IDs must be unique within a project"
+        }
+        require(sources.all { source -> source.assetId == null || assets.any { it.id == source.assetId } }) {
+            "Every source asset reference must resolve within this project"
+        }
+        val sourceIds = sources.mapTo(mutableSetOf()) { it.id }
+        require(scenes.all { scene -> scene.elements.all { it.sourceId in sourceIds } }) {
+            "Every scene element must reference a source in this project"
         }
         require(activeSceneId == null || scenes.any { it.id == activeSceneId }) {
             "Active scene must belong to this project"
