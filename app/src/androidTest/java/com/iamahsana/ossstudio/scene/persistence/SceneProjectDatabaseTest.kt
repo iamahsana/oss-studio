@@ -1,6 +1,7 @@
 package com.iamahsana.ossstudio.scene.persistence
 
 import android.content.Context
+import android.database.sqlite.SQLiteDatabase
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.iamahsana.ossstudio.scene.model.*
@@ -28,4 +29,26 @@ class SceneProjectDatabaseTest {
             assertNull(db.getRecovery(id))
         } finally { db.delete(id);db.close() }
     }
+    @Test fun versionOneDatabaseMigratesRecoveryTableWithoutLosingProjects() {
+        val context=ApplicationProvider.getApplicationContext<Context>()
+        context.deleteDatabase("oss_projects.db")
+        val legacy=SQLiteDatabase.openOrCreateDatabase(context.getDatabasePath("oss_projects.db"),null)
+        try {
+            legacy.execSQL("CREATE TABLE projects(id TEXT PRIMARY KEY NOT NULL,name TEXT NOT NULL,updated_at INTEGER NOT NULL,document TEXT NOT NULL)")
+            legacy.execSQL("CREATE INDEX index_projects_updated_at ON projects(updated_at DESC)")
+            legacy.version=1
+        } finally { legacy.close() }
+
+        val db=SceneProjectDatabase(context)
+        try {
+            val project=SceneProject(id="migration-test",name="Migrated",createdAtEpochMillis=1,updatedAtEpochMillis=1)
+            db.saveRecovery(project,2L)
+            assertEquals(project,db.getRecovery(project.id))
+            assertEquals(2,db.readableDatabase.version)
+        } finally {
+            db.close()
+            context.deleteDatabase("oss_projects.db")
+        }
+    }
+
 }
