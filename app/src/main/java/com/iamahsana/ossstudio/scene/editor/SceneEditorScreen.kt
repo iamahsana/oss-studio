@@ -425,6 +425,13 @@ fun SceneEditorScreen(
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedButton(onClick = {
+                                val duplicated = SceneProjectEditor.duplicateElement(
+                                    currentProject, scene.id, selectedElement.id, System.currentTimeMillis()
+                                )
+                                selectedElementId = duplicated.scenes.first { it.id == scene.id }.elements.last().id
+                                applyProject(duplicated)
+                            }) { Text("Duplikat") }
+                            OutlinedButton(onClick = {
                                 applyProject(SceneProjectEditor.setElementLocked(
                                     currentProject, scene.id, selectedElement.id, !selectedElement.locked, System.currentTimeMillis()
                                 ))
