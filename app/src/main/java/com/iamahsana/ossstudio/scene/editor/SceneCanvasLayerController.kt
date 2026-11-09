@@ -24,6 +24,7 @@ import com.pedro.encoder.input.gl.render.filters.`object`.SurfaceFilterRender
 import com.pedro.library.view.GlStreamInterface
 import java.io.File
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Composites static scene elements into a transparent GL surface above Share Screen.
@@ -44,6 +45,8 @@ class SceneCanvasLayerController(
     private var outputSurface: Surface? = null
     private var cachedBitmaps: Map<String, Bitmap> = emptyMap()
     private var cachedMovies: Map<String, Movie> = emptyMap()
+    private var assetSignature: String = ""
+    private val assetGeneration = AtomicLong(0L)
     private val gifStartTime = SystemClock.uptimeMillis()
     private val gifFrameRunnable = Runnable { outputSurface?.let { drawFrame(it) } }
     private var project: SceneProject? = null
@@ -94,6 +97,7 @@ class SceneCanvasLayerController(
                 }
                 cachedBitmaps = decoded.bitmaps
                 cachedMovies = decoded.movies
+                assetSignature = assetSignature(project)
                 state = State.WAITING_FOR_GL
                 waitForGl()
             }
@@ -204,7 +208,37 @@ class SceneCanvasLayerController(
         this.project = project
         this.scene = scene
         val surface = outputSurface ?: error("Scene canvas surface is unavailable")
-        drawFrame(surface)
+        val nextSignature = assetSignature(project)
+        if (nextSignature == assetSignature) {
+            drawFrame(surface)
+            return
+        }
+        val generation = assetGeneration.incrementAndGet()
+        assetExecutor.execute {
+            val decoded = decodeSceneAssets(project)
+            mainHandler.post {
+                if (state != State.READY || generation != assetGeneration.get()) {
+                    decoded.bitmaps.values.forEach { if (!it.isRecycled) it.recycle() }
+                    return@post
+                }
+                cachedBitmaps.values.forEach { if (!it.isRecycled) it.recycle() }
+                cachedBitmaps = decoded.bitmaps
+                cachedMovies = decoded.movies
+                assetSignature = nextSignature
+                drawFrame(surface)
+            }
+        }
+    }
+
+    private fun assetSignature(project: SceneProject): String {
+        val assets = project.assets.associateBy { it.id }
+        return project.sources
+            .filter { it.type in setOf(SceneSourceType.IMAGE, SceneSourceType.GIF, SceneSourceType.VIDEO) }
+            .sortedBy { it.id }
+            .joinToString("|") { source ->
+                val asset = source.assetId?.let(assets::get)
+                "${source.id}:${source.type}:${source.assetId}:${asset?.sha256}:${asset?.relativePath}"
+            }
     }
 
     private fun drawFrame(surface: Surface) {
@@ -382,6 +416,7 @@ class SceneCanvasLayerController(
         checkMainThread()
         glCheck?.let(mainHandler::removeCallbacks)
         glCheck = null
+        assetGeneration.incrementAndGet()
         mainHandler.removeCallbacks(gifFrameRunnable)
         var failed = false
         val oldFilter = filter
@@ -399,6 +434,7 @@ class SceneCanvasLayerController(
             cachedBitmaps.values.forEach { if (!it.isRecycled) it.recycle() }
             cachedBitmaps = emptyMap()
             cachedMovies = emptyMap()
+            assetSignature = ""
             project = null
             scene = null
             state = State.STOPPED
