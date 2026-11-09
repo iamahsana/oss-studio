@@ -30,7 +30,7 @@ object AudioMixerSettingsStore {
         )
     }
 
-    fun save(context: Context, settings: AudioMixerSettings) {
+    fun persist(context: Context, settings: AudioMixerSettings) {
         val editor = context.applicationContext
             .getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
             .edit()
@@ -39,6 +39,10 @@ object AudioMixerSettingsStore {
         editor.putFloat(LIVE_MASTER, settings.liveMasterGain)
         editor.putFloat(MONITOR_MASTER, settings.monitorMasterGain)
         editor.apply()
+    }
+
+    fun save(context: Context, settings: AudioMixerSettings) {
+        persist(context, settings)
         AudioMixerControlBus.apply(settings)
     }
 
@@ -79,6 +83,15 @@ object AudioMixerControlBus {
     fun detach(session: OssAudioMixerSession) {
         if (activeSession === session) activeSession = null
     }
+
+    val state: OssAudioMixerSession.State?
+        get() = activeSession?.state
+
+    val captureSnapshot: RootEncoderAudioCaptureSession.Snapshot?
+        get() = activeSession?.captureSnapshot
+
+    fun channelPeak(index: Int): Float =
+        activeSession?.let { runCatching { it.channelPeak(index) }.getOrDefault(0f) } ?: 0f
 
     fun apply(settings: AudioMixerSettings) {
         activeSession?.let { session ->
