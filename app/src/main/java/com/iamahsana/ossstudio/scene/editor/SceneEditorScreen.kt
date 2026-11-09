@@ -258,6 +258,39 @@ fun SceneEditorScreen(
                                 applyProject(SceneProjectEditor.updateSource(currentProject, updatedSource, System.currentTimeMillis()))
                             }) { Text("Terapkan teks") }
                         }
+                        val orderedElements = scene.elements.sortedBy { it.zIndex }
+                        val layerIndex = orderedElements.indexOfFirst { it.id == selectedElement.id }
+                        Row(
+                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedButton(enabled = layerIndex > 0, onClick = {
+                                applyProject(SceneProjectEditor.moveElement(
+                                    currentProject, scene.id, selectedElement.id, layerIndex - 1, System.currentTimeMillis()
+                                ))
+                            }) { Text("Turunkan layer") }
+                            OutlinedButton(enabled = layerIndex in 0 until orderedElements.lastIndex, onClick = {
+                                applyProject(SceneProjectEditor.moveElement(
+                                    currentProject, scene.id, selectedElement.id, layerIndex + 1, System.currentTimeMillis()
+                                ))
+                            }) { Text("Naikkan layer") }
+                            OutlinedButton(onClick = {
+                                val transform = selectedElement.transform
+                                applyProject(SceneProjectEditor.updateTransform(
+                                    currentProject, scene.id, selectedElement.id,
+                                    transform.copy(width = (transform.width + 40f).coerceAtMost(scene.canvas.width - transform.x)),
+                                    System.currentTimeMillis()
+                                ))
+                            }) { Text("Lebarkan") }
+                            OutlinedButton(onClick = {
+                                val transform = selectedElement.transform
+                                applyProject(SceneProjectEditor.updateTransform(
+                                    currentProject, scene.id, selectedElement.id,
+                                    transform.copy(height = (transform.height + 40f).coerceAtMost(scene.canvas.height - transform.y)),
+                                    System.currentTimeMillis()
+                                ))
+                            }) { Text("Tinggikan") }
+                        }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedButton(onClick = {
                                 applyProject(SceneProjectEditor.setElementVisibility(
