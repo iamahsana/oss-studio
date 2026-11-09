@@ -14,7 +14,7 @@ class SceneOutputResolutionTest {
     }
 
     @Test fun customCanvasPreservesAspectRatioAndUsesEvenDimensions() {
-        val output = sceneOutputResolution(CanvasSize(1000, 1000))
+        val output = sceneOutputResolution(CanvasSize(1000, 1000, com.iamahsana.ossstudio.scene.model.CanvasOrientation.LANDSCAPE))
         assertEquals(SceneOutputResolution(1280, 1280), output)
         assertEquals(0, output.width % 2)
         assertEquals(0, output.height % 2)
