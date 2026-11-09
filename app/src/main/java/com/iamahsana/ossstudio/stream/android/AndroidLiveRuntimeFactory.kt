@@ -262,11 +262,18 @@ class AndroidLiveRuntimeFactory(
                 return
             }
             val currentSources = current.sources.associateBy { it.id }
-            val hadShareScreen = currentScene?.elements?.any { element ->
+            val currentShareElement = currentScene?.elements?.firstOrNull { element ->
                 element.visible && currentSources[element.sourceId]?.let {
                     it.enabled && it.type == SceneSourceType.SHARE_SCREEN
                 } == true
-            } == true
+            }
+            val hadShareScreen = currentShareElement != null
+            if (hadShareScreen && shareElement != null &&
+                currentShareElement?.zIndex != shareElement.zIndex
+            ) {
+                log(OssLogLevel.WARN, "live_share_layer_order_ignored", "Changing Share Screen z-order requires restarting LIVE")
+                return
+            }
             if (hadShareScreen != (shareElement != null)) {
                 log(OssLogLevel.WARN, "live_share_screen_toggle_ignored", "Adding or removing Share Screen requires restarting LIVE")
                 return
