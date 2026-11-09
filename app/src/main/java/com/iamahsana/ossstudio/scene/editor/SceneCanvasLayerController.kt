@@ -341,7 +341,7 @@ class SceneCanvasLayerController(
         lines.forEach { line ->
             if (outlineColor != null && outlineWidth > 0f) {
                 val outline = Paint(paint).apply {
-                    color = outlineColor
+                    this.color = outlineColor
                     style = Paint.Style.STROKE
                     strokeWidth = outlineWidth.coerceAtMost(24f)
                 }
