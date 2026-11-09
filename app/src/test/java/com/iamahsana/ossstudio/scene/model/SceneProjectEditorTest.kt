@@ -229,6 +229,20 @@ class SceneProjectEditorTest {
     }
 
     @Test
+    fun translatingGroupMovesAllUnlockedMembersAndKeepsCanvasBounds() {
+        val original = project()
+        val grouped = SceneProjectEditor.groupElements(
+            original, "scene", setOf("first", "second"), 30L, groupId = "pair"
+        )
+        val moved = SceneProjectEditor.translateGroup(grouped, "scene", "pair", 45f, 30f, 40L)
+        assertEquals(45f, moved.scenes.single().elements.first().transform.x)
+        assertEquals(45f, moved.scenes.single().elements.last().transform.x)
+        assertEquals(30f, moved.scenes.single().elements.first().transform.y)
+        assertEquals(30f, moved.scenes.single().elements.last().transform.y)
+        assertEquals(0f, grouped.scenes.single().elements.first().transform.x)
+    }
+
+    @Test
     fun ungroupingClearsOnlyTheRequestedGroup() {
         val original = project()
         val grouped = SceneProjectEditor.groupElements(

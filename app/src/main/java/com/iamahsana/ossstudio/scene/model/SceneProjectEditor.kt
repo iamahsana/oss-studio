@@ -302,6 +302,45 @@ object SceneProjectEditor {
         )
     }
 
+    fun translateGroup(
+        project: SceneProject,
+        sceneId: String,
+        groupId: String,
+        deltaX: Float,
+        deltaY: Float,
+        nowEpochMillis: Long
+    ): SceneProject {
+        require(groupId.isNotBlank()) { "Group ID must not be blank" }
+        require(deltaX.isFinite() && deltaY.isFinite()) { "Group movement must be finite" }
+        val sceneIndex = project.scenes.indexOfFirst { it.id == sceneId }
+        require(sceneIndex >= 0) { "Scene does not exist" }
+        val scene = project.scenes[sceneIndex]
+        val members = scene.elements.filter { it.groupId == groupId }
+        require(members.isNotEmpty()) { "Group does not exist" }
+        val movable = members.filterNot { it.locked }
+        if (movable.isEmpty()) return project
+        val minDeltaX = movable.maxOf { -it.transform.x }
+        val maxDeltaX = movable.minOf { scene.canvas.width - it.transform.x - it.transform.width }
+        val minDeltaY = movable.maxOf { -it.transform.y }
+        val maxDeltaY = movable.minOf { scene.canvas.height - it.transform.y - it.transform.height }
+        val boundedX = deltaX.coerceIn(minDeltaX, maxDeltaX)
+        val boundedY = deltaY.coerceIn(minDeltaY, maxDeltaY)
+        val updatedScene = scene.copy(
+            elements = scene.elements.map { element ->
+                if (element.groupId == groupId && !element.locked) {
+                    element.copy(transform = element.transform.copy(
+                        x = element.transform.x + boundedX,
+                        y = element.transform.y + boundedY
+                    ))
+                } else element
+            }
+        )
+        return project.copy(
+            scenes = project.scenes.toMutableList().also { it[sceneIndex] = updatedScene },
+            updatedAtEpochMillis = nextTimestamp(project, nowEpochMillis)
+        )
+    }
+
     fun ungroupElements(
         project: SceneProject,
         sceneId: String,

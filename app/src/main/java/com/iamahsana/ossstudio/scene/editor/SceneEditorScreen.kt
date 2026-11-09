@@ -381,14 +381,21 @@ fun SceneEditorScreen(
                                                 scene.canvas.height.toFloat(),
                                                 transform.height
                                             )
-                                            val updated = SceneProjectEditor.updateTransform(
-                                                latestProject.value,
-                                                scene.id,
-                                                element.id,
-                                                transform.copy(x = dragX, y = dragY),
-                                                System.currentTimeMillis()
-                                            )
-                                            applyProject(updated, "move:${element.id}")
+                                            val latest = latestProject.value
+                                            val updated = if (element.groupId != null) {
+                                                SceneProjectEditor.translateGroup(
+                                                    latest, scene.id, element.groupId,
+                                                    dragX - transform.x, dragY - transform.y,
+                                                    System.currentTimeMillis()
+                                                )
+                                            } else {
+                                                SceneProjectEditor.updateTransform(
+                                                    latest, scene.id, element.id,
+                                                    transform.copy(x = dragX, y = dragY),
+                                                    System.currentTimeMillis()
+                                                )
+                                            }
+                                            applyProject(updated, "move:" + (element.groupId ?: element.id))
                                         }
                                     )
                                 }
