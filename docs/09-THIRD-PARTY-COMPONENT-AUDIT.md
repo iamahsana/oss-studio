@@ -179,3 +179,15 @@ Further source inspection confirmed these exact integration details:
 This confirms the proposed MediaProjection-to-filter API path at source level, but not runtime correctness. The controller is now connected to the Activity permission/session UI and foreground service; **it is still not connected to a real running RootEncoder encoder session**, so there is no verified Share Screen LIVE output yet. This supersedes the earlier statement that the service and controller were not wired into the UI. The earlier statement that they were not runtime-validated remains true.
 
 **Next acceptance gate:** implement one stream-session owner around an upstream RootEncoder stream, prepare video, obtain its shared GL interface, attach/detach the Share Screen layer using the authorized service projection, and validate the actual encoded output. Explicitly test asynchronous filter add/remove, filter teardown during stream stop, permission denial/revoke, Android 14+ foreground-service rules, rotation/resize, and device lifecycle. Do not start a parallel GL renderer.
+
+
+### MultiStream lifecycle risk found during source review (2.8.1)
+
+A closer read of the tagged MultiStream.stopStream(type, index) implementation identifies a lifecycle concern that must be reproduced before adoption:
+
+- It initializes shouldStopEncoder = true, then checks every protocol client's isStreaming flag **before** disconnecting the requested client.
+- If the requested destination is the only active client, that destination is still streaming during the check, so shouldStopEncoder becomes false. The method then disconnects the client but does not call super.stopStream().
+- The inspected method contains no post-disconnect check that stops the shared encoder when the final client becomes inactive. Unless another upstream lifecycle path reliably stops it, this can leave the shared encoder/source pipeline running after the last destination becomes inactive.
+- The implementation is explicitly marked experimental. This source-level concern reinforces that OSS must not adopt it as-is or describe it as production-ready.
+
+Required disposable test before any adoption: start one RTMP destination, stop that final destination, and assert that StreamBase.isStreaming becomes false and GL/source/encoder resources stop; repeat with two destinations, stopping one and then the last. Also verify restart after stop. If the single-destination stop fails as predicted, record the exact upstream issue/version and prefer the stable single-destination RtmpStream adapter or a narrowly scoped OSS lifecycle wrapper; do not patch/fork upstream until a runtime reproduction confirms the defect.
