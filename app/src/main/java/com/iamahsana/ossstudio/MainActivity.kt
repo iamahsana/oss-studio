@@ -1,5 +1,6 @@
 package com.iamahsana.ossstudio
 
+import android.Manifest
 import android.app.Activity
 import android.content.ComponentName
 import android.content.Context
@@ -144,6 +145,9 @@ private fun PageContent(page: AppPage, context: Context) {
         if (page == AppPage.EDITOR) {
             item { ShareScreenPermissionPanel(context) }
         }
+        if (page == AppPage.MIXER) {
+            item { AudioPermissionPanel(context) }
+        }
         if (page == AppPage.HOME) {
             item {
                 Text("Quick access", style = MaterialTheme.typography.titleMedium)
@@ -189,6 +193,70 @@ private fun pageDescription(page: AppPage): String = when (page) {
     AppPage.SETTINGS -> "Manage your account, appearance, storage, and preferences."
 }
 
+
+@Composable
+private fun AudioPermissionPanel(context: Context) {
+    var permissionGranted by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.RECORD_AUDIO
+            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        )
+    }
+    var statusMessage by remember {
+        mutableStateOf(
+            if (permissionGranted) {
+                "Izin mikrofon aktif. OSS dapat memulai kanal mic dan mencoba internal audio capture."
+            } else {
+                "Izin mikrofon belum diberikan. Mic dan Android playback capture belum dapat dimulai."
+            }
+        )
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        permissionGranted = granted
+        statusMessage = if (granted) {
+            "Izin audio aktif. OSS akan memulai semua kanal yang didukung secara otomatis."
+        } else {
+            "Izin audio ditolak. Kanal mic dan internal audio tetap tidak tersedia."
+        }
+        OssLogger.log(
+            level = if (granted) OssLogLevel.INFO else OssLogLevel.WARN,
+            subsystem = "OSS/Permissions/Audio",
+            component = "AudioPermissionPanel",
+            event = if (granted) "record_audio_granted" else "record_audio_denied",
+            errorCode = if (granted) null else "AUDIO_RECORD_PERMISSION_DENIED",
+            message = statusMessage
+        )
+    }
+
+    Surface(
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text("Audio capture permission", style = MaterialTheme.typography.titleLarge)
+            Text(statusMessage, style = MaterialTheme.typography.bodyMedium)
+            Text(
+                "Satu izin ini dipakai oleh kanal mikrofon dan Android playback capture. OSS tidak meminta pilihan Mic/Internal sebelum LIVE; semua kanal yang diizinkan akan dimulai otomatis. Beberapa aplikasi dapat melarang playback capture melalui kebijakan Android.",
+                style = MaterialTheme.typography.bodySmall
+            )
+            androidx.compose.material3.Button(
+                enabled = !permissionGranted,
+                onClick = { permissionLauncher.launch(Manifest.permission.RECORD_AUDIO) }
+            ) {
+                Text(if (permissionGranted) "Izin aktif" else "Izinkan audio")
+            }
+        }
+    }
+}
 
 @Composable
 private fun ShareScreenPermissionPanel(context: Context) {
@@ -279,7 +347,7 @@ private fun ShareScreenPermissionPanel(context: Context) {
             Text("Share Screen", style = MaterialTheme.typography.titleLarge)
             Text(statusMessage, style = MaterialTheme.typography.bodyMedium)
             Text(
-                "Tahap ini menguji izin Android dan masa hidup layanan. Layer Share Screen belum dikirim ke LIVE sampai pipeline encoder dan scene GL selesai diintegrasikan.",
+                "Panel ini mengaktifkan izin proyeksi Android yang dipakai Share Screen dan internal audio capture. Sesi proyeksi akan digunakan saat LIVE dimulai.",
                 style = MaterialTheme.typography.bodySmall
             )
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
