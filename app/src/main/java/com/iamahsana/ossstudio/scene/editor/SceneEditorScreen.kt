@@ -12,6 +12,7 @@ import java.io.File
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -60,6 +61,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalDensity
@@ -99,6 +101,9 @@ fun SceneEditorScreen(
     val history = remember(project.id) { SceneProjectHistory(project) }
     var historyVersion by remember(project.id) { mutableStateOf(0) }
     var showCanvasSettings by remember(project.id) { mutableStateOf(false) }
+    var snapEnabled by remember(project.id) { mutableStateOf(true) }
+    var gridVisible by remember(project.id) { mutableStateOf(true) }
+    var safeAreaVisible by remember(project.id) { mutableStateOf(true) }
     val repository = remember(project.id) {
         SceneProjectRepository(SceneProjectStoreProvider.database(context))
     }
@@ -266,6 +271,24 @@ fun SceneEditorScreen(
                     Text("Pengaturan canvas")
                 }
             }
+            Row(
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Snap grid")
+                    Switch(checked = snapEnabled, onCheckedChange = { snapEnabled = it })
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Grid")
+                    Switch(checked = gridVisible, onCheckedChange = { gridVisible = it })
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Safe area")
+                    Switch(checked = safeAreaVisible, onCheckedChange = { safeAreaVisible = it })
+                }
+            }
             Text(scene.name, style = MaterialTheme.typography.titleMedium)
             BoxWithConstraints(
                 modifier = Modifier.fillMaxWidth()
@@ -276,6 +299,37 @@ fun SceneEditorScreen(
             ) {
                 val scale = constraints.maxWidth.toFloat() / scene.canvas.width.toFloat()
                 val density = LocalDensity.current
+                if (gridVisible || safeAreaVisible) {
+                    Canvas(modifier = Modifier.matchParentSize()) {
+                        if (gridVisible) {
+                            val step = size.width / 10f
+                            for (index in 1..9) {
+                                val position = step * index
+                                drawLine(
+                                    color = Color.White.copy(alpha = 0.12f),
+                                    start = Offset(position, 0f),
+                                    end = Offset(position, size.height),
+                                    strokeWidth = 1.dp.toPx()
+                                )
+                                drawLine(
+                                    color = Color.White.copy(alpha = 0.12f),
+                                    start = Offset(0f, position * size.height / size.width),
+                                    end = Offset(size.width, position * size.height / size.width),
+                                    strokeWidth = 1.dp.toPx()
+                                )
+                            }
+                        }
+                        if (safeAreaVisible) {
+                            val insetX = size.width * 0.05f
+                            val insetY = size.height * 0.05f
+                            val guide = Color(0xFFFFD54F).copy(alpha = 0.7f)
+                            drawLine(guide, Offset(insetX, insetY), Offset(size.width - insetX, insetY), 1.5.dp.toPx())
+                            drawLine(guide, Offset(insetX, size.height - insetY), Offset(size.width - insetX, size.height - insetY), 1.5.dp.toPx())
+                            drawLine(guide, Offset(insetX, insetY), Offset(insetX, size.height - insetY), 1.5.dp.toPx())
+                            drawLine(guide, Offset(size.width - insetX, insetY), Offset(size.width - insetX, size.height - insetY), 1.5.dp.toPx())
+                        }
+                    }
+                }
                 scene.elements.sortedBy { it.zIndex }.filter { it.visible }.forEach { element ->
                     val source = currentProject.sources.firstOrNull { it.id == element.sourceId } ?: return@forEach
                     val transform = element.transform
@@ -308,8 +362,18 @@ fun SceneEditorScreen(
                                         onDragCancel = { history.endGroup(); historyVersion++ },
                                         onDrag = { change, amount ->
                                             change.consume()
-                                            dragX = (dragX + amount.x / scale).coerceIn(0f, (scene.canvas.width - transform.width).coerceAtLeast(0f))
-                                            dragY = (dragY + amount.y / scale).coerceIn(0f, (scene.canvas.height - transform.height).coerceAtLeast(0f))
+                                            val nextX = dragX + amount.x / scale
+                                            val nextY = dragY + amount.y / scale
+                                            dragX = clampSceneCoordinate(
+                                                if (snapEnabled) snapSceneCoordinate(nextX) else nextX,
+                                                scene.canvas.width.toFloat(),
+                                                transform.width
+                                            )
+                                            dragY = clampSceneCoordinate(
+                                                if (snapEnabled) snapSceneCoordinate(nextY) else nextY,
+                                                scene.canvas.height.toFloat(),
+                                                transform.height
+                                            )
                                             val updated = SceneProjectEditor.updateTransform(
                                                 latestProject.value,
                                                 scene.id,
