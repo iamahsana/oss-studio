@@ -144,6 +144,7 @@ object SceneAssetStorage {
     }
 
     fun deleteAsset(context: Context, asset: SceneAsset): Boolean {
+        require(asset.relativePath.startsWith("scene_assets/")) { "Only managed scene assets may be deleted" }
         val root = context.filesDir.canonicalFile
         val target = File(root, asset.relativePath).canonicalFile
         require(target.path.startsWith(root.path + File.separator)) { "Asset path escaped app storage" }
