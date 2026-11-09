@@ -1,7 +1,6 @@
 package com.iamahsana.ossstudio
 
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onAllNodesWithText
@@ -73,7 +72,7 @@ class MainActivitySmokeTest {
             composeRule.onAllNodesWithText(uniqueName).fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithText(uniqueName).assertIsDisplayed()
-        composeRule.onNodeWithText("private-smoke-key").assertDoesNotExist()
+        composeRule.onAllNodesWithText("private-smoke-key").fetchSemanticsNodes().let { nodes -> assert(nodes.isEmpty()) }
     }
 
     @After
