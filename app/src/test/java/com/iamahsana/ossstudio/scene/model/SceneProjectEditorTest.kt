@@ -116,4 +116,14 @@ class SceneProjectEditorTest {
         assertTrue(updated.scenes.single().elements.last().visible)
     }
 
+    @Test
+    fun canvasPresetChangeUpdatesOnlyTargetScene() {
+        val original = project()
+        val updated = SceneProjectEditor.updateSceneCanvas(
+            original, "scene", CanvasSize.DEFAULT_LANDSCAPE, 30L
+        )
+        assertEquals(CanvasSize.DEFAULT_LANDSCAPE, updated.scenes.single().canvas)
+        assertEquals(CanvasSize.DEFAULT_PORTRAIT, original.scenes.single().canvas)
+    }
+
 }
