@@ -3,6 +3,7 @@ package com.iamahsana.ossstudio.scene.persistence
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.iamahsana.ossstudio.scene.model.*
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -16,4 +17,21 @@ class SceneProjectJsonCodecTest {
         val p=SceneProject("project","Round trip",100,200,"main",listOf(scene),listOf(source),listOf(asset))
         assertEquals(p,SceneProjectJsonCodec.decode(SceneProjectJsonCodec.encode(p)))
     }
+    @Test fun rejectsUnsupportedDocumentSchemaBeforeDecoding() {
+        val project=SceneProject(id="schema",name="Schema",createdAtEpochMillis=1,updatedAtEpochMillis=1)
+        val encoded=SceneProjectJsonCodec.encode(project).replace("\"schemaVersion\":1","\"schemaVersion\":99")
+        assertThrows(IllegalArgumentException::class.java) {
+            SceneProjectJsonCodec.decode(encoded)
+        }
+    }
+
+    @Test fun rejectsBrokenElementSourceReferences() {
+        val project=SceneProject(id="refs",name="References",createdAtEpochMillis=1,updatedAtEpochMillis=1,
+            scenes=listOf(Scene(id="main",projectId="refs",name="Main",
+                elements=listOf(SceneElement(id="element",sourceId="missing",zIndex=0)))))
+        assertThrows(IllegalArgumentException::class.java) {
+            SceneProjectJsonCodec.decode(SceneProjectJsonCodec.encode(project))
+        }
+    }
+
 }
