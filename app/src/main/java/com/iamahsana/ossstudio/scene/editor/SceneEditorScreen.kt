@@ -465,7 +465,7 @@ private fun SceneAssetImage(
     isGif: Boolean = false
 ) {
     if (isGif) {
-        SceneAnimatedGif(filePath)
+        SceneAnimatedGif(filePath, contentDescription)
         return
     }
     val bitmap = produceState<Bitmap?>(initialValue = null, key1 = filePath) {
@@ -517,7 +517,7 @@ private fun decodeVideoPreview(path: String): Bitmap? {
 }
 
 @Composable
-private fun SceneAnimatedGif(filePath: String) {
+private fun SceneAnimatedGif(filePath: String, contentDescription: String) {
     val context = LocalContext.current
     val drawable = produceState<Drawable?>(initialValue = null, key1 = filePath) {
         value = withContext(Dispatchers.IO) {
@@ -537,6 +537,7 @@ private fun SceneAnimatedGif(filePath: String) {
             factory = {
                 ImageView(it).apply {
                     scaleType = ImageView.ScaleType.CENTER_CROP
+                    this.contentDescription = contentDescription
                     setImageDrawable(drawable)
                 }
             },
