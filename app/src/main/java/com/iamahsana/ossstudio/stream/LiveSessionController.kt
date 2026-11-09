@@ -161,6 +161,7 @@ class LiveSessionController(
         setState(State.STOPPING)
         current.shutdownAsync { result ->
             cleanupIncomplete = !result.completed
+            stopping = false
             setState(if (result.completed) State.STOPPED else State.FAILED)
             log(
                 if (result.completed) OssLogLevel.INFO else OssLogLevel.ERROR,
@@ -193,6 +194,7 @@ class LiveSessionController(
         }
         current.shutdownAsync { result ->
             cleanupIncomplete = !result.completed
+            stopping = false
             if (!result.completed) {
                 log(
                     OssLogLevel.ERROR,

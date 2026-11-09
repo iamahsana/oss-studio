@@ -125,6 +125,45 @@ class LiveSessionLifecycleCoordinatorTest {
     }
 
     @Test
+    fun asyncShutdownCanRetryAfterAudioWorkerCleanupFailure() {
+        val calls = mutableListOf<String>()
+        var attempt = 0
+        val coordinator = LiveSessionLifecycleCoordinator(
+            screenLayer = { calls += "detach" },
+            streamPipeline = object : LiveSessionLifecycleCoordinator.StreamPipeline {
+                override fun stopAudio(completion: (AudioStopStatus) -> Unit) {
+                    attempt++
+                    calls += "audio_$attempt"
+                    completion(
+                        if (attempt == 1) AudioStopStatus(false, false, false)
+                        else AudioStopStatus(true, true, true)
+                    )
+                }
+                override fun stop() { calls += "rtmp_stop" }
+                override fun release() { calls += "release" }
+            },
+            projectionSession = { calls += "projection"; true },
+            diagnosticLog = { _, _, _, _ -> }
+        )
+
+        var first: LiveSessionLifecycleCoordinator.ShutdownResult? = null
+        var second: LiveSessionLifecycleCoordinator.ShutdownResult? = null
+        coordinator.shutdownAsync { first = it }
+        assertFalse(first?.completed == true)
+        assertFalse(calls.contains("release"))
+
+        coordinator.shutdownAsync { second = it }
+        assertTrue(second?.completed == true)
+        assertEquals(
+            listOf(
+                "detach", "audio_1", "rtmp_stop", "projection",
+                "detach", "audio_2", "rtmp_stop", "projection", "release"
+            ),
+            calls
+        )
+    }
+
+    @Test
     fun diagnosticSinkFailureNeverInterruptsCleanup() {
         val calls = mutableListOf<String>()
         val coordinator = LiveSessionLifecycleCoordinator(

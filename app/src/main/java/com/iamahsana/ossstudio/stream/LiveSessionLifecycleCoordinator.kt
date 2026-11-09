@@ -98,7 +98,11 @@ class LiveSessionLifecycleCoordinator(
         return ShutdownResult(
             completed = failures.isEmpty(),
             failedStages = failures.toList()
-        ).also { shutdownResult = it }
+        ).also { result ->
+            // A failed cleanup is not terminal: a later shutdown call must be
+            // able to retry stages whose owners retained their resources.
+            if (result.completed) shutdownResult = result
+        }
     }
 
     /**
@@ -164,7 +168,9 @@ class LiveSessionLifecycleCoordinator(
 
                 val result = ShutdownResult(failures.isEmpty(), failures.toList())
                 val callbacks = synchronized(this) {
-                    shutdownResult = result
+                    // Cache only success. On failure, the caller may retry;
+                    // owners retain handles for unfinished cleanup.
+                    if (result.completed) shutdownResult = result
                     shutdownInProgress = false
                     val copy = pendingCallbacks.toList()
                     pendingCallbacks.clear()

@@ -16,6 +16,8 @@ class LiveSessionControllerTest {
         var screenListener: LiveSessionController.ScreenListener? = null
         var prepareResult = true
         var projectionStopResult = true
+        var failFirstAudioStop = false
+        var audioStopAttempts = 0
 
         override fun prepare(): Boolean {
             calls += "prepare"
@@ -34,6 +36,18 @@ class LiveSessionControllerTest {
 
         override fun detachScreen() { calls += "detach_screen" }
         override fun stopRtmp() { calls += "stop_rtmp" }
+        override fun stopAudio(completion: (com.iamahsana.ossstudio.stream.AudioStopStatus) -> Unit) {
+            audioStopAttempts++
+            calls += "stop_audio_$audioStopAttempts"
+            val failed = failFirstAudioStop && audioStopAttempts == 1
+            completion(
+                com.iamahsana.ossstudio.stream.AudioStopStatus(
+                    mixerStopped = !failed,
+                    captureStopped = !failed,
+                    monitorStopped = !failed
+                )
+            )
+        }
         override fun stopProjection(): Boolean {
             calls += "stop_projection"
             return projectionStopResult
@@ -133,6 +147,27 @@ class LiveSessionControllerTest {
         assertEquals(LiveSessionController.State.FAILED, controller.state)
         assertTrue(controller.start("rtmp://stream.example/live/key"))
         assertEquals(listOf("prepare", "start_rtmp", "attach_screen"), fake.calls)
+    }
+
+    @Test
+    fun incompleteAudioCleanupCanBeRetriedWithoutStartingNewSession() {
+        val fake = FakeRuntime().apply { failFirstAudioStop = true }
+        val controller = LiveSessionController(object : LiveSessionController.RuntimeFactory {
+            override fun create() = fake
+        })
+        assertTrue(controller.start("rtmp://stream.example/live/key"))
+
+        var first: LiveSessionLifecycleCoordinator.ShutdownResult? = null
+        controller.stopAsync { first = it }
+        assertFalse(first?.completed == true)
+        assertEquals(LiveSessionController.State.FAILED, controller.state)
+        assertFalse(runCatching { controller.start("rtmp://stream.example/live/other") }.isSuccess)
+
+        var second: LiveSessionLifecycleCoordinator.ShutdownResult? = null
+        controller.stopAsync { second = it }
+        assertTrue(second?.completed == true)
+        assertEquals(LiveSessionController.State.STOPPED, controller.state)
+        assertEquals(2, fake.audioStopAttempts)
     }
 
     @Test
