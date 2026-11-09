@@ -10,21 +10,17 @@ import com.iamahsana.ossstudio.scene.source.screen.ShareScreenLayerController
 import com.iamahsana.ossstudio.scene.source.screen.ShareScreenSessionService
 import com.iamahsana.ossstudio.stream.LiveSessionController
 import com.iamahsana.ossstudio.stream.rtmp.RtmpStreamSession
-import com.pedro.encoder.input.sources.audio.NoAudioSource
 import java.util.UUID
 
 /**
  * Android adapter joining the service-owned MediaProjection, RootEncoder RTMP
  * pipeline, and Share Screen GL layer.
  *
- * Video-only operation is deliberately disabled by default. It must be
- * explicitly enabled by a future Studio UI choice until the OSS audio mixer
- * is connected to RootEncoder.
+ * LIVE always uses the OSS mixer. No pre-LIVE audio source mode is exposed.
  */
 class AndroidLiveRuntimeFactory(
     context: Context,
     private val projectionService: () -> ShareScreenSessionService?,
-    private val allowVideoOnly: Boolean = false,
     private val streamConfig: RtmpStreamSession.Config = RtmpStreamSession.Config()
 ) : LiveSessionController.RuntimeFactory {
 
@@ -34,7 +30,6 @@ class AndroidLiveRuntimeFactory(
         return AndroidLiveRuntime(
             appContext = appContext,
             projectionService = projectionService,
-            allowVideoOnly = allowVideoOnly,
             streamConfig = streamConfig
         )
     }
@@ -42,7 +37,6 @@ class AndroidLiveRuntimeFactory(
     private class AndroidLiveRuntime(
         private val appContext: Context,
         private val projectionService: () -> ShareScreenSessionService?,
-        private val allowVideoOnly: Boolean,
         private val streamConfig: RtmpStreamSession.Config
     ) : LiveSessionController.Runtime {
 
@@ -60,22 +54,13 @@ class AndroidLiveRuntimeFactory(
 
         override fun prepare(): Boolean {
             checkMainThread()
-            val audioSource = if (allowVideoOnly) {
-                log(
-                    OssLogLevel.WARN,
-                    "video_only_mode_selected",
-                    "Explicit video-only mode selected; no audio will be sent"
-                )
-                NoAudioSource()
-            } else {
-                log(
-                    OssLogLevel.ERROR,
-                    "audio_mixer_not_ready",
-                    "LIVE blocked: independent-channel OSS mixer and LIVE/MONITOR routing are not integrated yet",
-                    "LIVE_AUDIO_MIXER_NOT_READY"
-                )
-                return false
-            }
+            log(
+                OssLogLevel.ERROR,
+                "audio_mixer_not_ready",
+                "LIVE blocked: OSS mixer channels and LIVE/MONITOR routing are not integrated yet",
+                "LIVE_AUDIO_MIXER_NOT_READY"
+            )
+            return false
 
             val createdStream = RtmpStreamSession(
                 context = appContext,
