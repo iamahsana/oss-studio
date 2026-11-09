@@ -62,38 +62,6 @@ class AndroidLiveRuntimeFactory(
             )
             return false
 
-            val createdStream = RtmpStreamSession(
-                context = appContext,
-                listener = RtmpStreamSession.Listener { state, _ ->
-                    when (state) {
-                        RtmpStreamSession.State.LIVE -> dispatchMain {
-                            if (!streamConnectedReported && !released) {
-                                streamConnectedReported = true
-                                streamListener?.onConnected()
-                            }
-                        }
-                        RtmpStreamSession.State.FAILED -> dispatchMain {
-                            if (!streamFailureReported && !released) {
-                                streamFailureReported = true
-                                streamListener?.onFailure()
-                            }
-                        }
-                        else -> Unit
-                    }
-                },
-                audioSource = audioSource
-            )
-            stream = createdStream
-            val prepared = createdStream.prepare(streamConfig)
-            if (!prepared) {
-                log(
-                    OssLogLevel.ERROR,
-                    "stream_prepare_failed",
-                    "RootEncoder could not prepare the configured audio/video pipeline",
-                    "LIVE_PIPELINE_PREPARE_FAILED"
-                )
-            }
-            return prepared
         }
 
         override fun startRtmp(
