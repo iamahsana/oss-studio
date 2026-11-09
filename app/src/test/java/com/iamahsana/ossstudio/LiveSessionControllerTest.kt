@@ -18,6 +18,8 @@ class LiveSessionControllerTest {
         var projectionStopResult = true
         var failFirstAudioStop = false
         var audioStopAttempts = 0
+        var deferAudioStop = false
+        var pendingAudioCompletion: ((com.iamahsana.ossstudio.stream.AudioStopStatus) -> Unit)? = null
 
         override fun prepare(): Boolean {
             calls += "prepare"
@@ -40,13 +42,20 @@ class LiveSessionControllerTest {
             audioStopAttempts++
             calls += "stop_audio_$audioStopAttempts"
             val failed = failFirstAudioStop && audioStopAttempts == 1
-            completion(
-                com.iamahsana.ossstudio.stream.AudioStopStatus(
-                    mixerStopped = !failed,
-                    captureStopped = !failed,
-                    monitorStopped = !failed
-                )
+            val status = com.iamahsana.ossstudio.stream.AudioStopStatus(
+                mixerStopped = !failed,
+                captureStopped = !failed,
+                monitorStopped = !failed
             )
+            if (deferAudioStop) pendingAudioCompletion = completion
+            else completion(status)
+        }
+
+        fun completePendingAudioStop() {
+            pendingAudioCompletion?.invoke(
+                com.iamahsana.ossstudio.stream.AudioStopStatus(true, true, true)
+            )
+            pendingAudioCompletion = null
         }
         override fun stopProjection(): Boolean {
             calls += "stop_projection"
@@ -168,6 +177,29 @@ class LiveSessionControllerTest {
         assertTrue(second?.completed == true)
         assertEquals(LiveSessionController.State.STOPPED, controller.state)
         assertEquals(2, fake.audioStopAttempts)
+    }
+
+
+    @Test
+    fun concurrentStopRequestsAllReceiveTheSameCompletion() {
+        val fake = FakeRuntime().apply { deferAudioStop = true }
+        val controller = LiveSessionController(object : LiveSessionController.RuntimeFactory {
+            override fun create() = fake
+        })
+        assertTrue(controller.start("rtmp://stream.example/live/key"))
+
+        val results = mutableListOf<LiveSessionLifecycleCoordinator.ShutdownResult>()
+        controller.stopAsync { results += it }
+        controller.stopAsync { results += it }
+
+        assertTrue(results.isEmpty())
+        assertEquals(1, fake.audioStopAttempts)
+
+        fake.completePendingAudioStop()
+
+        assertEquals(2, results.size)
+        assertTrue(results.all { it.completed })
+        assertEquals(LiveSessionController.State.STOPPED, controller.state)
     }
 
     @Test
