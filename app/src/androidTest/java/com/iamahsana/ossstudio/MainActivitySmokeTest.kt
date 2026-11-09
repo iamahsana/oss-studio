@@ -49,13 +49,14 @@ class MainActivitySmokeTest {
         composeRule.waitUntil(5_000) {
             composeRule.onAllNodesWithText("Canvas kosong").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithText("Canvas kosong").assertIsDisplayed()
+        composeRule.onNodeWithText("Canvas kosong").performScrollTo().assertIsDisplayed()
     }
 
     @Test
     fun mixerPageShowsIndependentCoreChannelsAndBuses() {
         composeRule.onNodeWithText("Mixer").performClick()
-        composeRule.onNodeWithText("Mixer utama").assertIsDisplayed()
+        composeRule.waitUntil(5000) { composeRule.onAllNodesWithText("Mixer utama").fetchSemanticsNodes().isNotEmpty() }
+        composeRule.onNodeWithText("Mixer utama").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("LIVE master: 100%").assertIsDisplayed()
         composeRule.onNodeWithText("MONITOR master: 100%").assertIsDisplayed()
         composeRule.onNodeWithText("Microphone").performScrollTo().assertIsDisplayed()
@@ -93,6 +94,7 @@ class MainActivitySmokeTest {
     @Test
     fun studioShowsLiveSessionControls() {
         composeRule.onNodeWithText("Studio").performClick()
+        composeRule.waitUntil(5000) { composeRule.onAllNodesWithText("LIVE control").fetchSemanticsNodes().isNotEmpty() }
         composeRule.onNodeWithText("LIVE control").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Mulai LIVE").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Hentikan").performScrollTo().assertIsDisplayed()
