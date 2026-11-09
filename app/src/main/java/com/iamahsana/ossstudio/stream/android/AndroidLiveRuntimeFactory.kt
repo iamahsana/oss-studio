@@ -80,7 +80,7 @@ class AndroidLiveRuntimeFactory(
 
         override fun prepare(): Boolean {
             checkMainThread()
-            val project = activeProject
+            val project = sceneProvider()
             if (project == null) {
                 log(OssLogLevel.ERROR, "scene_project_unavailable", "No active scene project was supplied to the LIVE runtime", "SCENE_PROJECT_UNAVAILABLE")
                 return false
@@ -327,7 +327,7 @@ class AndroidLiveRuntimeFactory(
 
         override fun attachScreen(listener: LiveSessionController.ScreenListener) {
             checkMainThread()
-            val project = sceneProvider()
+            val project = activeProject
             if (project == null) {
                 log(OssLogLevel.ERROR, "scene_project_unavailable", "Cannot start LIVE without an active scene project", "SCENE_PROJECT_UNAVAILABLE")
                 listener.onFailure()
