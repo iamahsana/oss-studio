@@ -49,3 +49,33 @@ Do not add a library merely because it has a useful feature list. Verify that it
 - Glide: https://github.com/bumptech/glide
 - Oboe: https://github.com/google/oboe
 - Android high-performance audio guidance: https://developer.android.com/ndk/guides/audio
+
+
+## RootEncoder 2.8.1 source audit (2026-11-09)
+
+**Verified upstream facts**
+
+- The exact 2.8.1 release tag is published and its repository metadata identifies Apache License 2.0; the tagged source contains `LICENSE.txt`. OSS must still ship the required license text and notices for the exact components actually distributed.
+- The upstream README documents RTMP including RTMPS, screen streaming, file sources, real-time image/GIF/text, and OpenGL filters. The 2.8.1 release notes additionally describe buffer pooling, PCM `BufferAudioSource`, codec options, and source/lifecycle fixes.
+- `StreamBase` owns one video encoder, one audio encoder, one `GlStreamInterface`, one current video source, and one current audio source. Its public `startStream(endPoint)` starts one endpoint through its implementation. The audited API does **not** expose a built-in multi-RTMP destination manager.
+- `GlStreamInterface` exposes ordered filter operations (add, insert, replace, remove, clear). `MainRender` chains those filters in order, feeding each filter the previous filter's texture. Object filter classes include image, GIF, text, and surface-backed objects. `BaseObjectFilterRender` exposes a sprite with scale, translation, rotation, and alpha. This is a credible base for composited overlay layers.
+- RootEncoder has a `ScreenSource` that consumes a MediaProjection and a `MixAudioSource` that combines microphone and internal playback into one audio source. Those are useful existing implementations, but the latter is a single combined source, not the independently controllable multi-channel LIVE/MONITOR mixer OSS requires.
+- The GL pipeline's preview is optional and distinct from stream output. OSS can avoid attaching/starting a preview surface for the initial product while using the output render path.
+
+**Architecture implications / unresolved gaps**
+
+1. **Scene editor:** RootEncoder is more capable than a simple filter list: its ordered object filters and sprite transforms can support image/GIF/text overlays and potentially surface-backed video overlays. However, the audited public abstraction is still a source plus an ordered GL filter chain, not a ready-made scene graph with stable object IDs, editable per-layer state, grouping, snap/grid, safe areas, undo/redo, or a PixelLab-like editor. OSS should persist a scene graph and translate it to upstream filter operations; do not fork or rewrite the GL renderer unless a measured gap requires it.
+2. **Independent video layers:** `SurfaceFilterRender` appears to provide the upstream surface-backed object path for a player/decoder surface. Validate multiple simultaneous surface objects, lifecycle, alpha/transform, frame pacing, and decoder load in an integration spike before promising unlimited video layers.
+3. **Cropping and masks:** A general crop filter exists, but it may crop the full pipeline rather than an individual object. Per-layer source crop, clipping, masks, and aspect-fit/fill semantics remain unproven. Keep these as explicit acceptance tests.
+4. **Share Screen:** `ScreenSource` is a video-source implementation, meaning it takes the source slot in the standard `StreamBase` setup. OSS needs Share Screen to be a selectable scene layer alongside other objects. Validate whether a MediaProjection surface can instead be connected as an object layer without creating a second renderer; if not, determine whether upstream extension points allow this cleanly.
+5. **Audio:** `MixAudioSource` combines mic and internal audio into one output. It does not by itself provide independent channel strips, per-source faders/mutes, separate LIVE and MONITOR buses, or app-by-app playback capture. OSS must not present those capabilities as already solved.
+6. **Multi-RTMP:** A single `StreamBase` has one stream endpoint/client path. Running one full `StreamBase` per destination risks duplicate encoding and source processing. Before adopting a design, inspect encoder callbacks/client APIs for a safe encoded-frame fan-out, or prototype a shared encoder feeding independent RTMP clients. Each destination still needs isolated queues, reconnects, and errors. Do not claim multi-destination support until tested.
+7. **No-preview policy:** Do not attach a preview surface in the initial OSS path. Verify the GL output pipeline starts from stream setup alone, and confirm that no preview rendering or duplicate output encoding is created.
+
+**Provisional decision**
+
+Keep RootEncoder 2.8.1 as the leading encoding/GL-composition candidate, not yet as an approved dependency. Its Apache-2.0 license and source features are verified. The scene-object chain is promising, but multi-RTMP fan-out, Share Screen as a coexisting layer, independent video surfaces, per-object crop/masks, and independent audio buses remain blockers for final architecture approval.
+
+## CI baseline correction
+
+The first failing build reached Android dependency metadata validation and failed because `android.useAndroidX` was not enabled. Added root `gradle.properties` with `android.useAndroidX=true` and standard Gradle JVM settings. The follow-up CI run is pending; do not treat the baseline as green until unit tests and APK assembly both complete.
