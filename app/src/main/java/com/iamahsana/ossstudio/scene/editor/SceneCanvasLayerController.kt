@@ -262,9 +262,15 @@ class SceneCanvasLayerController(
         } finally {
             surface.unlockCanvasAndPost(canvas)
         }
-        if (cachedMovies.isNotEmpty() && state == State.READY) {
+        val hasVisibleGif = currentScene.elements.any { element ->
+            element.visible && sources[element.sourceId]?.type == SceneSourceType.GIF &&
+                cachedMovies.containsKey(element.sourceId)
+        }
+        if (hasVisibleGif && state == State.READY) {
             mainHandler.removeCallbacks(gifFrameRunnable)
             mainHandler.postDelayed(gifFrameRunnable, GIF_FRAME_INTERVAL_MS)
+        } else {
+            mainHandler.removeCallbacks(gifFrameRunnable)
         }
     }
 
