@@ -26,11 +26,21 @@ class SceneProjectJsonCodecTest {
     }
 
     @Test fun rejectsBrokenElementSourceReferences() {
-        val project=SceneProject(id="refs",name="References",createdAtEpochMillis=1,updatedAtEpochMillis=1,
-            scenes=listOf(Scene(id="main",projectId="refs",name="Main",
-                elements=listOf(SceneElement(id="element",sourceId="missing",zIndex=0)))))
         assertThrows(IllegalArgumentException::class.java) {
-            SceneProjectJsonCodec.decode(SceneProjectJsonCodec.encode(project))
+            SceneProject(
+                id = "refs",
+                name = "References",
+                createdAtEpochMillis = 1,
+                updatedAtEpochMillis = 1,
+                scenes = listOf(
+                    Scene(
+                        id = "main",
+                        projectId = "refs",
+                        name = "Main",
+                        elements = listOf(SceneElement(id = "element", sourceId = "missing", zIndex = 0))
+                    )
+                )
+            )
         }
     }
 
