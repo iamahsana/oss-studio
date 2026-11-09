@@ -8,14 +8,14 @@ import java.util.UUID
 /**
  * Enforces teardown ordering across scene capture, RTMP, and MediaProjection.
  *
- * Ownership is deliberately split:
- * - [ScreenLayer] owns the VirtualDisplay and GL filter.
- * - [StreamPipeline] owns RootEncoder codecs, GL worker, and network session.
- * - [ProjectionSession] is the foreground service boundary that ends the
+ * Ownership:
+ * - ScreenLayer owns the VirtualDisplay and GL filter.
+ * - StreamPipeline owns RootEncoder codecs, GL worker, and network session.
+ * - ProjectionSession is the foreground-service boundary that ends the
  *   Android MediaProjection token.
  *
- * Every cleanup stage is attempted even if an earlier stage fails. This keeps
- * a failed GL detach from preventing RTMP shutdown or projection revocation.
+ * Every cleanup stage is attempted even if an earlier stage fails. Logging is
+ * deliberately best-effort and must never interrupt resource teardown.
  * Call from the main thread.
  */
 class LiveSessionLifecycleCoordinator(
@@ -43,10 +43,12 @@ class LiveSessionLifecycleCoordinator(
     )
 
     private val operationId = UUID.randomUUID().toString()
+
+    @Volatile
     private var shutdownResult: ShutdownResult? = null
 
     /**
-     * Teardown order is intentional:
+     * Teardown order:
      * 1. Release VirtualDisplay and enqueue GL layer removal.
      * 2. Stop RTMP and its GL/encoder workers.
      * 3. Revoke MediaProjection through its owning foreground service.
@@ -58,74 +60,68 @@ class LiveSessionLifecycleCoordinator(
     fun shutdown(): ShutdownResult {
         shutdownResult?.let { return it }
         val failures = mutableListOf<String>()
-        activeFailures = failures
 
-        runStage("screen_layer_detach", "Share Screen layer detached") {
+        runStage(failures, "screen_layer_detach", "Share Screen layer detached") {
             screenLayer.detach()
         }
-        runStage("rtmp_stop", "RTMP pipeline stopped") {
+        runStage(failures, "rtmp_stop", "RTMP pipeline stopped") {
             streamPipeline.stop()
         }
-        runStage("projection_stop", "MediaProjection service stopped") {
+        runStage(failures, "projection_stop", "MediaProjection service stopped") {
             projectionSession.stop()
         }
-        runStage("rtmp_release", "RTMP pipeline resources released") {
+        runStage(failures, "rtmp_release", "RTMP pipeline resources released") {
             streamPipeline.release()
         }
 
-        activeFailures = null
         return ShutdownResult(
             completed = failures.isEmpty(),
             failedStages = failures.toList()
         ).also { shutdownResult = it }
     }
 
-    private inline fun runStage(
+    private fun runStage(
+        failures: MutableList<String>,
         stage: String,
         successMessage: String,
         action: () -> Unit
     ) {
         try {
             action()
-            log(OssLogLevel.INFO, "${stage}_completed", successMessage)
+            logSafely(OssLogLevel.INFO, "${stage}_completed", successMessage)
         } catch (error: Exception) {
-            // Continue teardown: later owners still need their release signal.
-            log(
+            // Record first; even a broken diagnostics sink must not block later cleanup.
+            failures += stage
+            logSafely(
                 OssLogLevel.ERROR,
                 "${stage}_failed",
                 error.message ?: "Lifecycle teardown stage failed",
                 "${stage.uppercase()}_FAILED"
             )
-            failuresSink(stage)
         }
     }
 
-    // Isolated hook keeps stage failure collection local to a shutdown call.
-    private var activeFailures: MutableList<String>? = null
-
-    private fun failuresSink(stage: String) {
-        activeFailures?.add(stage)
-    }
-
-    private fun log(
+    private fun logSafely(
         level: OssLogLevel,
         event: String,
         message: String,
         errorCode: String? = null
     ) {
-        val sink = diagnosticLog
-        if (sink != null) {
-            sink(level, event, message, errorCode)
-        } else {
-            OssLogger.log(
-                level = level,
-                subsystem = "OSS/Stream/Core",
-                component = "LiveSessionLifecycleCoordinator",
-                event = event,
-                message = message,
-                errorCode = errorCode,
-                context = OssLogContext(operationId = operationId)
-            )
+        runCatching {
+            val sink = diagnosticLog
+            if (sink != null) {
+                sink(level, event, message, errorCode)
+            } else {
+                OssLogger.log(
+                    level = level,
+                    subsystem = "OSS/Stream/Core",
+                    component = "LiveSessionLifecycleCoordinator",
+                    event = event,
+                    message = message,
+                    errorCode = errorCode,
+                    context = OssLogContext(operationId = operationId)
+                )
+            }
         }
     }
 }
