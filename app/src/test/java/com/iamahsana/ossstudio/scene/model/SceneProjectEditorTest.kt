@@ -134,4 +134,33 @@ class SceneProjectEditorTest {
         assertFalse(original.scenes.single().elements.first().locked)
     }
 
+    @Test
+    fun removingSourceRetainsSharedAssetUntilLastReferenceIsRemoved() {
+        val asset = SceneAsset("asset", "media/shared.png", "image/png", 10L, "a".repeat(64))
+        val first = SceneSource("first", SceneSourceType.IMAGE, "First", assetId = asset.id)
+        val second = SceneSource("second", SceneSourceType.IMAGE, "Second", assetId = asset.id)
+        val scene = Scene(
+            id = "shared-scene",
+            projectId = "shared-project",
+            name = "Main",
+            elements = listOf(
+                SceneElement("first-element", "first", zIndex = 0),
+                SceneElement("second-element", "second", zIndex = 1)
+            )
+        )
+        val project = SceneProject(
+            id = "shared-project",
+            name = "Shared",
+            createdAtEpochMillis = 1L,
+            updatedAtEpochMillis = 1L,
+            scenes = listOf(scene),
+            sources = listOf(first, second),
+            assets = listOf(asset)
+        )
+        val afterFirst = SceneProjectEditor.removeSource(project, "first", 2L)
+        assertEquals(listOf(asset), afterFirst.assets)
+        val afterLast = SceneProjectEditor.removeSource(afterFirst, "second", 3L)
+        assertTrue(afterLast.assets.isEmpty())
+    }
+
 }
