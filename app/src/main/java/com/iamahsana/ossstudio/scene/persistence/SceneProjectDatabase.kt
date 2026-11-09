@@ -6,8 +6,14 @@ import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import com.iamahsana.ossstudio.scene.model.SceneProject
 
-class SceneProjectDatabase(context: Context) : SQLiteOpenHelper(context.applicationContext, "oss_projects.db", null, DATABASE_VERSION) {
-    companion object { private const val DATABASE_VERSION = 2 }
+class SceneProjectDatabase(
+    context: Context,
+    databaseName: String = DATABASE_NAME
+) : SQLiteOpenHelper(context.applicationContext, databaseName, null, DATABASE_VERSION) {
+    companion object {
+        private const val DATABASE_NAME = "oss_projects.db"
+        private const val DATABASE_VERSION = 2
+    }
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL("CREATE TABLE projects(id TEXT PRIMARY KEY NOT NULL,name TEXT NOT NULL,updated_at INTEGER NOT NULL,document TEXT NOT NULL)")
         db.execSQL("CREATE INDEX index_projects_updated_at ON projects(updated_at DESC)")
