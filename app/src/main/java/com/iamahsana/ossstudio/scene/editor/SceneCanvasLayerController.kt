@@ -112,7 +112,7 @@ class SceneCanvasLayerController(
         project.sources.filter {
             it.enabled && it.type in setOf(SceneSourceType.IMAGE, SceneSourceType.GIF, SceneSourceType.VIDEO)
         }.forEach { source ->
-            val asset = assets[source.assetId] ?: return@forEach
+            val asset = source.assetId?.let(assets::get) ?: return@forEach
             val file = File(appContext.filesDir, asset.relativePath)
             if (source.type == SceneSourceType.GIF) {
                 val movie = runCatching { Movie.decodeFile(file.absolutePath) }.getOrNull()
