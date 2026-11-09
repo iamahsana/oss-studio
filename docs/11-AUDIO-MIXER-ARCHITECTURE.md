@@ -70,6 +70,13 @@ The Mixer page exposes the two currently implemented core capture strips: Microp
 
 Changes are applied to the active `OssAudioMixerSession` through `AudioMixerControlBus` without restarting the capture graph. A new LIVE session loads the saved configuration before capture starts. Source availability remains runtime-derived: microphone permission controls mic availability, while internal capture additionally requires an active MediaProjection and source-app playback-capture policy permission. The UI does not offer a pre-LIVE mic/internal mode picker.
 
+
+## Multi-destination RTMP transport
+
+When more than one enabled RTMP profile exists, `AndroidLiveRuntimeFactory` selects `MultiRtmpStreamSession` backed by RootEncoder `MultiStream`. The shared encoder feeds independent RTMP clients; destination callbacks are tracked separately. A connected destination keeps the overall session LIVE even if another destination fails. The shared encoder is released only after all destination clients have been disconnected.
+
+RootEncoder documents `MultiStream` as experimental. The adapter therefore treats connection state and cleanup as explicit per-destination operations, but production readiness still requires device/network testing with multiple real ingest endpoints. One enabled profile continues to use the established single-destination `RtmpStreamSession`.
+
 ## Android platform limits
 
 Android playback capture is not universal. The user must grant MediaProjection and the source application must allow playback capture; protected, policy-restricted, or excluded usages may be silent. Per-application selection is only exposed when Android APIs and source metadata genuinely allow it. Never claim arbitrary app isolation on devices where the platform does not provide it.
