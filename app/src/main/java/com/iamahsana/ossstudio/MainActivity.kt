@@ -296,8 +296,12 @@ private fun ShareScreenPermissionPanel(context: Context) {
                 androidx.compose.material3.OutlinedButton(
                     enabled = projectionActive,
                     onClick = {
-                        ShareScreenSessionService.stop(context)
-                        statusMessage = "Perintah penghentian dikirim."
+                        val stopped = binder?.stopProjectionSession() == true
+                        statusMessage = if (stopped) {
+                            "Share Screen sudah dihentikan dan resource proyeksi dilepas."
+                        } else {
+                            "Belum bisa memastikan proyeksi berhenti. Periksa koneksi layanan."
+                        }
                     }
                 ) {
                     Text("Hentikan")
