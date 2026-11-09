@@ -268,7 +268,13 @@ class AndroidLiveRuntimeFactory(
                 return
             }
             activeProject = updated
-            sceneCanvasLayer?.update(updated, scene)
+            sceneCanvasLayer?.let { layer ->
+                if (layer.state == SceneCanvasLayerController.State.READY) {
+                    layer.update(updated, scene)
+                } else {
+                    log(OssLogLevel.INFO, "live_scene_update_deferred", "Scene update will apply when compositor becomes ready")
+                }
+            }
             shareElement?.let { element ->
                 val transform = element.transform
                 screenLayer?.updateTransform(
@@ -410,7 +416,17 @@ class AndroidLiveRuntimeFactory(
                     outputWidth = activeStreamConfig.width,
                     outputHeight = activeStreamConfig.height,
                     hasShareScreen = shareElement != null,
-                    onReady = { listener.onReady() },
+                    onReady = {
+                        val latestProject = activeProject
+                        val latestScene = latestProject?.scenes?.firstOrNull { it.id == latestProject.activeSceneId }
+                            ?: latestProject?.scenes?.firstOrNull()
+                        if (latestProject != null && latestProject.id == project.id &&
+                            latestScene != null && latestProject !== project
+                        ) {
+                            overlay.update(latestProject, latestScene)
+                        }
+                        listener.onReady()
+                    },
                     onFailure = { listener.onFailure() }
                 )
             }
