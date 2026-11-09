@@ -136,13 +136,21 @@ object OssLogger {
 }
 
 internal object OssLogRedactor {
+    private val authorizationHeader = Regex(
+        "(?i)(authorization\\s*[=:]\\s*)(?:bearer\\s+)?([^&\\s,;]+)"
+    )
     private val sensitiveAssignment = Regex(
-        "(?i)(stream[_-]?key|access[_-]?token|refresh[_-]?token|token|password|passwd|authorization|cookie|secret)(\\s*[=:]\\s*)([^&\\s,;]+)"
+        "(?i)(stream[_-]?key|access[_-]?token|refresh[_-]?token|token|password|passwd|cookie|secret)(\\s*[=:]\\s*)([^&\\s,;]+)"
     )
     private val rtmpUrl = Regex("(?i)rtmps?://[^\\s\\\"'<>]+")
 
     fun redact(value: String): String {
-        return rtmpUrl.replace(value, "[REDACTED_STREAM_URL]")
-            .let { sensitiveAssignment.replace(it) { match -> match.groupValues[1] + match.groupValues[2] + "[REDACTED]" } }
+        val withoutStreamUrls = rtmpUrl.replace(value, "[REDACTED_STREAM_URL]")
+        val withoutAuthorization = authorizationHeader.replace(withoutStreamUrls) {
+            it.groupValues[1] + "[REDACTED]"
+        }
+        return sensitiveAssignment.replace(withoutAuthorization) {
+            it.groupValues[1] + it.groupValues[2] + "[REDACTED]"
+        }
     }
 }
