@@ -13,7 +13,7 @@ class PcmMixerCoreTest {
         liveGain: Float = 1f,
         monitorGain: Float = 1f
     ): Result {
-        val frames = inputs.firstOrNull()?.size?.div(4) ?: 0
+        val frames = inputs.firstOrNull { it != null }?.size?.div(4) ?: 1
         val live = ByteArray(frames * 4)
         val monitor = ByteArray(frames * 4)
         val channelPeak = FloatArray(inputs.size)
