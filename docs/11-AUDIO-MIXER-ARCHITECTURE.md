@@ -8,7 +8,7 @@ OSS Core owns a digital mixer with independent source channels and two independe
 - LIVE: PCM mixed for the streaming encoder.
 - MONITOR: PCM mixed for the selected local playback device.
 
-A channel can route to LIVE, MONITOR, both, or neither. Song Request defaults to LIVE only. No source is implicitly routed to either bus until the scene/session policy enables it.
+A channel can route to LIVE, MONITOR, both, or neither. Song Request defaults to LIVE only. The mixer owns all source activation and routing; the user never chooses a pre-LIVE source mode. No Mic-only / Internal-only / Mic+Internal wizard or startup picker exists. On LIVE start, OSS initializes the available core channels automatically using the saved mixer state. The microphone channel starts when permission and an input are available; Android playback capture starts when MediaProjection and the target app's playback-capture policy allow it. If a source is unavailable, its mixer strip shows a clear unavailable/permission status while other available channels continue. The mixer must not silently substitute one source for another.
 
 ## Required channel model
 
@@ -33,7 +33,7 @@ Use:
 - `BufferAudioSource` as the single encoder-facing PCM source. Its `setBuffer` API accepts PCM16 data and timestamps, and it emits silence when no data is supplied.
 - RootEncoder's AAC encoder and RTMP transport for encoding and delivery.
 
-Do not use `MixAudioSource` as the main mixer. It combines mic and internal playback before OSS can apply independent channel routing, monitoring, or Song Request policy. It may remain an optional constrained fallback only if explicitly selected and clearly labelled.
+Do not use `MixAudioSource` as the main mixer. It combines mic and internal playback before OSS can apply independent channel routing, monitoring, or Song Request policy. It is not part of the default product path and must not introduce a source-mode picker.
 
 ## Signal path
 
@@ -77,11 +77,11 @@ MONITOR output is subject to Android audio routing, focus, latency, Bluetooth de
 ## Verification gates
 
 1. Unit tests: PCM alignment, gain, pan, mute, solo, routing, saturating sum, silence gaps, late-frame drops, and queue overflow.
-2. Android tests: microphone-only, internal-only, both independently, and denied playback capture.
+2. Android tests: automatic channel startup with both sources available; microphone-only availability; internal-only availability; both independently; and denied playback capture. These are test conditions, not user-facing pre-LIVE modes.
 3. Routing tests: Song Request LIVE-only; MONITOR-only source; mute/solo; separate master levels.
 4. Device tests: speaker, wired headset, USB audio, Bluetooth where supported; report latency and OEM restrictions.
 5. Stress: sustained LIVE, CPU pressure, queue saturation, source removal, projection stop, and rapid start/stop.
-6. No actual user LIVE test until all core routing tests pass and the Studio UI makes source and output state explicit.
+6. No actual user LIVE test until all core routing tests pass and the Studio UI makes source and output state explicit. LIVE startup must not ask the user to choose a microphone/internal combination.
 
 ## Logging
 
