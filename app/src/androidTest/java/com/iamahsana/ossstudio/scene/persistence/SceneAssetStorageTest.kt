@@ -5,6 +5,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.iamahsana.ossstudio.scene.model.SceneAsset
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -28,4 +29,17 @@ class SceneAssetStorageTest {
         assertFalse(file.exists())
         assertFalse(SceneAssetStorage.deleteAsset(context, asset))
     }
+    @Test fun refusesToDeleteFilesOutsideManagedAssetDirectory() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val unrelated = SceneAsset(
+            relativePath = "shared_prefs/important.xml",
+            mimeType = "application/xml",
+            byteSize = 1L,
+            sha256 = "a".repeat(64)
+        )
+        assertThrows(IllegalArgumentException::class.java) {
+            SceneAssetStorage.deleteAsset(context, unrelated)
+        }
+    }
+
 }
