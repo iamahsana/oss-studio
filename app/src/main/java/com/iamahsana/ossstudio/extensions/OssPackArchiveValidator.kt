@@ -15,7 +15,7 @@ data class OssPackManifest(
     val id: String, val name: String, val version: String, val minOssVersion: String,
     val capabilities: Set<String>, val files: List<OssPackFile>
 )
-data class OssPackValidationResult(val manifest: OssPackManifest, val totalUncompressedBytes: Long)
+data class OssPackValidationResult(val manifest: OssPackManifest, val totalUncompressedBytes: Long, val manifestSha256: String)
 
 /** Validates the non-executable .osspack resource format. This is not an extension code loader. */
 object OssPackArchiveValidator {
@@ -88,7 +88,7 @@ object OssPackArchiveValidator {
             require(actual.sha256.equals(expected.sha256, ignoreCase = true)) { "Checksum file tidak cocok: \${expected.path}" }
             require(actual.byteSize == expected.byteSize) { "Ukuran file tidak cocok dengan manifest: \${expected.path}" }
         }
-        return OssPackValidationResult(manifest, totalBytes)
+        return OssPackValidationResult(manifest, totalBytes, MessageDigest.getInstance("SHA-256").digest(rawManifest).toHex())
     }
 
     private fun parseManifest(bytes: ByteArray): OssPackManifest {
