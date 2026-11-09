@@ -110,8 +110,10 @@ object RtmpDestinationProfileStore {
 
     @Synchronized
     fun clear(context: Context) {
-        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit().remove(BLOB).commit()
+        check(
+            context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .edit().remove(BLOB).commit()
+        ) { "Unable to clear encrypted RTMP profiles" }
     }
 
     private fun getOrCreateKey(): SecretKey {
