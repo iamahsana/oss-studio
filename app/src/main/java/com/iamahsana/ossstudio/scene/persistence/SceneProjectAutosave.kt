@@ -15,11 +15,13 @@ class SceneProjectAutosave(
     private val scheduler=Executors.newSingleThreadScheduledExecutor()
     private val generation=AtomicLong()
     @Volatile private var pending:ScheduledFuture<*>?=null
+    @Volatile private var latestProject: SceneProject? = null
     @Volatile private var closed=false
     init { require(debounceMillis in 50L..10_000L) }
     @Synchronized fun schedule(project:SceneProject) {
         check(!closed)
         val version=generation.incrementAndGet()
+        latestProject = project
         pending?.cancel(false)
         pending=scheduler.schedule({
             repository.save(project) { result ->
@@ -27,8 +29,27 @@ class SceneProjectAutosave(
             }
         },debounceMillis,TimeUnit.MILLISECONDS)
     }
+    /** Persist the newest in-memory snapshot immediately, bypassing the debounce window. */
+    @Synchronized fun flush(done: (Result<Unit>) -> Unit = {}) {
+        val project = latestProject ?: return done(Result.success(Unit))
+        val version = generation.incrementAndGet()
+        pending?.cancel(false)
+        pending = null
+        repository.save(project) { result ->
+            if (generation.get() == version) {
+                result.fold({ onSaved(version); done(Result.success(Unit)) }, {
+                    onError(it)
+                    done(Result.failure(it))
+                })
+            }
+        }
+    }
+
     @Synchronized override fun close() {
         if(closed)return
-        closed=true;pending?.cancel(false);scheduler.shutdown()
+        flush()
+        closed=true
+        pending?.cancel(false)
+        scheduler.shutdown()
     }
 }
