@@ -29,7 +29,7 @@ Pinned encoder dependency: RootEncoder 2.8.1.
 
 Use:
 - `MicrophoneSource` for mic PCM capture.
-- `InternalAudioSource` for Android 10+ playback capture, subject to MediaProjection and playback-capture policy.
+- `InternalAudioSource` for Android 10+ playback capture, subject to MediaProjection and playback-capture policy. RootEncoder 2.8.1 stores its projection in the process-wide `MediaProjectionHandler`; the OSS adapter must enforce one active projection-backed audio session, stop/unregister the source before clearing that reference, and never allow overlapping sessions to overwrite it.
 - `BufferAudioSource` as the single encoder-facing PCM source. RootEncoder 2.8.1 accepts `ByteArray` PCM through `setBuffer`, including a timestamp-in-microseconds overload; it emits silence where no data is supplied. OSS mixer output therefore uses interleaved PCM16 little-endian `ByteArray` buffers to avoid an unnecessary format conversion.
 - RootEncoder's AAC encoder and RTMP transport for encoding and delivery.
 
@@ -55,7 +55,7 @@ The mixer must not block capture, encoder, GL, or UI threads. Capture callbacks 
 - Timestamp-based alignment; late frames are counted and dropped, gaps become silence.
 - Saturating accumulation to avoid integer overflow and clipping.
 - Gain and pan are applied per channel before bus summation.
-- Limiter / headroom policy on each bus before output.
+- Current mixer core uses saturating PCM16 output to prevent integer wraparound. A proper look-ahead or low-latency limiter/headroom stage remains a required follow-up before public LIVE testing; hard clipping alone is not considered final mastering.
 - Fixed-capacity SPSC (single-producer/single-consumer) PCM frame queues per capture source, with preallocated slots, timestamp metadata, and drop/oversize counters. Queue-full policy drops the newest frame rather than blocking a capture callback. Reusable mixer/output buffers; bounded memory and no per-frame allocation in the hot path.
 - Metering uses peak and RMS windows; UI receives sampled snapshots off the audio thread.
 
@@ -68,7 +68,7 @@ MONITOR output is subject to Android audio routing, focus, latency, Bluetooth de
 ## Lifecycle and ownership
 
 - One session owns its capture sources, projection callback registrations, mixer, output bus, and encoder-facing BufferAudioSource.
-- Capture source callbacks are stopped before MediaProjection is stopped.
+- Capture source callbacks are stopped before MediaProjection is stopped. `InternalAudioSource` is stopped and its callback unregistered before clearing RootEncoder's static projection reference.
 - Encoder is stopped before final audio source release.
 - Teardown is idempotent and every stage emits structured diagnostics.
 - No audio source may retain a stale MediaProjection across LIVE restarts.
