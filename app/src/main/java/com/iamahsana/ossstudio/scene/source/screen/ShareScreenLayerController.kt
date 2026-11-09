@@ -46,6 +46,7 @@ class ShareScreenLayerController(
     private var virtualDisplay: VirtualDisplay? = null
     private var surfaceFilter: SurfaceFilterRender? = null
     private var projectionCallback: MediaProjection.Callback? = null
+    private var projectionStopCompleted = false
     private var pendingGlCheck: Runnable? = null
     private var glWaitAttempts = 0
     private var operationId = UUID.randomUUID().toString()
@@ -85,6 +86,7 @@ class ShareScreenLayerController(
 
         operationId = UUID.randomUUID().toString()
         projection = mediaProjection
+        projectionStopCompleted = false
         state = State.WAITING_FOR_GL
         glWaitAttempts = 0
 
@@ -296,10 +298,10 @@ class ShareScreenLayerController(
             }
         }
 
-        if (stopProjection && oldProjection != null) {
+        if (stopProjection && oldProjection != null && !projectionStopCompleted) {
             try {
                 oldProjection.stop()
-                if (projection === oldProjection) projection = null
+                projectionStopCompleted = true
             } catch (error: Exception) {
                 failed = true
                 log(
@@ -309,11 +311,14 @@ class ShareScreenLayerController(
                     message = error.message ?: "MediaProjection stop failed"
                 )
             }
-        } else if (!failed && projection === oldProjection) {
-            // The foreground service remains the projection owner. This
-            // controller drops its reference only after its layer resources
-            // and callback have all been released successfully.
+        }
+
+        if (!failed && projection === oldProjection) {
+            // Keep the projection handle while any other resource cleanup is
+            // pending. If stop() already succeeded, remember that fact so a
+            // retry only releases the remaining resources.
             projection = null
+            projectionStopCompleted = false
         }
 
         state = if (failed) State.FAILED else finalState
