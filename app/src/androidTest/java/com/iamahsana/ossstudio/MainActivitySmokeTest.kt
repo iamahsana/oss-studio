@@ -10,12 +10,16 @@ import androidx.compose.ui.test.performScrollTo
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.iamahsana.ossstudio.stream.rtmp.RtmpDestinationProfileStore
+import com.iamahsana.ossstudio.scene.persistence.SceneProjectStoreProvider
+import com.iamahsana.ossstudio.scene.persistence.SceneAssetStorage
+import org.junit.Assert.assertTrue
 import org.junit.After
 import org.junit.Rule
 import org.junit.Test
 
 class MainActivitySmokeTest {
     private var smokeProfileName: String? = null
+    private var createdSmokeProject = false
     @get:Rule
     val composeRule = createAndroidComposeRule<MainActivity>()
 
@@ -34,6 +38,7 @@ class MainActivitySmokeTest {
     }
     @Test
     fun createsProjectAndOpensItsEmptySceneCanvas() {
+        createdSmokeProject = true
         composeRule.onNodeWithText("Project baru").performClick()
         composeRule.onNodeWithText("Nama project").performTextInput("OSS UI Smoke")
         composeRule.onNodeWithText("Buat").performClick()
@@ -72,7 +77,7 @@ class MainActivitySmokeTest {
             composeRule.onAllNodesWithText(uniqueName).fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithText(uniqueName).assertIsDisplayed()
-        composeRule.onAllNodesWithText("private-smoke-key").fetchSemanticsNodes().let { nodes -> assert(nodes.isEmpty()) }
+        assertTrue(composeRule.onAllNodesWithText("private-smoke-key").fetchSemanticsNodes().isEmpty())
     }
 
     @After
@@ -91,6 +96,21 @@ class MainActivitySmokeTest {
         composeRule.onNodeWithText("LIVE control").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Mulai LIVE").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Hentikan").performScrollTo().assertIsDisplayed()
+    }
+
+    @After
+    fun removeOnlySmokeProject() {
+        if (!createdSmokeProject) return
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        runCatching {
+            val database = SceneProjectStoreProvider.database(context)
+            database.listRecent().filter { it.name == "OSS UI Smoke" }.forEach { summary ->
+                database.get(summary.id)?.assets?.forEach { asset ->
+                    runCatching { SceneAssetStorage.deleteAsset(context, asset) }
+                }
+                database.delete(summary.id)
+            }
+        }
     }
 
 }
