@@ -85,8 +85,8 @@ object OssPackArchiveValidator {
         require(declared.keys == entries.keys) { "Daftar file manifest tidak sama dengan isi paket" }
         manifest.files.forEach { expected ->
             val actual = entries.getValue(expected.path)
-            require(actual.sha256.equals(expected.sha256, ignoreCase = true)) { "Checksum file tidak cocok: \${expected.path}" }
-            require(actual.byteSize == expected.byteSize) { "Ukuran file tidak cocok dengan manifest: \${expected.path}" }
+            require(actual.sha256.equals(expected.sha256, ignoreCase = true)) { "Checksum file tidak cocok: ${expected.path}" }
+            require(actual.byteSize == expected.byteSize) { "Ukuran file tidak cocok dengan manifest: ${expected.path}" }
         }
         return OssPackValidationResult(manifest, totalBytes, MessageDigest.getInstance("SHA-256").digest(rawManifest).toHex())
     }
