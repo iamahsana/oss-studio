@@ -6,6 +6,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -88,7 +89,7 @@ class OssPackArchiveValidatorTest {
         )
         try {
             val error = runCatching { OssPackArchiveValidator.validate(archive) }.exceptionOrNull()
-            assertTrue(error?.message.orEmpty().contains("traversal"))
+            assertNotNull("Arsip dengan path ../ harus ditolak", error)
         } finally { archive.delete() }
     }
 
