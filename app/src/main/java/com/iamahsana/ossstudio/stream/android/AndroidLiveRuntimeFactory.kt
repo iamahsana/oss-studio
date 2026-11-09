@@ -75,6 +75,8 @@ class AndroidLiveRuntimeFactory(
         private var multiStream: MultiRtmpStreamSession? = null
         private var singleDestinationProfile: RtmpDestinationProfile? = null
         private var audioMixerSession: OssAudioMixerSession? = null
+        private var activeProject: SceneProject? = null
+        private var activeStreamConfig: RtmpStreamSession.Config = streamConfig
 
         override fun prepare(): Boolean {
             checkMainThread()
