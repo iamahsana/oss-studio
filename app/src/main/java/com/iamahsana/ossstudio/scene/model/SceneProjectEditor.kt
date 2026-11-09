@@ -273,6 +273,57 @@ object SceneProjectEditor {
         )
     }
 
+    fun groupElements(
+        project: SceneProject,
+        sceneId: String,
+        elementIds: Set<String>,
+        nowEpochMillis: Long,
+        groupId: String = java.util.UUID.randomUUID().toString()
+    ): SceneProject {
+        require(elementIds.size >= 2) { "At least two elements are required to create a group" }
+        require(groupId.isNotBlank()) { "Group ID must not be blank" }
+        val sceneIndex = project.scenes.indexOfFirst { it.id == sceneId }
+        require(sceneIndex >= 0) { "Scene does not exist" }
+        val scene = project.scenes[sceneIndex]
+        require(scene.elements.count { it.id in elementIds } == elementIds.size) {
+            "Every selected element must exist in the scene"
+        }
+        require(scene.elements.none { it.id in elementIds && it.groupId != null }) {
+            "An element already belongs to a group"
+        }
+        val updatedScene = scene.copy(
+            elements = scene.elements.map { element ->
+                if (element.id in elementIds) element.copy(groupId = groupId) else element
+            }
+        )
+        return project.copy(
+            scenes = project.scenes.toMutableList().also { it[sceneIndex] = updatedScene },
+            updatedAtEpochMillis = nextTimestamp(project, nowEpochMillis)
+        )
+    }
+
+    fun ungroupElements(
+        project: SceneProject,
+        sceneId: String,
+        groupId: String,
+        nowEpochMillis: Long
+    ): SceneProject {
+        require(groupId.isNotBlank()) { "Group ID must not be blank" }
+        val sceneIndex = project.scenes.indexOfFirst { it.id == sceneId }
+        require(sceneIndex >= 0) { "Scene does not exist" }
+        val scene = project.scenes[sceneIndex]
+        require(scene.elements.any { it.groupId == groupId }) { "Group does not exist" }
+        val updatedScene = scene.copy(
+            elements = scene.elements.map { element ->
+                if (element.groupId == groupId) element.copy(groupId = null) else element
+            }
+        )
+        return project.copy(
+            scenes = project.scenes.toMutableList().also { it[sceneIndex] = updatedScene },
+            updatedAtEpochMillis = nextTimestamp(project, nowEpochMillis)
+        )
+    }
+
     fun removeSource(project: SceneProject, sourceId: String, nowEpochMillis: Long): SceneProject {
         require(project.sources.any { it.id == sourceId }) { "Source does not exist" }
         val remainingSources = project.sources.filterNot { it.id == sourceId }

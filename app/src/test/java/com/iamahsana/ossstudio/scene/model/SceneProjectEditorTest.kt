@@ -203,6 +203,43 @@ class SceneProjectEditorTest {
     }
 
     @Test
+    fun groupingAssignsOneGroupIdToExactlyTheSelectedElements() {
+        val original = project()
+        val grouped = SceneProjectEditor.groupElements(
+            original, "scene", setOf("first", "second"), 30L, groupId = "pair"
+        )
+        assertEquals(listOf("pair", "pair"), grouped.scenes.single().elements.map { it.groupId })
+        assertEquals(listOf(null, null), original.scenes.single().elements.map { it.groupId })
+    }
+
+    @Test
+    fun groupingRequiresTwoExistingUngroupedElements() {
+        assertThrows(IllegalArgumentException::class.java) {
+            SceneProjectEditor.groupElements(project(), "scene", setOf("first"), 30L)
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            SceneProjectEditor.groupElements(project(), "scene", setOf("first", "missing"), 30L)
+        }
+        val grouped = SceneProjectEditor.groupElements(
+            project(), "scene", setOf("first", "second"), 30L, groupId = "pair"
+        )
+        assertThrows(IllegalArgumentException::class.java) {
+            SceneProjectEditor.groupElements(grouped, "scene", setOf("first", "second"), 40L)
+        }
+    }
+
+    @Test
+    fun ungroupingClearsOnlyTheRequestedGroup() {
+        val original = project()
+        val grouped = SceneProjectEditor.groupElements(
+            original, "scene", setOf("first", "second"), 30L, groupId = "pair"
+        )
+        val ungrouped = SceneProjectEditor.ungroupElements(grouped, "scene", "pair", 40L)
+        assertEquals(listOf(null, null), ungrouped.scenes.single().elements.map { it.groupId })
+        assertEquals(listOf("pair", "pair"), grouped.scenes.single().elements.map { it.groupId })
+    }
+
+    @Test
     fun duplicateElementCreatesIndependentTopLayerCopy() {
         val original = project()
         val updated = SceneProjectEditor.duplicateElement(original, "scene", "first", 30L)
