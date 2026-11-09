@@ -144,3 +144,24 @@ This service and the existing scene-layer controller are not yet wired into the 
 - Added an instrumentation assertion that the service is non-exported and declared with the `mediaProjection` foreground-service type.
 - The emulator workflow now enables KVM on GitHub-hosted Linux runners, uses explicit headless emulator options and a longer boot timeout, and waits for Android's Package Manager service before installing test APKs. This addresses a prior API 29 job that failed because the emulator reported `Can't find service: package` during APK installation; that failure was emulator readiness, not a test assertion.
 - These changes still require a successful run against the newest commit. A manifest assertion does not simulate user consent, Android 14+ projection-token rules, notification behavior, or OEM process management. Those remain separate lifecycle/device tests.
+
+
+### Upstream MultiStream finding — correction (RootEncoder 2.8.1)
+
+A follow-up source search found that RootEncoder 2.8.1 includes com.pedro.library.multiple.MultiStream. The earlier statement that the audited API had no built-in multi-RTMP fan-out was too broad and is corrected here.
+
+Verified source facts:
+
+- MultiStream is explicitly documented by upstream as an "Experiment class".
+- It accepts arrays of ConnectChecker instances for RTMP, RTSP, SRT, and UDP, creates one protocol client per checker, and exposes startStream(type, index, endpoint) / stopStream(type, index) for individual destinations.
+- It owns one StreamBase encoder pipeline and fans encoded audio/video buffers to each protocol client. It duplicates the ByteBuffer view per client before sending.
+- Its client arrays are fixed at construction time; it does not provide a dynamic destination registry or stable destination IDs.
+- Its getStreamClient() without protocol/index deliberately throws; callers must use the indexed overload.
+- The upstream class itself labels this implementation experimental, so its existence is not evidence of production-level stability or performance.
+
+Architecture decision:
+
+- Keep OSS's destination registry/state abstraction because OSS requires stable destination IDs, dynamic configuration, per-destination logs, and independent lifecycle.
+- Before writing a custom StreamBase subclass, run a disposable integration spike using upstream MultiStream with a fixed destination set. Compare lifecycle, reconnect behavior, error isolation, and 1/2/3-output performance against the current RtmpDestinationManager + per-destination RtmpClient adapter.
+- Prefer upstream MultiStream if it meets OSS requirements without invasive workarounds. Retain a custom StreamBase fan-out only if a documented gap (for example dynamic lifecycle or destination isolation) is demonstrated by tests.
+- Do not describe MultiStream as production-ready or remove the existing manager until the comparison is complete.
