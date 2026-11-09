@@ -3,6 +3,7 @@ package com.iamahsana.ossstudio
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import org.junit.Rule
@@ -30,7 +31,13 @@ class MainActivitySmokeTest {
         composeRule.onNodeWithText("Project baru").performClick()
         composeRule.onNodeWithText("Nama project").performTextInput("OSS UI Smoke")
         composeRule.onNodeWithText("Buat").performClick()
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodesWithText("OSS UI Smoke").fetchSemanticsNodes().isNotEmpty()
+        }
         composeRule.onNodeWithText("OSS UI Smoke").assertIsDisplayed()
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodesWithText("Canvas kosong").fetchSemanticsNodes().isNotEmpty()
+        }
         composeRule.onNodeWithText("Canvas kosong").assertIsDisplayed()
     }
 
