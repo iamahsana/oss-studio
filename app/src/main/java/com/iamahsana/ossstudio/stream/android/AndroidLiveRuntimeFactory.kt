@@ -126,7 +126,18 @@ class AndroidLiveRuntimeFactory(
             val projection = projectionService()?.getActiveProjection()
             Thread({
                 if (audioStopRequested.get()) return@Thread
-                val ready = mixer.start(projection)
+                val ready = runCatching { mixer.start(projection) }.getOrElse { error ->
+                    if (!audioStopRequested.get()) {
+                        log(
+                            OssLogLevel.ERROR,
+                            "audio_graph_start_exception",
+                            "OSS audio graph startup threw an exception",
+                            "AUDIO_GRAPH_START_EXCEPTION",
+                            error
+                        )
+                    }
+                    false
+                }
                 dispatchMain {
                     if (released || audioStopRequested.get()) return@dispatchMain
                     if (!ready) {

@@ -161,6 +161,7 @@ class LiveSessionController(
         }
         if (stopping) return
         stopping = true
+        cleanupIncomplete = true
         setState(State.STOPPING)
         current.shutdownAsync { result ->
             cleanupIncomplete = !result.completed
@@ -184,6 +185,7 @@ class LiveSessionController(
     private fun failAndCleanup(detail: String, errorCode: String) {
         if (stopping) return
         stopping = true
+        cleanupIncomplete = true
         log(OssLogLevel.ERROR, "session_failed", detail, errorCode)
         setState(State.FAILED, detail)
         teardown?.shutdownAsync { result ->
