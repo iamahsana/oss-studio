@@ -110,6 +110,26 @@ class SceneProjectEditorTest {
     }
 
     @Test
+    fun elementCropCanBeUpdatedWithoutChangingOriginalProject() {
+        val original = project()
+        val crop = CropRect(left = 0.1f, top = 0.2f, right = 0.9f, bottom = 0.8f)
+        val updated = SceneProjectEditor.updateElementCrop(original, "scene", "first", crop, 30L)
+        assertEquals(crop, updated.scenes.single().elements.first().crop)
+        assertEquals(CropRect(), original.scenes.single().elements.first().crop)
+        assertEquals(CropRect(), updated.scenes.single().elements.last().crop)
+    }
+
+    @Test
+    fun cropModelRejectsInvertedAndOutOfRangeCoordinates() {
+        assertThrows(IllegalArgumentException::class.java) {
+            CropRect(left = 0.8f, right = 0.2f)
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            CropRect(top = -0.1f)
+        }
+    }
+
+    @Test
     fun elementOpacityCanBeAdjustedWithoutChangingOtherElements() {
         val original = project()
         val updated = SceneProjectEditor.setElementOpacity(original, "scene", "first", 0.35f, 30L)
