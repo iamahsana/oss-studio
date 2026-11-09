@@ -56,6 +56,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
@@ -258,6 +259,7 @@ fun SceneEditorScreen(
                                 with(density) { (transform.width * scale).toDp() },
                                 with(density) { (transform.height * scale).toDp() }
                             )
+                            .graphicsLayer { rotationZ = transform.rotationDegrees }
                             .then(
                                 if (element.id == selectedElementId) Modifier.border(2.dp, MaterialTheme.colorScheme.primary)
                                 else Modifier.border(1.dp, Color(0xFF777777))
@@ -388,6 +390,38 @@ fun SceneEditorScreen(
                                     System.currentTimeMillis()
                                 ))
                             }) { Text("Tinggikan") }
+                            OutlinedButton(enabled = !selectedElement.locked && selectedElement.transform.width > 16f, onClick = {
+                                val transform = selectedElement.transform
+                                applyProject(SceneProjectEditor.updateTransform(
+                                    currentProject, scene.id, selectedElement.id,
+                                    transform.copy(width = (transform.width - 40f).coerceAtLeast(16f)),
+                                    System.currentTimeMillis()
+                                ))
+                            }) { Text("Persempit") }
+                            OutlinedButton(enabled = !selectedElement.locked && selectedElement.transform.height > 16f, onClick = {
+                                val transform = selectedElement.transform
+                                applyProject(SceneProjectEditor.updateTransform(
+                                    currentProject, scene.id, selectedElement.id,
+                                    transform.copy(height = (transform.height - 40f).coerceAtLeast(16f)),
+                                    System.currentTimeMillis()
+                                ))
+                            }) { Text("Pendekkan") }
+                            OutlinedButton(enabled = !selectedElement.locked, onClick = {
+                                val transform = selectedElement.transform
+                                applyProject(SceneProjectEditor.updateTransform(
+                                    currentProject, scene.id, selectedElement.id,
+                                    transform.copy(rotationDegrees = transform.rotationDegrees - 15f),
+                                    System.currentTimeMillis()
+                                ))
+                            }) { Text("Putar ↺") }
+                            OutlinedButton(enabled = !selectedElement.locked, onClick = {
+                                val transform = selectedElement.transform
+                                applyProject(SceneProjectEditor.updateTransform(
+                                    currentProject, scene.id, selectedElement.id,
+                                    transform.copy(rotationDegrees = transform.rotationDegrees + 15f),
+                                    System.currentTimeMillis()
+                                ))
+                            }) { Text("Putar ↻") }
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedButton(onClick = {
