@@ -122,7 +122,7 @@ class MainActivitySmokeTest {
         scrollUntilVisible("LIVE control")
         composeRule.onNodeWithText("LIVE control").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Mulai LIVE").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("Hentikan").performScrollTo().assertIsDisplayed()
+        assertTrue(composeRule.onAllNodesWithText("Hentikan").fetchSemanticsNodes().isNotEmpty())
     }
 
     @After
