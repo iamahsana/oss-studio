@@ -89,6 +89,27 @@ object SceneProjectEditor {
         )
     }
 
+    fun setElementLocked(
+        project: SceneProject,
+        sceneId: String,
+        elementId: String,
+        locked: Boolean,
+        nowEpochMillis: Long
+    ): SceneProject {
+        val sceneIndex = project.scenes.indexOfFirst { it.id == sceneId }
+        require(sceneIndex >= 0) { "Scene does not exist" }
+        val scene = project.scenes[sceneIndex]
+        require(scene.elements.any { it.id == elementId }) { "Element does not exist" }
+        return project.copy(
+            scenes = project.scenes.toMutableList().also { list ->
+                list[sceneIndex] = scene.copy(
+                    elements = scene.elements.map { if (it.id == elementId) it.copy(locked = locked) else it }
+                )
+            },
+            updatedAtEpochMillis = nextTimestamp(project, nowEpochMillis)
+        )
+    }
+
     fun setElementVisibility(
         project: SceneProject,
         sceneId: String,
