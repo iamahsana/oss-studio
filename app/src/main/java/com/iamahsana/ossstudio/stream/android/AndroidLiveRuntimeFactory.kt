@@ -257,6 +257,10 @@ class AndroidLiveRuntimeFactory(
             }
             val currentScene = current.scenes.firstOrNull { it.id == current.activeSceneId }
                 ?: current.scenes.firstOrNull()
+            if (currentScene != null && currentScene.canvas != scene.canvas) {
+                log(OssLogLevel.WARN, "live_canvas_resize_ignored", "Changing canvas dimensions requires restarting LIVE")
+                return
+            }
             val currentSources = current.sources.associateBy { it.id }
             val hadShareScreen = currentScene?.elements?.any { element ->
                 element.visible && currentSources[element.sourceId]?.let {
