@@ -135,6 +135,46 @@ class LiveSessionLifecycleCoordinatorTest {
         )
     }
 
+
+    @Test
+    fun asyncScreenLayerCleanupCanRetryBeforeReleasingGlOwners() {
+        val calls = mutableListOf<String>()
+        var detachAttempts = 0
+        val coordinator = LiveSessionLifecycleCoordinator(
+            screenLayer = {
+                detachAttempts++
+                calls += "detach_$detachAttempts"
+                if (detachAttempts == 1) error("temporary GL detach failure")
+            },
+            streamPipeline = object : LiveSessionLifecycleCoordinator.StreamPipeline {
+                override fun stopAudio(completion: (AudioStopStatus) -> Unit) {
+                    calls += "audio"
+                    completion(AudioStopStatus(true, true, true))
+                }
+                override fun stop() { calls += "rtmp_stop" }
+                override fun release() { calls += "release" }
+            },
+            projectionSession = { calls += "projection"; true },
+            diagnosticLog = { _, _, _, _ -> }
+        )
+
+        var first: LiveSessionLifecycleCoordinator.ShutdownResult? = null
+        var second: LiveSessionLifecycleCoordinator.ShutdownResult? = null
+        coordinator.shutdownAsync { first = it }
+        assertFalse(first?.completed == true)
+        assertFalse(calls.contains("rtmp_stop"))
+
+        coordinator.shutdownAsync { second = it }
+        assertTrue(second?.completed == true)
+        assertEquals(
+            listOf(
+                "detach_1", "audio",
+                "detach_2", "audio", "rtmp_stop", "projection", "release"
+            ),
+            calls
+        )
+    }
+
     @Test
     fun asyncShutdownContinuesAfterAudioTeardownFailure() {
         val calls = mutableListOf<String>()
