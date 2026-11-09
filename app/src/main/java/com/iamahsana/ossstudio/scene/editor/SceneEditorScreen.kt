@@ -390,7 +390,8 @@ fun SceneEditorScreen(
                             val crop = selectedElement.crop
                             Text("Crop media", style = MaterialTheme.typography.labelLarge)
                             Text("Kiri: ${(crop.left * 100f).toInt()}%")
-                            val maxLeft = (crop.right - 0.01f).coerceAtLeast(0f)
+                            val minGapX = minOf(0.01f, (crop.right - crop.left) / 2f)
+                            val maxLeft = crop.right - minGapX
                             Slider(
                                 value = crop.left.coerceIn(0f, maxLeft),
                                 onValueChange = { value ->
@@ -402,7 +403,7 @@ fun SceneEditorScreen(
                                 valueRange = 0f..maxLeft
                             )
                             Text("Kanan: ${(crop.right * 100f).toInt()}%")
-                            val minRight = (crop.left + 0.01f).coerceAtMost(1f)
+                            val minRight = crop.left + minGapX
                             Slider(
                                 value = crop.right.coerceIn(minRight, 1f),
                                 onValueChange = { value ->
@@ -414,7 +415,8 @@ fun SceneEditorScreen(
                                 valueRange = minRight..1f
                             )
                             Text("Atas: ${(crop.top * 100f).toInt()}%")
-                            val maxTop = (crop.bottom - 0.01f).coerceAtLeast(0f)
+                            val minGapY = minOf(0.01f, (crop.bottom - crop.top) / 2f)
+                            val maxTop = crop.bottom - minGapY
                             Slider(
                                 value = crop.top.coerceIn(0f, maxTop),
                                 onValueChange = { value ->
@@ -426,7 +428,7 @@ fun SceneEditorScreen(
                                 valueRange = 0f..maxTop
                             )
                             Text("Bawah: ${(crop.bottom * 100f).toInt()}%")
-                            val minBottom = (crop.top + 0.01f).coerceAtMost(1f)
+                            val minBottom = crop.top + minGapY
                             Slider(
                                 value = crop.bottom.coerceIn(minBottom, 1f),
                                 onValueChange = { value ->
