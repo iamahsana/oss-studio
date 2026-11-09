@@ -176,9 +176,18 @@ data class SceneAsset(
 ) {
     init {
         require(id.isNotBlank())
-        require(relativePath.isNotBlank() && !relativePath.startsWith("/") && !relativePath.contains(".."))
+        require(isSafeRelativeAssetPath(relativePath)) { "Asset path must be a normalized project-relative path" }
         require(mimeType.contains("/"))
         require(byteSize >= 0L)
         require(sha256.matches(Regex("(?i)^[a-f0-9]{64}$")))
     }
+}
+
+/** Reject absolute paths, traversal, platform-specific separators and control characters. */
+private fun isSafeRelativeAssetPath(path: String): Boolean {
+    if (path.isBlank() || path.startsWith("/") || path.startsWith("\\") || path.contains('\\')) return false
+    if (path.any { it.code < 0x20 || it.code == 0x7f }) return false
+    if (Regex("^[A-Za-z]:").containsMatchIn(path)) return false
+    val segments = path.split('/')
+    return segments.all { it.isNotBlank() && it != "." && it != ".." }
 }
