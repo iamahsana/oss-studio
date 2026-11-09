@@ -44,6 +44,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -62,8 +64,10 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.toSp
 import com.iamahsana.ossstudio.scene.model.SceneProject
 import com.iamahsana.ossstudio.scene.model.Scene
 import com.iamahsana.ossstudio.scene.model.CanvasSize
@@ -166,6 +170,12 @@ fun SceneEditorScreen(
     val selectedSource = currentProject.sources.firstOrNull { it.id == selectedElement?.sourceId }
     var editingText by remember(selectedElementId) { mutableStateOf(selectedSource?.text.orEmpty()) }
     var confirmRemoveSource by remember(selectedElementId) { mutableStateOf(false) }
+
+    fun updateTextSetting(key: String, value: String) {
+        val source = selectedSource ?: return
+        val updatedSource = source.copy(settings = source.settings + (key to value))
+        applyProject(SceneProjectEditor.updateSource(currentProject, updatedSource, System.currentTimeMillis()))
+    }
 
     fun addSource(type: SceneSourceType, text: String? = null) {
         val activeScene = scene ?: return
@@ -311,6 +321,23 @@ fun SceneEditorScreen(
                             } else {
                                 Text(label, color = Color.White, textAlign = TextAlign.Center)
                             }
+                        } else if (source.type == SceneSourceType.TEXT) {
+                            val textColor = runCatching {
+                                Color(android.graphics.Color.parseColor(source.settings["color"] ?: "#FFFFFFFF"))
+                            }.getOrDefault(Color.White)
+                            val textSize = source.settings["fontSize"]?.toFloatOrNull() ?: 48f
+                            val alignment = when (source.settings["align"]) {
+                                "left" -> TextAlign.Start
+                                "right" -> TextAlign.End
+                                else -> TextAlign.Center
+                            }
+                            Text(
+                                label.ifBlank { "Teks" },
+                                color = textColor,
+                                textAlign = alignment,
+                                fontWeight = if (source.settings["bold"] == "true") FontWeight.Bold else FontWeight.Normal,
+                                fontSize = with(density) { (textSize * scale).toSp() }
+                            )
                         } else {
                             Text(
                                 label,
@@ -357,6 +384,26 @@ fun SceneEditorScreen(
                                 val updatedSource = selectedSource.copy(text = editingText)
                                 applyProject(SceneProjectEditor.updateSource(currentProject, updatedSource, System.currentTimeMillis()))
                             }) { Text("Terapkan teks") }
+                            val fontSize = selectedSource.settings["fontSize"]?.toFloatOrNull() ?: 48f
+                            Text("Ukuran font: ${fontSize.toInt()} px")
+                            Slider(
+                                value = fontSize.coerceIn(16f, 128f),
+                                onValueChange = { updateTextSetting("fontSize", it.toInt().toString()) },
+                                valueRange = 16f..128f,
+                                steps = 55
+                            )
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedButton(onClick = { updateTextSetting("color", "#FFFFFFFF") }) { Text("Putih") }
+                                OutlinedButton(onClick = { updateTextSetting("color", "#FFFFD54F") }) { Text("Kuning") }
+                                OutlinedButton(onClick = { updateTextSetting("color", "#FF4DD0E1") }) { Text("Cyan") }
+                            }
+                            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                                Text("Tebal", modifier = Modifier.weight(1f))
+                                Switch(
+                                    checked = selectedSource.settings["bold"] == "true",
+                                    onCheckedChange = { updateTextSetting("bold", it.toString()) }
+                                )
+                            }
                         }
                         val orderedElements = scene.elements.sortedBy { it.zIndex }
                         val layerIndex = orderedElements.indexOfFirst { it.id == selectedElement.id }
