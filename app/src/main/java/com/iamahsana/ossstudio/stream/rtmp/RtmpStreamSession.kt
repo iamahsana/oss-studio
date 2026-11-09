@@ -197,22 +197,24 @@ class RtmpStreamSession(
     fun release() {
         checkMainThread()
         if (state == State.RELEASED) return
-        val releaseError = runCatching { stream.release() }.exceptionOrNull()
-        if (releaseError != null) {
+        try {
+            stream.release()
+            state = State.RELEASED
+            log(OssLogLevel.INFO, "session_released", "RootEncoder stream resources released")
+            notifyState()
+        } catch (error: Exception) {
+            // Keep FAILED rather than RELEASED so lifecycle cleanup can retry.
+            // A failed release must never be cached as a successful teardown.
+            state = State.FAILED
             log(
                 OssLogLevel.ERROR,
                 "stream_release_failed",
-                releaseError.message ?: "RootEncoder resource release failed",
+                error.message ?: "RootEncoder resource release failed",
                 "RTMP_STREAM_RELEASE_FAILED",
-                releaseError
+                error
             )
-        }
-        state = State.RELEASED
-        log(OssLogLevel.INFO, "session_released", "RootEncoder stream session release attempted")
-        notifyState()
-        // Do not hide partial teardown failures from the session coordinator.
-        if (releaseError != null) {
-            throw IllegalStateException("RootEncoder resource release failed", releaseError)
+            notifyState(error.message)
+            throw IllegalStateException("RootEncoder resource release failed", error)
         }
     }
 
