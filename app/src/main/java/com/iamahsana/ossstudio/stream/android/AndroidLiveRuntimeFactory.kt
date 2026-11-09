@@ -47,11 +47,34 @@ class AndroidLiveRuntimeFactory(
 
         private val mainHandler = Handler(Looper.getMainLooper())
         private val runtimeId = UUID.randomUUID().toString()
-        private val stream = RtmpStreamSession(appContext)
         private var screenLayer: ShareScreenLayerController? = null
         private var screenCheck: Runnable? = null
         private var screenCheckAttempts = 0
         private var released = false
+        private var streamListener: LiveSessionController.RtmpListener? = null
+        private var streamConnectedReported = false
+        private var streamFailureReported = false
+
+        private val stream = RtmpStreamSession(
+            appContext,
+            RtmpStreamSession.Listener { state, _ ->
+                when (state) {
+                    RtmpStreamSession.State.LIVE -> dispatchMain {
+                        if (!streamConnectedReported && !released) {
+                            streamConnectedReported = true
+                            streamListener?.onConnected()
+                        }
+                    }
+                    RtmpStreamSession.State.FAILED -> dispatchMain {
+                        if (!streamFailureReported && !released) {
+                            streamFailureReported = true
+                            streamListener?.onFailure()
+                        }
+                    }
+                    else -> Unit
+                }
+            }
+        )
 
         override fun prepare(): Boolean {
             checkMainThread()
@@ -74,32 +97,6 @@ class AndroidLiveRuntimeFactory(
             checkMainThread()
             streamListener = listener
             stream.start(endpoint)
-        }
-
-        private var streamListener: LiveSessionController.RtmpListener? = null
-        private var streamConnectedReported = false
-        private var streamFailureReported = false
-
-        private val streamObserver = RtmpStreamSession.Listener { state, _ ->
-            when (state) {
-                RtmpStreamSession.State.LIVE -> {
-                    dispatchMain {
-                        if (!streamConnectedReported && !released) {
-                            streamConnectedReported = true
-                            streamListener?.onConnected()
-                        }
-                    }
-                }
-                RtmpStreamSession.State.FAILED -> {
-                    dispatchMain {
-                        if (!streamFailureReported && !released) {
-                            streamFailureReported = true
-                            streamListener?.onFailure()
-                        }
-                    }
-                }
-                else -> Unit
-            }
         }
 
         override fun attachScreen(listener: LiveSessionController.ScreenListener) {
@@ -151,6 +148,7 @@ class AndroidLiveRuntimeFactory(
                     if (released || screenLayer !== layer) return
                     when (layer.state) {
                         ShareScreenLayerController.State.CAPTURING -> {
+                            screenCheck = null
                             log(
                                 OssLogLevel.INFO,
                                 "screen_source_ready",
@@ -160,11 +158,13 @@ class AndroidLiveRuntimeFactory(
                         }
                         ShareScreenLayerController.State.FAILED,
                         ShareScreenLayerController.State.STOPPED -> {
+                            screenCheck = null
                             listener.onFailure()
                         }
                         else -> {
                             screenCheckAttempts++
                             if (screenCheckAttempts >= MAX_SCREEN_CHECKS) {
+                                screenCheck = null
                                 log(
                                     OssLogLevel.ERROR,
                                     "screen_attach_timeout",
@@ -198,8 +198,6 @@ class AndroidLiveRuntimeFactory(
 
         override fun stopProjection(): Boolean {
             checkMainThread()
-            // If permission was never acquired, there is no projection token
-            // for this runtime to revoke. Otherwise the service must confirm it.
             val service = projectionService() ?: return true
             return if (service.getActiveProjection() == null) {
                 true
