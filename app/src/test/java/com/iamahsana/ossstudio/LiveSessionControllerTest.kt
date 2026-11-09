@@ -88,7 +88,7 @@ class LiveSessionControllerTest {
         assertEquals(LiveSessionController.State.STOPPED, controller.state)
         assertEquals(
             listOf("prepare", "start_rtmp", "attach_screen", "detach_screen",
-                "stop_rtmp", "stop_projection", "release_rtmp"),
+                "stop_audio_1", "stop_rtmp", "stop_projection", "release_rtmp"),
             fake.calls
         )
     }
@@ -105,7 +105,7 @@ class LiveSessionControllerTest {
         assertFalse(controller.start("rtmp://stream.example/live/key"))
         assertEquals(LiveSessionController.State.FAILED, controller.state)
         assertEquals(
-            listOf("prepare", "detach_screen", "stop_rtmp", "stop_projection", "release_rtmp"),
+            listOf("prepare", "detach_screen", "stop_audio_1", "stop_rtmp", "stop_projection", "release_rtmp"),
             first.calls
         )
 
