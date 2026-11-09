@@ -7,7 +7,24 @@ import com.iamahsana.ossstudio.stream.LiveSessionController
 /** Latest editor project snapshot consumed when a LIVE scene is attached. */
 object ActiveSceneProjectRegistry {
     @Volatile
-    var project: SceneProject? = null
+    private var currentProject: SceneProject? = null
+
+    private val listeners = java.util.concurrent.CopyOnWriteArraySet<(SceneProject?) -> Unit>()
+
+    val project: SceneProject?
+        get() = currentProject
+
+    fun publish(project: SceneProject?) {
+        if (currentProject === project) return
+        currentProject = project
+        listeners.forEach { listener -> runCatching { listener(project) } }
+    }
+
+    fun subscribe(listener: (SceneProject?) -> Unit): AutoCloseable {
+        listeners.add(listener)
+        runCatching { listener(currentProject) }
+        return AutoCloseable { listeners.remove(listener) }
+    }
 }
 
 /** Process-scoped controller survives navigation and Activity recreation. */
