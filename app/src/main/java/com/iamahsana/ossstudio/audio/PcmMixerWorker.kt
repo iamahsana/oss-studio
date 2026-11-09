@@ -53,6 +53,7 @@ class PcmMixerWorker(
     private val liveRejectedBlocks = AtomicLong(0L)
     private val monitorRejectedBlocks = AtomicLong(0L)
     private val monitorSinkFailed = AtomicBoolean(false)
+    private var consecutiveLiveRejections = 0
     private val operationId = UUID.randomUUID().toString()
     private val blockDurationMicros =
         engine.framesPerBlock.toLong() * MICROS_PER_SECOND / sampleRateHz
@@ -110,6 +111,20 @@ class PcmMixerWorker(
                 val liveBytes = liveSink.submitBlock(engine.liveOutput, blockStartMicros)
                 if (liveBytes < engine.liveOutput.size) {
                     liveRejectedBlocks.incrementAndGet()
+                    consecutiveLiveRejections++
+                    log(
+                        OssLogLevel.WARN,
+                        "live_sink_partial_or_rejected_block",
+                        "RootEncoder accepted $liveBytes of ${engine.liveOutput.size} LIVE PCM bytes",
+                        "AUDIO_LIVE_PCM_PARTIAL_WRITE"
+                    )
+                    if (consecutiveLiveRejections >= MAX_CONSECUTIVE_LIVE_REJECTIONS) {
+                        throw IllegalStateException(
+                            "LIVE PCM sink rejected $consecutiveLiveRejections consecutive mixer blocks"
+                        )
+                    }
+                } else {
+                    consecutiveLiveRejections = 0
                 }
                 // MONITOR is optional local playback. Its failure must not stop LIVE.
                 if (monitorSinkFailed.get()) {
@@ -187,5 +202,6 @@ class PcmMixerWorker(
     private companion object {
         const val MICROS_PER_SECOND = 1_000_000L
         const val NANOS_PER_MICRO = 1_000L
+        const val MAX_CONSECUTIVE_LIVE_REJECTIONS = 3
     }
 }
