@@ -136,12 +136,17 @@ fun SceneEditorScreen(
                                             applyProject(updated)
                                             mediaStatus = "Media berhasil ditambahkan: ${imported.displayName}"
                                         }.onFailure {
+                                            SceneAssetStorage.deleteAsset(context, imported.asset)
                                             mediaStatus = it.message ?: "Media gagal ditambahkan ke scene"
                                         }
                                     },
                                     onFailure = { mediaStatus = it.message ?: "Gagal mengimpor media" }
                                 )
                             }
+                        }
+                    } else {
+                        result.getOrNull()?.let { imported ->
+                            runCatching { SceneAssetStorage.deleteAsset(context, imported.asset) }
                         }
                     }
                 }
