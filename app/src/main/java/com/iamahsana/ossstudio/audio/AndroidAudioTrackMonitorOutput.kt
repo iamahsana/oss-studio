@@ -185,7 +185,20 @@ class AndroidAudioTrackMonitorOutput(
                     AudioTrack.WRITE_NON_BLOCKING
                 )
                 when {
-                    written > 0 -> pendingOffset += written
+                    written > 0 -> {
+                        val remaining = pendingSize - pendingOffset
+                        if (written > remaining || written % BYTES_PER_FRAME != 0) {
+                            writeErrors.incrementAndGet()
+                            log(
+                                OssLogLevel.ERROR,
+                                "monitor_track_invalid_partial_write",
+                                "Android AudioTrack returned a write size that is not frame-aligned",
+                                "AUDIO_MONITOR_INVALID_WRITE_SIZE"
+                            )
+                            break
+                        }
+                        pendingOffset += written
+                    }
                     written == 0 -> LockSupport.parkNanos(IDLE_PARK_NANOS)
                     else -> {
                         writeErrors.incrementAndGet()
