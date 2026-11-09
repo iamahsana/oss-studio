@@ -23,8 +23,9 @@ import java.util.UUID
  *
  * Each source feeds its own SPSC queue. This class deliberately does not use
  * RootEncoder MixAudioSource: OSS must retain independent channel routing.
- * The session is not yet wired into LIVE; it is the capture/lifecycle adapter
- * that the mixer worker will consume once monitor/output integration is ready.
+ * Each source handle retains ownership until stop and release both succeed.
+ * A failed teardown blocks overlapping sessions rather than clearing
+ * RootEncoder's process-wide MediaProjection reference prematurely.
  */
 class RootEncoderAudioCaptureSession(
     context: Context,
@@ -188,7 +189,7 @@ class RootEncoderAudioCaptureSession(
             SourceStatus(SourceState.RUNNING)
         } catch (error: Exception) {
             microphoneSink.endCapture()
-            if (cleanupSource(handle, "microphone")) microphoneSource = null
+            if (handle.cleanup()) microphoneSource = null
             log(OssLogLevel.ERROR, "microphone_start_failed", "Microphone channel failed to start", "AUDIO_MIC_START_FAILED", error)
             SourceStatus(SourceState.FAILED, "AUDIO_MIC_START_FAILED")
         }
@@ -241,13 +242,13 @@ class RootEncoderAudioCaptureSession(
                 "RootEncoder internal audio source initialization returned false"
             }
             internalSink.beginCapture()
-            handle.startAttempted = true
+            handle.markStartAttempted()
             source.start(internalSink)
             log(OssLogLevel.INFO, "internal_audio_started", "Independent Android playback capture started")
             SourceStatus(SourceState.RUNNING)
         } catch (error: Exception) {
             internalSink.endCapture()
-            if (cleanupSource(handle, "internal")) internalSource = null
+            if (handle.cleanup()) internalSource = null
             if (internalSource == null) releaseProjectionLease()
             log(OssLogLevel.ERROR, "internal_start_failed", "Internal audio channel failed to start; microphone remains independent", "AUDIO_INTERNAL_START_FAILED", error)
             SourceStatus(SourceState.FAILED, "AUDIO_INTERNAL_START_FAILED")
@@ -258,7 +259,7 @@ class RootEncoderAudioCaptureSession(
         synchronized(lock) {
             internalSink.endCapture()
             val handle = internalSource
-            val cleaned = handle == null || cleanupSource(handle, "internal")
+            val cleaned = handle == null || handle.cleanup()
             if (cleaned) {
                 internalSource = null
                 releaseProjectionLease()
