@@ -17,7 +17,7 @@ class LiveSessionLifecycleCoordinatorTest {
                 override fun stop() { calls += "stop" }
                 override fun release() { calls += "release" }
             },
-            projectionSession = { calls += "projection" },
+            projectionSession = { calls += "projection"; true },
             diagnosticLog = { _, _, _, _ -> }
         )
 
@@ -47,6 +47,26 @@ class LiveSessionLifecycleCoordinatorTest {
 
         assertFalse(result.completed)
         assertEquals(listOf("screen_layer_detach"), result.failedStages)
+        assertEquals(listOf("detach", "stop", "projection", "release"), calls)
+    }
+
+    @Test
+    fun projectionReleaseFailureIsReportedAndRemainingCleanupContinues() {
+        val calls = mutableListOf<String>()
+        val coordinator = LiveSessionLifecycleCoordinator(
+            screenLayer = { calls += "detach" },
+            streamPipeline = object : LiveSessionLifecycleCoordinator.StreamPipeline {
+                override fun stop() { calls += "stop" }
+                override fun release() { calls += "release" }
+            },
+            projectionSession = { calls += "projection"; false },
+            diagnosticLog = { _, _, _, _ -> }
+        )
+
+        val result = coordinator.shutdown()
+
+        assertFalse(result.completed)
+        assertEquals(listOf("projection_stop"), result.failedStages)
         assertEquals(listOf("detach", "stop", "projection", "release"), calls)
     }
 
