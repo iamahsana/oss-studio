@@ -163,9 +163,10 @@ class PcmMixerCore(
                 }
             }
 
-            liveLeft *= liveMasterGain * liveLimiterGain
-            liveRight *= liveMasterGain * liveLimiterGain
-            monitorLeft *= monitorMasterGain * monitorLimiterGain
+            liveLeft *= liveMasterGain
+            liveRight *= liveMasterGain
+            monitorLeft *= monitorMasterGain
+            monitorRight *= monitorMasterGain
             rawLivePeak = maxOf(rawLivePeak, abs(liveLeft), abs(liveRight))
             rawMonitorPeak = maxOf(rawMonitorPeak, abs(monitorLeft), abs(monitorRight))
             peakByteIndex += BYTES_PER_FRAME
@@ -207,10 +208,10 @@ class PcmMixerCore(
                 }
             }
 
-            liveLeft *= liveMasterGain
-            liveRight *= liveMasterGain
-            monitorLeft *= monitorMasterGain
-            monitorRight *= monitorMasterGain
+            liveLeft *= liveMasterGain * liveLimiterGain
+            liveRight *= liveMasterGain * liveLimiterGain
+            monitorLeft *= monitorMasterGain * monitorLimiterGain
+            monitorRight *= monitorMasterGain * monitorLimiterGain
 
             val ll = abs(liveLeft)
             val lr = abs(liveRight)
