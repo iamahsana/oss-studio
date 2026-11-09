@@ -32,8 +32,8 @@ class RootEncoderBufferAudioOutput(
     override fun submitBlock(
         pcm: ByteArray,
         timestampMicros: Long,
-        offset: Int = 0,
-        size: Int = pcm.size
+        offset: Int,
+        size: Int
     ): Int {
         require(offset >= 0 && size >= 0 && offset <= pcm.size - size) {
             "Invalid PCM output range"
