@@ -32,6 +32,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -71,6 +72,7 @@ fun SceneEditorScreen(
         }
     }
 
+    val latestProject = rememberUpdatedState(currentProject)
     val scene = currentProject.scenes.firstOrNull { it.id == currentProject.activeSceneId }
         ?: currentProject.scenes.firstOrNull()
     val selectedElement = scene?.elements?.firstOrNull { it.id == selectedElementId }
@@ -149,17 +151,24 @@ fun SceneEditorScreen(
                             .background(if (element.id == selectedElementId) Color(0x553B82F6) else Color(0x33222222))
                             .clickable { selectedElementId = element.id }
                             .pointerInput(element.id, scale) {
-                                detectDragGestures(onDrag = { change, amount ->
-                                    change.consume()
-                                    val updatedTransform = transform.copy(
-                                        x = (transform.x + amount.x / scale).coerceAtLeast(0f),
-                                        y = (transform.y + amount.y / scale).coerceAtLeast(0f)
-                                    )
-                                    val updated = SceneProjectEditor.updateTransform(
-                                        currentProject, scene.id, element.id, updatedTransform, System.currentTimeMillis()
-                                    )
-                                    applyProject(updated)
-                                })
+                                var dragX = transform.x
+                                var dragY = transform.y
+                                detectDragGestures(
+                                    onDragStart = { selectedElementId = element.id },
+                                    onDrag = { change, amount ->
+                                        change.consume()
+                                        dragX = (dragX + amount.x / scale).coerceAtLeast(0f)
+                                        dragY = (dragY + amount.y / scale).coerceAtLeast(0f)
+                                        val updated = SceneProjectEditor.updateTransform(
+                                            latestProject.value,
+                                            scene.id,
+                                            element.id,
+                                            transform.copy(x = dragX, y = dragY),
+                                            System.currentTimeMillis()
+                                        )
+                                        applyProject(updated)
+                                    }
+                                )
                             },
                         contentAlignment = Alignment.Center
                     ) {
