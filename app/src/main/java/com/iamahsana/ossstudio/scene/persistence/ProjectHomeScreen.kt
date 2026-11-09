@@ -47,6 +47,7 @@ fun ProjectHomeScreen(
     var loading by remember { mutableStateOf(true) }
     var working by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var projectPendingDelete by remember { mutableStateOf<ProjectSummary?>(null) }
     val mainHandler = remember { Handler(Looper.getMainLooper()) }
 
     DisposableEffect(repository) {
@@ -86,31 +87,70 @@ fun ProjectHomeScreen(
             Text("Belum ada project. Buat project pertama untuk mulai menyusun scene.")
         }
         projects.forEach { project ->
-            Card(
-                modifier = Modifier.fillMaxWidth().clickable(enabled = !working) {
-                    working = true
-                    repository.load(project.id) { result ->
-                        mainHandler.post {
-                            working = false
-                            result.fold(
-                                onSuccess = { loaded ->
-                                    if (loaded != null) onOpenProject(loaded)
-                                    else errorMessage = "Project tidak ditemukan."
-                                },
-                                onFailure = { errorMessage = it.message ?: "Gagal membuka project" }
-                            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Card(
+                    modifier = Modifier.weight(1f).clickable(enabled = !working) {
+                        working = true
+                        repository.load(project.id) { result ->
+                            mainHandler.post {
+                                working = false
+                                result.fold(
+                                    onSuccess = { loaded ->
+                                        if (loaded != null) onOpenProject(loaded)
+                                        else errorMessage = "Project tidak ditemukan."
+                                    },
+                                    onFailure = { errorMessage = it.message ?: "Gagal membuka project" }
+                                )
+                            }
                         }
                     }
+                ) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(project.name, style = MaterialTheme.typography.titleMedium)
+                        Text("Diperbarui ${DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(project.updatedAtEpochMillis))}", style = MaterialTheme.typography.bodySmall)
+                    }
                 }
-            ) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(project.name, style = MaterialTheme.typography.titleMedium)
-                    Text("Diperbarui ${DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(project.updatedAtEpochMillis))}", style = MaterialTheme.typography.bodySmall)
-                }
+                TextButton(enabled = !working, onClick = { projectPendingDelete = project }) { Text("Hapus") }
             }
         }
         if (working) Text("Membuka project…")
         errorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+    }
+
+    if (projectPendingDelete != null) {
+        val target = projectPendingDelete!!
+        AlertDialog(
+            onDismissRequest = { if (!working) projectPendingDelete = null },
+            title = { Text("Hapus project?") },
+            text = { Text("Project ${target.name}, seluruh scene, dan file medianya akan dihapus dari perangkat ini.") },
+            confirmButton = {
+                TextButton(enabled = !working, onClick = {
+                    working = true
+                    repository.load(target.id) { loadResult ->
+                        val project = loadResult.getOrNull()
+                        repository.delete(target.id) { deleteResult ->
+                            project?.assets?.forEach { asset ->
+                                runCatching { SceneAssetStorage.deleteAsset(context, asset) }
+                            }
+                            mainHandler.post {
+                                working = false
+                                deleteResult.fold(
+                                    onSuccess = { deleted ->
+                                        if (deleted) projects.removeAll { it.id == target.id }
+                                        else errorMessage = "Project tidak ditemukan."
+                                        projectPendingDelete = null
+                                    },
+                                    onFailure = { errorMessage = it.message ?: "Gagal menghapus project" }
+                                )
+                            }
+                        }
+                    }
+                }) { Text("Hapus") }
+            },
+            dismissButton = {
+                TextButton(enabled = !working, onClick = { projectPendingDelete = null }) { Text("Batal") }
+            }
+        )
     }
 
     if (showCreateDialog) {
