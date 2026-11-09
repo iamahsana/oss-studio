@@ -228,17 +228,21 @@ class SceneCanvasLayerController(
         }
         val generation = assetGeneration.incrementAndGet()
         assetExecutor.execute {
-            val decoded = decodeSceneAssets(project, scene)
+            val result = runCatching { decodeSceneAssets(project, scene) }
             mainHandler.post {
                 if (state != State.READY || generation != assetGeneration.get()) {
-                    decoded.bitmaps.values.forEach { if (!it.isRecycled) it.recycle() }
+                    result.getOrNull()?.bitmaps?.values?.forEach { if (!it.isRecycled) it.recycle() }
                     return@post
                 }
-                cachedBitmaps.values.forEach { if (!it.isRecycled) it.recycle() }
-                cachedBitmaps = decoded.bitmaps
-                cachedMovies = decoded.movies
-                assetSignature = nextSignature
-                drawFrame(surface)
+                result.onSuccess { decoded ->
+                    cachedBitmaps.values.forEach { if (!it.isRecycled) it.recycle() }
+                    cachedBitmaps = decoded.bitmaps
+                    cachedMovies = decoded.movies
+                    assetSignature = nextSignature
+                    drawFrame(surface)
+                }.onFailure { error ->
+                    log("scene_canvas_update_decode_failed", error.message ?: "Scene asset update failed")
+                }
             }
         }
     }
