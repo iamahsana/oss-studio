@@ -1,5 +1,7 @@
 package com.iamahsana.ossstudio.stream.android
 
+import com.iamahsana.ossstudio.scene.source.screen.ShareScreenSessionService
+
 /** Exposes the currently bound projection service to the app-scoped LIVE runtime factory. */
 object ProjectionServiceRegistry {
     @Volatile
