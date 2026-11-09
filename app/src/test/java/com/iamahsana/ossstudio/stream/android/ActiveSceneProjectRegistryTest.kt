@@ -2,7 +2,6 @@ package com.iamahsana.ossstudio.stream.android
 
 import com.iamahsana.ossstudio.scene.model.SceneProjectFactory
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertSame
 import org.junit.Test
 
 class ActiveSceneProjectRegistryTest {
@@ -17,7 +16,7 @@ class ActiveSceneProjectRegistryTest {
             subscription.close()
             ActiveSceneProjectRegistry.publish(project.copy(name = "Updated scene"))
             assertEquals("Live scene", received.last())
-            assertSame(project.copy(name = "Updated scene").id, ActiveSceneProjectRegistry.project?.id)
+            assertEquals("Updated scene", ActiveSceneProjectRegistry.project?.name)
         } finally {
             subscription.close()
             ActiveSceneProjectRegistry.publish(original)
