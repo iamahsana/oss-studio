@@ -75,3 +75,13 @@ Start with declarative manifests, resources, templates, and configuration-driven
 
 ## Observability
 Diagnostics collect operational metadata and signal levels only by default. No audio/video recording. Never log stream keys, passwords, tokens, or private credentials.
+
+
+## RootEncoder compositor integration contract (2.8.1)
+
+- The streaming adapter obtains the shared compositor through `StreamBase.getGlInterface()` after video preparation. OSS must not instantiate a second GL renderer for scene layers.
+- RootEncoder's `GlStreamInterface.addFilter` and `removeFilter` enqueue filter operations for its GL render loop; they are asynchronous commands, not synchronous mutations. Scene state and source lifecycle must therefore tolerate a short apply/remove boundary.
+- `SurfaceFilterRender` creates its external-OES texture, `SurfaceTexture`, and `Surface` during GL filter initialization. Its surface-ready callback is posted to the Android main thread. MediaProjection must target that exact surface only after it becomes available.
+- The Share Screen controller must be stopped on the main thread before its projection session is revoked. The stream owner must also ensure GL teardown releases any remaining filters. Never release the GL renderer while assuming a queued filter operation has already completed.
+- The current Activity permission flow and foreground service are connected, but the Share Screen layer is not yet connected to a real running encoder/compositor session. Treat the existing UI as permission-session controls, not proof of LIVE capture.
+- Next integration gate: create the real RootEncoder stream owner, prepare the encoder, obtain its GL interface, attach the approved projection to the Share Screen filter, and verify encoded output. Exercise permission denial, projection revoke, explicit stop, Activity navigation, GL shutdown, rotation/resize, and Android 14+ foreground-service enforcement.
