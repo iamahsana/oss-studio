@@ -17,6 +17,10 @@ class OssLogRedactorTest {
         assertFalse(output.contains("secret-stream-key"))
         assertFalse(output.contains("abc123"))
         assertFalse(output.contains("hunter2"))
+
+        val authOutput = OssLogRedactor.redact("Authorization: Bearer bearer-secret")
+        assertTrue(authOutput.contains("Authorization: [REDACTED]"))
+        assertFalse(authOutput.contains("bearer-secret"))
     }
 
     @Test
