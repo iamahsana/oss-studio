@@ -1,9 +1,14 @@
 package com.iamahsana.ossstudio.scene.editor
 
 import android.content.Context
+import android.net.Uri
+import android.os.Handler
+import android.os.Looper
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -48,10 +53,13 @@ import com.iamahsana.ossstudio.scene.model.CanvasSize
 import com.iamahsana.ossstudio.scene.model.SceneProjectEditor
 import com.iamahsana.ossstudio.scene.model.SceneSource
 import com.iamahsana.ossstudio.scene.model.SceneSourceType
+import com.iamahsana.ossstudio.scene.persistence.SceneAssetStorage
 import com.iamahsana.ossstudio.scene.persistence.SceneProjectAutosave
 import com.iamahsana.ossstudio.scene.persistence.SceneProjectRepository
 import com.iamahsana.ossstudio.scene.persistence.SceneProjectStoreProvider
 import kotlin.math.roundToInt
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
 
 @Composable
 fun SceneEditorScreen(
@@ -73,17 +81,68 @@ fun SceneEditorScreen(
     }
 
     val latestProject = rememberUpdatedState(currentProject)
-    val scene = currentProject.scenes.firstOrNull { it.id == currentProject.activeSceneId }
-        ?: currentProject.scenes.firstOrNull()
-    val selectedElement = scene?.elements?.firstOrNull { it.id == selectedElementId }
-    val selectedSource = currentProject.sources.firstOrNull { it.id == selectedElement?.sourceId }
-    var editingText by remember(selectedElementId) { mutableStateOf(selectedSource?.text.orEmpty()) }
-
     fun applyProject(updated: SceneProject) {
         currentProject = updated
         onProjectChange(updated)
         autosave.schedule(updated)
     }
+    val importExecutor = remember(repository) { Executors.newSingleThreadExecutor() }
+    val importActive = remember(repository) { AtomicBoolean(true) }
+    val mainHandler = remember { Handler(Looper.getMainLooper()) }
+    var mediaStatus by remember(project.id) { mutableStateOf<String?>(null) }
+    DisposableEffect(autosave, repository, importExecutor) {
+        onDispose {
+            importActive.set(false)
+            importExecutor.shutdownNow()
+            autosave.close()
+            repository.close()
+        }
+    }
+    val mediaPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        if (uri != null) {
+            mediaStatus = "Mengimpor media…"
+            runCatching {
+                importExecutor.execute {
+                    val result = runCatching { SceneAssetStorage.importUri(context, currentProject.id, uri) }
+                    if (importActive.get()) {
+                        mainHandler.post {
+                            if (importActive.get()) {
+                                result.fold(
+                                    onSuccess = { imported ->
+                                        runCatching {
+                                            val base = latestProject.value
+                                            val timestamp = System.currentTimeMillis()
+                                            val withAsset = SceneProjectEditor.addAsset(base, imported.asset, timestamp)
+                                            val source = SceneSource(
+                                                type = imported.sourceType,
+                                                displayName = imported.displayName,
+                                                assetId = imported.asset.id
+                                            )
+                                            val withSource = SceneProjectEditor.addSource(withAsset, source, timestamp)
+                                            val activeSceneId = withSource.activeSceneId ?: withSource.scenes.firstOrNull()?.id
+                                                ?: error("Project belum memiliki scene")
+                                            val updated = SceneProjectEditor.addElement(withSource, activeSceneId, source.id, timestamp)
+                                            selectedElementId = updated.scenes.first { it.id == activeSceneId }.elements.last().id
+                                            applyProject(updated)
+                                            mediaStatus = "Media berhasil ditambahkan: ${imported.displayName}"
+                                        }.onFailure {
+                                            mediaStatus = it.message ?: "Media gagal ditambahkan ke scene"
+                                        }
+                                    },
+                                    onFailure = { mediaStatus = it.message ?: "Gagal mengimpor media" }
+                                )
+                            }
+                        }
+                    }
+                }
+            }.onFailure { mediaStatus = it.message ?: "Tidak dapat memulai impor media" }
+        }
+    }
+    val scene = currentProject.scenes.firstOrNull { it.id == currentProject.activeSceneId }
+        ?: currentProject.scenes.firstOrNull()
+    val selectedElement = scene?.elements?.firstOrNull { it.id == selectedElementId }
+    val selectedSource = currentProject.sources.firstOrNull { it.id == selectedElement?.sourceId }
+    var editingText by remember(selectedElementId) { mutableStateOf(selectedSource?.text.orEmpty()) }
 
     fun addSource(type: SceneSourceType, text: String? = null) {
         val activeScene = scene ?: return
@@ -232,11 +291,13 @@ fun SceneEditorScreen(
                 "Geser elemen untuk mengatur posisi. Canvas ini adalah area komposisi scene, bukan preview LIVE terpisah.",
                 style = MaterialTheme.typography.bodySmall
             )
+            mediaStatus?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
             Row(
                 modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Button(onClick = { addSource(SceneSourceType.TEXT, "Teks baru") }) { Text("Tambah teks") }
+                OutlinedButton(onClick = { mediaPicker.launch(arrayOf("image/*", "video/*")) }) { Text("Tambah media") }
                 OutlinedButton(onClick = { addSource(SceneSourceType.SHARE_SCREEN) }) { Text("Share Screen") }
             }
             if (selectedElement != null && selectedSource != null) {
