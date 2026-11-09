@@ -118,6 +118,24 @@ class LiveSessionControllerTest {
     }
 
     @Test
+    fun runtimeFactoryFailureMarksSessionFailedAndAllowsRetry() {
+        val fake = FakeRuntime()
+        var attempts = 0
+        val controller = LiveSessionController(object : LiveSessionController.RuntimeFactory {
+            override fun create(): LiveSessionController.Runtime {
+                attempts += 1
+                if (attempts == 1) error("factory failure")
+                return fake
+            }
+        })
+
+        assertFalse(controller.start("rtmp://stream.example/live/key"))
+        assertEquals(LiveSessionController.State.FAILED, controller.state)
+        assertTrue(controller.start("rtmp://stream.example/live/key"))
+        assertEquals(listOf("prepare", "start_rtmp", "attach_screen"), fake.calls)
+    }
+
+    @Test
     fun projectionStopFailureIsReportedByTeardown() {
         val fake = FakeRuntime().apply { projectionStopResult = false }
         val controller = LiveSessionController(object : LiveSessionController.RuntimeFactory {
