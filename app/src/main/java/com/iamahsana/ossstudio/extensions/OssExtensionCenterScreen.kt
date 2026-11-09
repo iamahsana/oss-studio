@@ -12,8 +12,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -117,8 +115,8 @@ fun OssExtensionCenterScreen(context: Context) {
         if (installed.isEmpty()) {
             Text("Belum ada ekstensi yang dipasang.", style = MaterialTheme.typography.bodyMedium)
         } else {
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(installed, key = { it.id }) { extension ->
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                installed.forEach { extension ->
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
                         color = MaterialTheme.colorScheme.surfaceVariant,
@@ -131,7 +129,7 @@ fun OssExtensionCenterScreen(context: Context) {
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                                 Text(extension.name, style = MaterialTheme.typography.titleSmall)
                                 Text(extension.id, style = MaterialTheme.typography.bodySmall)
-                                Text("Versi \${extension.version}", style = MaterialTheme.typography.labelSmall)
+                                Text("Versi ${extension.version}", style = MaterialTheme.typography.labelSmall)
                             }
                             OutlinedButton(onClick = { pendingRemoval = extension }) { Text("Hapus") }
                         }
