@@ -39,6 +39,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -52,6 +53,7 @@ import com.iamahsana.ossstudio.scene.editor.SceneEditorScreen
 import com.iamahsana.ossstudio.audio.AudioMixerScreen
 import com.iamahsana.ossstudio.stream.rtmp.RtmpDestinationProfilesScreen
 import com.iamahsana.ossstudio.stream.android.ProjectionServiceRegistry
+import com.iamahsana.ossstudio.stream.android.ActiveSceneProjectRegistry
 
 private enum class AppPage(val label: String, val symbol: String) {
     HOME("Home", "⌂"),
@@ -84,6 +86,7 @@ private fun OssApp() {
     var activeProject by remember { mutableStateOf<SceneProject?>(null) }
     val page = AppPage.valueOf(selectedPage)
     val context = LocalContext.current
+    SideEffect { ActiveSceneProjectRegistry.project = activeProject }
     val projectLoader = remember(context) {
         SceneProjectRepository(SceneProjectStoreProvider.database(context))
     }
