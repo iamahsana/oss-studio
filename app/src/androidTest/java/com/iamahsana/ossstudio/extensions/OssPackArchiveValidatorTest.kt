@@ -92,7 +92,7 @@ class OssPackArchiveValidatorTest {
 
     @Test fun rejectsExecutablePayloads() {
         val archive = createRawPackage(
-            """{"format":"oss-extension","formatVersion":1,"payloadType":"declarative","id":"com.example.overlay","name":"Example","version":"1.0.0","minOssVersion":"0.1.0","capabilities":[],"files":[]}""",
+            """{"format":"oss-extension","formatVersion":1,"payloadType":"declarative","id":"$id","name":"Example","version":"1.0.0","minOssVersion":"0.1.0","capabilities":[],"files":[]}""",
             "payload.dex" to byteArrayOf(1, 2, 3, 4)
         )
         try {
