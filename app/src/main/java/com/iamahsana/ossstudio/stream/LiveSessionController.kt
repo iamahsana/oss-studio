@@ -57,6 +57,7 @@ class LiveSessionController(
     private var rtmpConnected = false
     private var screenReady = false
     private var stopping = false
+    private var cleanupIncomplete = false
     private var sessionId: String? = null
 
     /** Starts a new session. Endpoint must be supplied by secure UI state. */
@@ -67,6 +68,9 @@ class LiveSessionController(
         }
         check(state == State.IDLE || state == State.STOPPED || state == State.FAILED) {
             "Cannot start LIVE while controller is in state $state"
+        }
+        check(!cleanupIncomplete) {
+            "Cannot start a new LIVE session while previous resource cleanup is incomplete"
         }
 
         val newSessionId = UUID.randomUUID().toString()
@@ -135,6 +139,7 @@ class LiveSessionController(
         stopping = true
         setState(State.STOPPING)
         val result = current.shutdown()
+        cleanupIncomplete = !result.completed
         setState(if (result.completed) State.STOPPED else State.FAILED)
         log(
             if (result.completed) OssLogLevel.INFO else OssLogLevel.ERROR,
@@ -158,6 +163,7 @@ class LiveSessionController(
         stopping = true
         setState(State.STOPPING)
         current.shutdownAsync { result ->
+            cleanupIncomplete = !result.completed
             setState(if (result.completed) State.STOPPED else State.FAILED)
             log(
                 if (result.completed) OssLogLevel.INFO else OssLogLevel.ERROR,
@@ -181,6 +187,7 @@ class LiveSessionController(
         log(OssLogLevel.ERROR, "session_failed", detail, errorCode)
         setState(State.FAILED, detail)
         teardown?.shutdownAsync { result ->
+            cleanupIncomplete = !result.completed
             if (!result.completed) {
                 log(
                     OssLogLevel.ERROR,

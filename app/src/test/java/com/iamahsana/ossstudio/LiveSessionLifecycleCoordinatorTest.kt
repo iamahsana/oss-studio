@@ -73,7 +73,7 @@ class LiveSessionLifecycleCoordinatorTest {
     @Test
     fun asyncShutdownStopsAudioBeforeRtmpAndProjection() {
         val calls = mutableListOf<String>()
-        var audioCompletion: ((Boolean) -> Unit)? = null
+        var audioCompletion: ((AudioStopStatus) -> Unit)? = null
         val coordinator = LiveSessionLifecycleCoordinator(
             screenLayer = { calls += "detach" },
             streamPipeline = object : LiveSessionLifecycleCoordinator.StreamPipeline {
@@ -104,7 +104,7 @@ class LiveSessionLifecycleCoordinatorTest {
         val coordinator = LiveSessionLifecycleCoordinator(
             screenLayer = { calls += "detach" },
             streamPipeline = object : LiveSessionLifecycleCoordinator.StreamPipeline {
-                override fun stopAudio(completion: (Boolean) -> Unit) {
+                override fun stopAudio(completion: (AudioStopStatus) -> Unit) {
                     calls += "audio"
                     completion(AudioStopStatus(false, false, false))
                 }
@@ -118,7 +118,7 @@ class LiveSessionLifecycleCoordinatorTest {
         var result: LiveSessionLifecycleCoordinator.ShutdownResult? = null
         coordinator.shutdownAsync { result = it }
 
-        assertEquals(listOf("detach", "audio", "rtmp_stop", "projection", "release"), calls)
+        assertEquals(listOf("detach", "audio", "rtmp_stop", "projection"), calls)
         assertFalse(result?.completed == true)
         assertEquals(listOf("audio_stop", "rtmp_release_skipped"), result?.failedStages)
     }
