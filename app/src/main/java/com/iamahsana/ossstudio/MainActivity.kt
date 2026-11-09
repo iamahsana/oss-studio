@@ -43,6 +43,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.iamahsana.ossstudio.scene.source.screen.ShareScreenSessionService
+import com.iamahsana.ossstudio.scene.model.SceneProject
+import com.iamahsana.ossstudio.scene.persistence.ProjectHomeScreen
 
 private enum class AppPage(val label: String, val symbol: String) {
     HOME("Home", "⌂"),
@@ -71,6 +73,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun OssApp() {
     var selectedPage by rememberSaveable { mutableStateOf(AppPage.HOME.name) }
+    var activeProject by remember { mutableStateOf<SceneProject?>(null) }
     val page = AppPage.valueOf(selectedPage)
     val context = LocalContext.current
 
@@ -102,14 +105,17 @@ private fun OssApp() {
                 modifier = Modifier.fillMaxSize().padding(padding),
                 color = MaterialTheme.colorScheme.background
             ) {
-                PageContent(page, context)
+                PageContent(page, context, activeProject) { project ->
+                    activeProject = project
+                    selectedPage = AppPage.EDITOR.name
+                }
             }
         }
     }
 }
 
 @Composable
-private fun PageContent(page: AppPage, context: Context) {
+private fun PageContent(page: AppPage, context: Context, activeProject: SceneProject?, onOpenProject: (SceneProject) -> Unit) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -149,16 +155,14 @@ private fun PageContent(page: AppPage, context: Context) {
             item { AudioPermissionPanel(context) }
         }
         if (page == AppPage.HOME) {
+            item { ProjectHomeScreen(context, onOpenProject) }
+        }
+        if (page == AppPage.EDITOR) {
             item {
-                Text("Quick access", style = MaterialTheme.typography.titleMedium)
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    QuickCard("New project", Modifier.weight(1f))
-                    QuickCard("Open project", Modifier.weight(1f))
-                }
-            }
-            item {
-                Text("Recent projects", style = MaterialTheme.typography.titleMedium)
-                Text("Your projects will appear here.", style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    activeProject?.let { "Project: ${it.name}" } ?: "Pilih atau buat project dari Home terlebih dahulu.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
             }
         }
     }
