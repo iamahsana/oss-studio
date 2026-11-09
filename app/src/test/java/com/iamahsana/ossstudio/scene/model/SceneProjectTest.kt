@@ -135,6 +135,22 @@ class SceneProjectTest {
     }
 
     @Test
+    fun assetPathsRejectTraversalAndPlatformSpecificAbsolutePaths() {
+        val invalidPaths = listOf("../outside.png", "media/../outside.png", "/absolute.png", "C:/outside.png", "media\\photo.png", "media//photo.png", "media/./photo.png")
+        invalidPaths.forEach { path ->
+            assertThrows(IllegalArgumentException::class.java) {
+                SceneAsset(relativePath = path, mimeType = "image/png", byteSize = 1L, sha256 = "a".repeat(64))
+            }
+        }
+    }
+
+    @Test
+    fun assetPathsAllowOrdinaryNestedAndDottedFilenames() {
+        val asset = SceneAsset(relativePath = "media/v1.2/photo.final.png", mimeType = "image/png", byteSize = 1L, sha256 = "a".repeat(64))
+        assertEquals("media/v1.2/photo.final.png", asset.relativePath)
+    }
+
+    @Test
     fun assetPathAndChecksumAreValidated() {
         assertThrows(IllegalArgumentException::class.java) {
             SceneAsset(
