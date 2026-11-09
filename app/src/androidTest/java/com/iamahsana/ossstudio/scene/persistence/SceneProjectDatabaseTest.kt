@@ -78,9 +78,9 @@ class SceneProjectDatabaseTest {
             assertEquals("Latest",result?.name)
         } finally {
             autosave.close()
+            db.delete(id)
             repository.close()
             db.close()
-            db.delete(id)
         }
     }
 
