@@ -90,4 +90,30 @@ class SceneProjectEditorTest {
             SceneProjectEditor.addElement(project(), "scene", "missing", 20L)
         }
     }
+    @Test
+    fun sourceUpdatePreservesIdentityAndChangesConfiguration() {
+        val original = project()
+        val source = original.sources.first().copy(text = "Updated")
+        val updated = SceneProjectEditor.updateSource(original, source, 30L)
+        assertEquals("Updated", updated.sources.first().text)
+        assertEquals("Hello", original.sources.first().text)
+    }
+
+    @Test
+    fun removeElementNormalizesLayersAndRejectsUnknownElement() {
+        val updated = SceneProjectEditor.removeElement(project(), "scene", "first", 30L)
+        assertEquals(listOf("second"), updated.scenes.single().elements.map { it.id })
+        assertEquals(0, updated.scenes.single().elements.single().zIndex)
+        assertThrows(IllegalArgumentException::class.java) {
+            SceneProjectEditor.removeElement(project(), "scene", "missing", 30L)
+        }
+    }
+
+    @Test
+    fun elementVisibilityCanBeChangedWithoutChangingOtherElements() {
+        val updated = SceneProjectEditor.setElementVisibility(project(), "scene", "first", false, 30L)
+        assertFalse(updated.scenes.single().elements.first().visible)
+        assertTrue(updated.scenes.single().elements.last().visible)
+    }
+
 }
