@@ -183,26 +183,28 @@ fun SceneEditorScreen(
                             )
                             .background(if (element.id == selectedElementId) Color(0x553B82F6) else Color(0x33222222))
                             .clickable { selectedElementId = element.id }
-                            .pointerInput(element.id, scale) {
-                                var dragX = transform.x
-                                var dragY = transform.y
-                                detectDragGestures(
-                                    onDragStart = { selectedElementId = element.id },
-                                    onDrag = { change, amount ->
-                                        change.consume()
-                                        dragX = (dragX + amount.x / scale).coerceIn(0f, (scene.canvas.width - transform.width).coerceAtLeast(0f))
-                                        dragY = (dragY + amount.y / scale).coerceIn(0f, (scene.canvas.height - transform.height).coerceAtLeast(0f))
-                                        val updated = SceneProjectEditor.updateTransform(
-                                            latestProject.value,
-                                            scene.id,
-                                            element.id,
-                                            transform.copy(x = dragX, y = dragY),
-                                            System.currentTimeMillis()
-                                        )
-                                        applyProject(updated)
-                                    }
-                                )
-                            },
+                            .then(
+                                if (element.locked) Modifier else Modifier.pointerInput(element.id, scale) {
+                                    var dragX = transform.x
+                                    var dragY = transform.y
+                                    detectDragGestures(
+                                        onDragStart = { selectedElementId = element.id },
+                                        onDrag = { change, amount ->
+                                            change.consume()
+                                            dragX = (dragX + amount.x / scale).coerceIn(0f, (scene.canvas.width - transform.width).coerceAtLeast(0f))
+                                            dragY = (dragY + amount.y / scale).coerceIn(0f, (scene.canvas.height - transform.height).coerceAtLeast(0f))
+                                            val updated = SceneProjectEditor.updateTransform(
+                                                latestProject.value,
+                                                scene.id,
+                                                element.id,
+                                                transform.copy(x = dragX, y = dragY),
+                                                System.currentTimeMillis()
+                                            )
+                                            applyProject(updated)
+                                        }
+                                    )
+                                }
+                            ),
                         contentAlignment = Alignment.Center
                     ) {
                         val label = when (source.type) {
@@ -263,17 +265,17 @@ fun SceneEditorScreen(
                             modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            OutlinedButton(enabled = layerIndex > 0, onClick = {
+                            OutlinedButton(enabled = !selectedElement.locked && layerIndex > 0, onClick = {
                                 applyProject(SceneProjectEditor.moveElement(
                                     currentProject, scene.id, selectedElement.id, layerIndex - 1, System.currentTimeMillis()
                                 ))
                             }) { Text("Turunkan layer") }
-                            OutlinedButton(enabled = layerIndex in 0 until orderedElements.lastIndex, onClick = {
+                            OutlinedButton(enabled = !selectedElement.locked && layerIndex in 0 until orderedElements.lastIndex, onClick = {
                                 applyProject(SceneProjectEditor.moveElement(
                                     currentProject, scene.id, selectedElement.id, layerIndex + 1, System.currentTimeMillis()
                                 ))
                             }) { Text("Naikkan layer") }
-                            OutlinedButton(onClick = {
+                            OutlinedButton(enabled = !selectedElement.locked, onClick = {
                                 val transform = selectedElement.transform
                                 applyProject(SceneProjectEditor.updateTransform(
                                     currentProject, scene.id, selectedElement.id,
@@ -281,7 +283,7 @@ fun SceneEditorScreen(
                                     System.currentTimeMillis()
                                 ))
                             }) { Text("Lebarkan") }
-                            OutlinedButton(onClick = {
+                            OutlinedButton(enabled = !selectedElement.locked, onClick = {
                                 val transform = selectedElement.transform
                                 applyProject(SceneProjectEditor.updateTransform(
                                     currentProject, scene.id, selectedElement.id,
@@ -291,6 +293,11 @@ fun SceneEditorScreen(
                             }) { Text("Tinggikan") }
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(onClick = {
+                                applyProject(SceneProjectEditor.setElementLocked(
+                                    currentProject, scene.id, selectedElement.id, !selectedElement.locked, System.currentTimeMillis()
+                                ))
+                            }) { Text(if (selectedElement.locked) "Buka kunci" else "Kunci") }
                             OutlinedButton(onClick = {
                                 applyProject(SceneProjectEditor.setElementVisibility(
                                     currentProject, scene.id, selectedElement.id, !selectedElement.visible, System.currentTimeMillis()
