@@ -97,8 +97,8 @@ class RootEncoderAudioCaptureSession(
             check(stopped) { "Audio capture session is already running" }
             stopped = false
 
-            var micStatus = startMicrophone()
-            var internalStatus = startInternal(projection)
+            val micStatus = startMicrophone()
+            val internalStatus = startInternal(projection)
 
             publish(micStatus, internalStatus)
             return currentSnapshot
@@ -226,6 +226,10 @@ class RootEncoderAudioCaptureSession(
 
     private fun releaseInternalAfterProjectionStop() {
         synchronized(lock) {
+            if (stopped) {
+                releaseProjectionLease()
+                return
+            }
             internalSink.endCapture()
             internalSource?.let { source ->
                 runCatching { source.stop() }
@@ -307,7 +311,7 @@ internal object InternalProjectionLease {
 private object RootEncoderSourceFactory : RootEncoderAudioCaptureSession.SourceFactory {
     override fun createMicrophone(): RootEncoderAudioCaptureSession.CaptureSource {
         val source = MicrophoneSource()
-        return RootEncoderCaptureSourceAdapter(source, source)
+        return RootEncoderCaptureSourceAdapter(source)
     }
 
     override fun createInternal(
@@ -315,13 +319,12 @@ private object RootEncoderSourceFactory : RootEncoderAudioCaptureSession.SourceF
         callback: MediaProjection.Callback
     ): RootEncoderAudioCaptureSession.CaptureSource {
         val source = InternalAudioSource(projection, callback)
-        return RootEncoderCaptureSourceAdapter(source, source)
+        return RootEncoderCaptureSourceAdapter(source)
     }
 }
 
 private class RootEncoderCaptureSourceAdapter(
-    private val source: AudioSource,
-    private val callbackSource: GetMicrophoneData
+    private val source: AudioSource
 ) : RootEncoderAudioCaptureSession.CaptureSource {
     override fun initialize(sampleRateHz: Int, stereo: Boolean): Boolean =
         source.init(sampleRateHz, stereo, echoCanceler = false, noiseSuppressor = false)
