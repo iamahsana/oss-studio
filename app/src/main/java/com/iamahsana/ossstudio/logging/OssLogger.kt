@@ -3,6 +3,7 @@ package com.iamahsana.ossstudio.logging
 import android.content.Context
 import android.os.Build
 import android.util.Log
+import com.iamahsana.ossstudio.BuildConfig
 import org.json.JSONObject
 import java.io.File
 import java.io.PrintWriter
