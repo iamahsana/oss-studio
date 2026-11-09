@@ -146,7 +146,7 @@ class OssPackArchiveValidatorTest {
         } finally { archive.delete() }
     }
 
-    private fun createPackage(payload: ByteArray, manifestHashOverride: String? = null, id: String = "com.example.overlay"): File {
+    private fun createPackage(payload: ByteArray, manifestHashOverride: String? = null, id: String = "$id"): File {
         val hash = manifestHashOverride ?: sha256(payload)
         val manifest = """{"format":"oss-extension","formatVersion":1,"payloadType":"declarative","id":"com.example.overlay","name":"Example Overlay","version":"1.0.0","minOssVersion":"0.1.0","capabilities":["scene-overlay"],"files":[{"path":"assets/icon.png","sha256":"$hash","byteSize":""" + payload.size + "}]} "
         return createRawPackage(manifest.trim(), "assets/icon.png" to payload)
