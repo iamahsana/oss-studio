@@ -43,6 +43,22 @@ object SceneProjectEditor {
         )
     }
 
+    fun updateSceneCanvas(
+        project: SceneProject,
+        sceneId: String,
+        canvas: CanvasSize,
+        nowEpochMillis: Long
+    ): SceneProject {
+        val sceneIndex = project.scenes.indexOfFirst { it.id == sceneId }
+        require(sceneIndex >= 0) { "Scene does not exist" }
+        return project.copy(
+            scenes = project.scenes.toMutableList().also {
+                it[sceneIndex] = it[sceneIndex].copy(canvas = canvas)
+            },
+            updatedAtEpochMillis = nextTimestamp(project, nowEpochMillis)
+        )
+    }
+
     fun updateSource(project: SceneProject, source: SceneSource, nowEpochMillis: Long): SceneProject {
         val sourceIndex = project.sources.indexOfFirst { it.id == source.id }
         require(sourceIndex >= 0) { "Source does not exist" }
