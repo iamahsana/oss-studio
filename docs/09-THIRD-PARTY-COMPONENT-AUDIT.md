@@ -1,6 +1,6 @@
 # Third-Party Component Audit
 
-Status: initial candidate review; no runtime dependencies are approved by this document alone.
+Status: candidate review in progress. RootEncoder 2.8.1 dependency resolution is CI-verified, but runtime engine adoption is not yet approved.
 
 ## Adoption rule
 
@@ -74,11 +74,11 @@ Do not add a library merely because it has a useful feature list. Verify that it
 
 **Provisional decision**
 
-Keep RootEncoder 2.8.1 as the leading encoding/GL-composition candidate, not yet as an approved dependency. Its Apache-2.0 license and source features are verified. The scene-object chain is promising, but multi-RTMP fan-out, Share Screen as a coexisting layer, independent video surfaces, per-object crop/masks, and independent audio buses remain blockers for final architecture approval.
+Keep RootEncoder 2.8.1 as the leading encoding/GL-composition candidate. Its dependency resolution passed GitHub Actions run 42553614177, its Apache-2.0 license text is retained under `third_party/RootEncoder/`, and its source features are verified. This only verifies artifact retrieval and build dependency resolution; it does not verify runtime behavior or grant final architecture approval. The scene-object chain is promising, but multi-RTMP fan-out, Share Screen as a coexisting layer, independent video surfaces, per-object crop/masks, and independent audio buses remain blockers for final architecture approval.
 
 ## CI baseline correction
 
-The first failing build reached Android dependency metadata validation and failed because `android.useAndroidX` was not enabled. Added root `gradle.properties` with `android.useAndroidX=true` and standard Gradle JVM settings. The follow-up CI run is pending; do not treat the baseline as green until unit tests and APK assembly both complete.
+The earlier AndroidX metadata failure was corrected by enabling `android.useAndroidX=true` in root `gradle.properties`. Baseline CI run 42553420488 completed successfully with unit tests, debug APK assembly, and artifact upload. RootEncoder dependency-resolution probe run 42553614177 also completed successfully. These are build checks only, not runtime streaming tests.
 
 
 ### Multi-RTMP fan-out source trace (2.8.1)
@@ -95,3 +95,8 @@ The first failing build reached Android dependency metadata validation and faile
 - `ScreenSource` instead creates a `VirtualDisplay` targeting the stream's main input `SurfaceTexture`, which is why it occupies the normal `VideoSource` slot.
 - Android's `MediaProjection` API accepts a caller-provided `Surface` for `createVirtualDisplay`. Therefore a separate OSS source adapter can plausibly direct MediaProjection into the `Surface` owned by a `SurfaceFilterRender` already attached to `GlStreamInterface`.
 - This avoids a second compositor in the design. It still needs a prototype to verify callback thread/lifecycle, Surface validity, frame pacing, resizing/rotation, and current Android MediaProjection foreground-service and consent requirements.
+
+
+## Emulator compatibility automation (2026-11-09)
+
+The Android CI workflow now includes a separate emulator smoke-test matrix for API 29, 32, 35, and 36. Instrumentation tests launch the application, verify the Home screen, navigate to Editor, and verify the Editor page. This is a UI/lifecycle smoke test only; it does not simulate hardware encoder quality, MediaProjection behavior on OEM devices, audio routing, thermal throttling, or real network performance. CI results must be reviewed before treating any API level as passed.
