@@ -24,7 +24,8 @@ import java.util.concurrent.atomic.AtomicBoolean
 class OssAudioMixerSession(
     context: Context,
     bufferAudioSource: BufferAudioSource,
-    private val onCaptureStatus: ((RootEncoderAudioCaptureSession.Snapshot) -> Unit)? = null
+    private val onCaptureStatus: ((RootEncoderAudioCaptureSession.Snapshot) -> Unit)? = null,
+    private val onFatalError: ((Throwable) -> Unit)? = null
 ) {
     enum class State { NEW, STARTING, RUNNING, STOPPING, STOPPED, FAILED }
 
@@ -53,7 +54,18 @@ class OssAudioMixerSession(
         liveSink = liveOutput,
         monitorSink = monitorOutput,
         clock = AndroidPcmMixerClock,
-        sampleRateHz = RootEncoderAudioCaptureSession.SAMPLE_RATE_HZ
+        sampleRateHz = RootEncoderAudioCaptureSession.SAMPLE_RATE_HZ,
+        onWorkerFailure = { error ->
+            state = State.FAILED
+            log(
+                OssLogLevel.ERROR,
+                "mixer_worker_fatal_error",
+                "LIVE audio mixer worker failed; the stream must be stopped",
+                "AUDIO_MIXER_WORKER_FAILED",
+                error
+            )
+            runCatching { onFatalError?.invoke(error) }
+        }
     )
     private val stopRequested = AtomicBoolean(false)
     private val cleanupInProgress = AtomicBoolean(false)
