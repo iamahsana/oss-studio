@@ -30,6 +30,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.iamahsana.ossstudio.scene.model.SceneProject
 import com.iamahsana.ossstudio.scene.model.SceneProjectFactory
+import java.text.DateFormat
+import java.util.Date
 
 @Composable
 fun ProjectHomeScreen(
@@ -103,7 +105,7 @@ fun ProjectHomeScreen(
             ) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(project.name, style = MaterialTheme.typography.titleMedium)
-                    Text("Diperbarui ${project.updatedAtEpochMillis}", style = MaterialTheme.typography.bodySmall)
+                    Text("Diperbarui ${DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(project.updatedAtEpochMillis))}", style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
