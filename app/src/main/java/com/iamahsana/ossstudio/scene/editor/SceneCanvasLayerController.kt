@@ -173,6 +173,7 @@ class SceneCanvasLayerController(
         checkMainThread()
         state = State.WAITING_FOR_SURFACE
         val newFilter = SurfaceFilterRender { surfaceTexture ->
+            checkMainThread()
             if (state != State.WAITING_FOR_SURFACE) return@SurfaceFilterRender
             try {
                 surfaceTexture.setDefaultBufferSize(outputWidth, outputHeight)
