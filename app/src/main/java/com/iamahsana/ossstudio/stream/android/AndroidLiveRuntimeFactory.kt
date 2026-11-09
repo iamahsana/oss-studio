@@ -61,7 +61,7 @@ class AndroidLiveRuntimeFactory(
         private val audioStopRequested = AtomicBoolean(false)
 
         private var screenLayer: ShareScreenLayerController? = null
-        private var sceneCanvasLayer: SceneCanvasLayerController? = null
+        private val sceneCanvasLayers = mutableListOf<SceneCanvasLayerController>()
         private var screenCheck: Runnable? = null
         private var screenCheckAttempts = 0
         private var released = false
@@ -272,7 +272,7 @@ class AndroidLiveRuntimeFactory(
                 return
             }
             activeProject = updated
-            sceneCanvasLayer?.let { layer ->
+            sceneCanvasLayers.forEach { layer ->
                 if (layer.state == SceneCanvasLayerController.State.READY) {
                     layer.update(updated, scene)
                 } else {
@@ -407,41 +407,90 @@ class AndroidLiveRuntimeFactory(
             val glInterface = multiStream?.glInterface()
                 ?: stream?.glInterface()
                 ?: run { listener.onFailure(); return }
-            val overlay = SceneCanvasLayerController(
-                context = appContext,
-                sourceId = "scene-overlay-$runtimeId",
-                glInterface = glInterface
-            )
-            sceneCanvasLayer = overlay
-            val attachOverlay = {
-                overlay.attach(
+
+            if (shareElement == null) {
+                val layer = SceneCanvasLayerController(
+                    context = appContext,
+                    sourceId = "scene-layer-all-$runtimeId",
+                    glInterface = glInterface
+                )
+                sceneCanvasLayers.add(layer)
+                layer.attach(
                     project = project,
                     scene = scene,
                     outputWidth = activeStreamConfig.width,
                     outputHeight = activeStreamConfig.height,
-                    hasShareScreen = shareElement != null,
+                    hasShareScreen = false,
                     onReady = {
-                        val latestProject = activeProject
-                        val latestScene = latestProject?.scenes?.firstOrNull { it.id == latestProject.activeSceneId }
-                            ?: latestProject?.scenes?.firstOrNull()
-                        if (latestProject != null && latestProject.id == project.id &&
-                            latestScene != null && latestProject !== project
-                        ) {
-                            overlay.update(latestProject, latestScene)
+                        val latest = activeProject
+                        val latestScene = latest?.scenes?.firstOrNull { it.id == latest.activeSceneId }
+                            ?: latest?.scenes?.firstOrNull()
+                        if (latest != null && latest.id == project.id && latestScene != null && latest !== project) {
+                            layer.update(latest, latestScene)
                         }
                         listener.onReady()
                     },
                     onFailure = { listener.onFailure() }
                 )
-            }
-
-            if (shareElement == null) {
-                attachOverlay()
                 return
             }
+
+            val belowLayer = SceneCanvasLayerController(
+                context = appContext,
+                sourceId = "scene-layer-below-$runtimeId",
+                glInterface = glInterface,
+                layerPosition = SceneCanvasLayerController.LayerPosition.BELOW_SHARE_SCREEN,
+                shareScreenZIndex = shareElement.zIndex
+            )
+            sceneCanvasLayers.add(belowLayer)
+            belowLayer.attach(
+                project = project,
+                scene = scene,
+                outputWidth = activeStreamConfig.width,
+                outputHeight = activeStreamConfig.height,
+                hasShareScreen = true,
+                onReady = {
+                    val latestProject = activeProject ?: project
+                    val latestScene = latestProject.scenes.firstOrNull { it.id == latestProject.activeSceneId }
+                        ?: latestProject.scenes.firstOrNull()
+                    if (latestScene == null) {
+                        listener.onFailure()
+                    } else {
+                        if (latestProject !== project) belowLayer.update(latestProject, latestScene)
+                        attachShareScreenAndAboveLayer(
+                            latestProject,
+                            latestScene,
+                            shareElement.zIndex,
+                            glInterface,
+                            listener
+                        )
+                    }
+                },
+                onFailure = { listener.onFailure() }
+            )
+        }
+
+        private fun attachShareScreenAndAboveLayer(
+            project: SceneProject,
+            scene: com.iamahsana.ossstudio.scene.model.Scene,
+            shareScreenZIndex: Int,
+            glInterface: com.pedro.library.view.GlStreamInterface,
+            listener: LiveSessionController.ScreenListener
+        ) {
+            checkMainThread()
+            val sources = project.sources.associateBy { it.id }
+            val shareElement = scene.elements.firstOrNull { element ->
+                element.visible && element.zIndex == shareScreenZIndex &&
+                    sources[element.sourceId]?.let { it.enabled && it.type == SceneSourceType.SHARE_SCREEN } == true
+            } ?: run { listener.onFailure(); return }
             val projection = projectionService()?.getActiveProjection()
             if (projection == null) {
-                log(OssLogLevel.ERROR, "projection_unavailable", "The active scene contains Share Screen but no MediaProjection is available", "SCREEN_PROJECTION_UNAVAILABLE")
+                log(
+                    OssLogLevel.ERROR,
+                    "projection_unavailable",
+                    "The active scene contains Share Screen but no MediaProjection is available",
+                    "SCREEN_PROJECTION_UNAVAILABLE"
+                )
                 listener.onFailure()
                 return
             }
@@ -465,9 +514,48 @@ class AndroidLiveRuntimeFactory(
                     positionY = transform.y / scene.canvas.height.toFloat() * 100f,
                     rotationDegrees = transform.rotationDegrees
                 )
-                watchScreenReadiness(layer, listener, attachOverlay)
+                watchScreenReadiness(layer, listener) {
+                    val latestProject = activeProject ?: project
+                    val latestScene = latestProject.scenes.firstOrNull { it.id == latestProject.activeSceneId }
+                        ?: latestProject.scenes.firstOrNull()
+                    if (latestScene == null) {
+                        listener.onFailure()
+                        return@watchScreenReadiness
+                    }
+                    val aboveLayer = SceneCanvasLayerController(
+                        context = appContext,
+                        sourceId = "scene-layer-above-$runtimeId",
+                        glInterface = glInterface,
+                        layerPosition = SceneCanvasLayerController.LayerPosition.ABOVE_SHARE_SCREEN,
+                        shareScreenZIndex = shareScreenZIndex
+                    )
+                    sceneCanvasLayers.add(aboveLayer)
+                    aboveLayer.attach(
+                        project = latestProject,
+                        scene = latestScene,
+                        outputWidth = activeStreamConfig.width,
+                        outputHeight = activeStreamConfig.height,
+                        hasShareScreen = true,
+                        onReady = {
+                            val newest = activeProject
+                            val newestScene = newest?.scenes?.firstOrNull { it.id == newest.activeSceneId }
+                                ?: newest?.scenes?.firstOrNull()
+                            if (newest != null && newest.id == project.id && newestScene != null && newest !== latestProject) {
+                                aboveLayer.update(newest, newestScene)
+                            }
+                            listener.onReady()
+                        },
+                        onFailure = { listener.onFailure() }
+                    )
+                }
             } catch (error: Exception) {
-                log(OssLogLevel.ERROR, "screen_attach_exception", error.message ?: "Share Screen attach failed", "SCREEN_SOURCE_ATTACH_FAILED", error)
+                log(
+                    OssLogLevel.ERROR,
+                    "screen_attach_exception",
+                    error.message ?: "Share Screen attach failed",
+                    "SCREEN_SOURCE_ATTACH_FAILED",
+                    error
+                )
                 listener.onFailure()
             }
         }
@@ -521,13 +609,18 @@ class AndroidLiveRuntimeFactory(
             checkMainThread()
             screenCheck?.let(mainHandler::removeCallbacks)
             screenCheck = null
-            sceneCanvasLayer?.let {
-                it.detach()
-                sceneCanvasLayer = null
+            if (sceneCanvasLayers.size > 1) {
+                val aboveLayer = sceneCanvasLayers.last()
+                aboveLayer.detach()
+                sceneCanvasLayers.removeAt(sceneCanvasLayers.lastIndex)
             }
             screenLayer?.let {
                 it.detach()
                 screenLayer = null
+            }
+            sceneCanvasLayers.firstOrNull()?.let {
+                it.detach()
+                sceneCanvasLayers.removeAt(0)
             }
         }
 
