@@ -264,8 +264,17 @@ class SceneCanvasLayerController(
         checkMainThread()
         val currentProject = project ?: return
         val currentScene = scene ?: return
+        if (!surface.isValid) {
+            fail("Scene canvas output surface is no longer valid")
+            return
+        }
         val sources = currentProject.sources.associateBy { it.id }
-        val canvas = surface.lockCanvas(null)
+        val canvas = try {
+            surface.lockCanvas(null)
+        } catch (error: Exception) {
+            fail(error.message ?: "Unable to lock scene canvas surface")
+            return
+        }
         try {
             canvas.drawColor(
                 when (layerPosition) {
