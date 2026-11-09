@@ -7,6 +7,9 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeUp
+import androidx.compose.ui.test.onRoot
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.iamahsana.ossstudio.stream.rtmp.RtmpDestinationProfileStore
@@ -65,7 +68,7 @@ class MainActivitySmokeTest {
     @Test
     fun mixerPageShowsIndependentCoreChannelsAndBuses() {
         composeRule.onNodeWithText("Mixer").performClick()
-        composeRule.waitUntil(15_000) { composeRule.onAllNodesWithText("Mixer utama").fetchSemanticsNodes().isNotEmpty() }
+        scrollUntilVisible("Mixer utama")
         composeRule.onNodeWithText("Mixer utama").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("LIVE master: 100%").assertIsDisplayed()
         composeRule.onNodeWithText("MONITOR master: 100%").assertIsDisplayed()
@@ -91,6 +94,17 @@ class MainActivitySmokeTest {
         assertTrue(composeRule.onAllNodesWithText("private-smoke-key").fetchSemanticsNodes().isEmpty())
     }
 
+
+    private fun scrollUntilVisible(text: String) {
+        repeat(8) {
+            if (composeRule.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty()) return
+            composeRule.onRoot().performTouchInput { swipeUp() }
+        }
+        composeRule.waitUntil(15_000) {
+            composeRule.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty()
+        }
+    }
+
     @After
     fun removeOnlySmokeDestination() {
         val name = smokeProfileName ?: return
@@ -104,9 +118,8 @@ class MainActivitySmokeTest {
     @Test
     fun studioShowsLiveSessionControls() {
         composeRule.onNodeWithText("Studio").performClick()
-        composeRule.waitUntil(15_000) { composeRule.onAllNodesWithText("LIVE control center").fetchSemanticsNodes().isNotEmpty() }
         composeRule.onNodeWithText("LIVE control center").assertIsDisplayed()
-        composeRule.waitUntil(15_000) { composeRule.onAllNodesWithText("LIVE control").fetchSemanticsNodes().isNotEmpty() }
+        scrollUntilVisible("LIVE control")
         composeRule.onNodeWithText("LIVE control").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Mulai LIVE").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Hentikan").performScrollTo().assertIsDisplayed()
