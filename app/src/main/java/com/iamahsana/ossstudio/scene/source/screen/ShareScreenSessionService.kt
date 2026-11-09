@@ -116,15 +116,17 @@ class ShareScreenSessionService : Service() {
             val projection = requireNotNull(manager.getMediaProjection(resultCode, resultData)) {
                 "Android did not create a MediaProjection session"
             }
+            // Publish ownership before callback registration. If registration
+            // throws, the catch path can still stop and release this token.
+            mediaProjection = projection
             val callback = object : MediaProjection.Callback() {
                 override fun onStop() {
                     log(OssLogLevel.INFO, "projection_stopped", "Android MediaProjection session stopped")
                     finishSession(stopProjection = false)
                 }
             }
-            projection.registerCallback(callback, android.os.Handler(mainLooper))
-            mediaProjection = projection
             projectionCallback = callback
+            projection.registerCallback(callback, android.os.Handler(mainLooper))
             notifyProjectionState(active = true)
             log(OssLogLevel.INFO, "projection_ready", "Share Screen permission session is ready")
         } catch (error: Exception) {
