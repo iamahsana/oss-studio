@@ -35,6 +35,10 @@ Use:
 
 Do not use `MixAudioSource` as the main mixer. It combines mic and internal playback before OSS can apply independent channel routing, monitoring, or Song Request policy. It is not part of the default product path and must not introduce a source-mode picker.
 
+## Capture session adapter
+
+`RootEncoderAudioCaptureSession` now owns separate `MicrophoneSource` and `InternalAudioSource` instances, each feeding its own `RootEncoderPcmCaptureSink` and bounded queue. On session start it attempts every available core input automatically: microphone requires `RECORD_AUDIO`; internal playback requires Android 10+, an active MediaProjection, and target-app playback-capture permission. A failure or missing permission is reported on that channel and does not silently replace or disable the other source. The adapter serializes RootEncoder's process-wide `MediaProjectionHandler` ownership, unregisters/stops `InternalAudioSource` before clearing only the projection instance it owns, and defers projection-stop cleanup away from RootEncoder's callback thread. The capture adapter is implemented but is not yet connected to the LIVE runtime or mixer worker.
+
 ## Signal path
 
 ```
