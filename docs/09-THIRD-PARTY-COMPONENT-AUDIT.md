@@ -123,3 +123,16 @@ The Android workflow now cancels superseded runs on the same Git ref. This avoid
 An initial `ShareScreenLayerController` now routes an already-authorized Android `MediaProjection` into RootEncoder's upstream `SurfaceFilterRender`, then inserts that filter into the existing `GlStreamInterface` chain. The controller supports scene-space scale/position updates, releases the virtual display before removing the filter, handles system projection stop, and emits source-correlated diagnostics.
 
 This is deliberately only the projection-to-scene-layer adapter. It does not request capture permission or start the required mediaProjection foreground service; those responsibilities must be implemented in a dedicated Android service/permission flow. It has not yet been runtime-validated. CI compilation and lifecycle tests must pass before APK testing, followed by physical-device checks on Android 10 and Android 14+ / 16.
+
+
+### Share Screen foreground session service (2026-11-09)
+
+A dedicated `ShareScreenSessionService` now owns the Android foreground-service lifetime for a user-approved MediaProjection session:
+
+- Declares `FOREGROUND_SERVICE` and `FOREGROUND_SERVICE_MEDIA_PROJECTION`, with a non-exported service marked `foregroundServiceType="mediaProjection"`.
+- Enters foreground mode with an ongoing low-importance notification before calling `MediaProjectionManager.getMediaProjection`, matching the required lifecycle ordering.
+- Exposes the active projection through a local binder so the scene layer controller can consume the same authorized session.
+- Stops cleanly on explicit stop or Android's projection `onStop` callback; logs startup failures and lifecycle transitions without logging permission payloads.
+- Does not request permission itself. The Activity/Compose permission launcher must call `ShareScreenSessionService.start(...)` only after the system consent result succeeds, then bind to the service and pass its active projection to `ShareScreenLayerController`.
+
+This service and the existing scene-layer controller are not yet wired into the UI and have not been validated on a physical device. Android 10–16 build and lifecycle checks remain required; Android 14+ behavior must be specifically exercised because MediaProjection foreground-service enforcement is stricter.
