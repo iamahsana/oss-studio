@@ -302,21 +302,26 @@ fun SceneEditorScreen(
                 if (gridVisible || safeAreaVisible) {
                     Canvas(modifier = Modifier.matchParentSize()) {
                         if (gridVisible) {
-                            val step = size.width / 10f
-                            for (index in 1..9) {
-                                val position = step * index
+                            val step = DEFAULT_GRID_SIZE * scale
+                            var x = step
+                            while (x < size.width) {
                                 drawLine(
                                     color = Color.White.copy(alpha = 0.12f),
-                                    start = Offset(position, 0f),
-                                    end = Offset(position, size.height),
+                                    start = Offset(x, 0f),
+                                    end = Offset(x, size.height),
                                     strokeWidth = 1.dp.toPx()
                                 )
+                                x += step
+                            }
+                            var y = step
+                            while (y < size.height) {
                                 drawLine(
                                     color = Color.White.copy(alpha = 0.12f),
-                                    start = Offset(0f, position * size.height / size.width),
-                                    end = Offset(size.width, position * size.height / size.width),
+                                    start = Offset(0f, y),
+                                    end = Offset(size.width, y),
                                     strokeWidth = 1.dp.toPx()
                                 )
+                                y += step
                             }
                         }
                         if (safeAreaVisible) {
@@ -353,7 +358,7 @@ fun SceneEditorScreen(
                             .background(if (element.id == selectedElementId) Color(0x553B82F6) else Color(0x33222222))
                             .clickable { selectedElementId = element.id }
                             .then(
-                                if (element.locked) Modifier else Modifier.pointerInput(element.id, scale) {
+                                if (element.locked) Modifier else Modifier.pointerInput(element.id, scale, snapEnabled) {
                                     var dragX = transform.x
                                     var dragY = transform.y
                                     detectDragGestures(
