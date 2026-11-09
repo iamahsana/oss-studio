@@ -180,6 +180,12 @@ class RootEncoderAudioCaptureSession(
             log(OssLogLevel.WARN, "internal_projection_missing", "Internal audio channel unavailable: MediaProjection is not active", "AUDIO_INTERNAL_PROJECTION_REQUIRED")
             return SourceStatus(SourceState.UNAVAILABLE, "AUDIO_INTERNAL_PROJECTION_REQUIRED")
         }
+        if (ContextCompat.checkSelfPermission(appContext, Manifest.permission.RECORD_AUDIO) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            log(OssLogLevel.WARN, "internal_record_permission_missing", "Internal playback capture requires RECORD_AUDIO permission", "AUDIO_INTERNAL_RECORD_PERMISSION_REQUIRED")
+            return SourceStatus(SourceState.UNAVAILABLE, "AUDIO_INTERNAL_RECORD_PERMISSION_REQUIRED")
+        }
         if (!InternalProjectionLease.acquire(projection)) {
             log(OssLogLevel.ERROR, "internal_projection_busy", "Internal audio capture projection is already owned by another session", "AUDIO_INTERNAL_PROJECTION_BUSY")
             return SourceStatus(SourceState.FAILED, "AUDIO_INTERNAL_PROJECTION_BUSY")
@@ -326,8 +332,18 @@ private object RootEncoderSourceFactory : RootEncoderAudioCaptureSession.SourceF
 private class RootEncoderCaptureSourceAdapter(
     private val source: AudioSource
 ) : RootEncoderAudioCaptureSession.CaptureSource {
-    override fun initialize(sampleRateHz: Int, stereo: Boolean): Boolean =
-        source.init(sampleRateHz, stereo, echoCanceler = false, noiseSuppressor = false)
+    override fun initialize(sampleRateHz: Int, stereo: Boolean): Boolean {
+        // RootEncoder's MicrophoneSource.start() and InternalAudioSource.start()
+        // create their AudioRecord in the start path. Calling AudioSource.init()
+        // first creates an extra AudioRecord (and InternalAudioSource creates a
+        // microphone AudioRecord instead of playback capture). Set the negotiated
+        // format directly so each source allocates only its intended recorder.
+        source.sampleRate = sampleRateHz
+        source.isStereo = stereo
+        source.echoCanceler = false
+        source.noiseSuppressor = false
+        return true
+    }
 
     override fun start(sink: GetMicrophoneData) = source.start(sink)
     override fun stop() = source.stop()
