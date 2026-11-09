@@ -75,6 +75,14 @@ object OssLogger {
         throwable: Throwable? = null
     ) {
         if (level.priority < MIN_LEVEL.priority) return
+        val writer = executor
+        if (writer == null) {
+            // Skip Android/JSON work until initialized. This also keeps pure JVM
+            // unit tests independent from Android framework stub implementations.
+            droppedRecords.incrementAndGet()
+            return
+        }
+
         val safeSubsystem = OssLogRedactor.redact(subsystem)
         val safeComponent = OssLogRedactor.redact(component)
         val safeMessage = OssLogRedactor.redact(message)
@@ -106,13 +114,6 @@ object OssLogger {
             put("droppedBeforeThisRecord", droppedRecords.getAndSet(0))
         }.toString()
 
-        val writer = executor
-        if (writer == null) {
-            // Android's Log implementation is unavailable in plain JVM unit tests.
-            // Treat pre-initialization as a dropped diagnostic, never as an app failure.
-            droppedRecords.incrementAndGet()
-            return
-        }
         try {
             writer.execute {
                 runCatching {
