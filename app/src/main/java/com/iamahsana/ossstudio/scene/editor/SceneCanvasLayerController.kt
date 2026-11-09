@@ -34,8 +34,11 @@ import java.util.concurrent.atomic.AtomicLong
 class SceneCanvasLayerController(
     context: Context,
     private val sourceId: String,
-    private val glInterface: GlStreamInterface
+    private val glInterface: GlStreamInterface,
+    private val layerPosition: LayerPosition = LayerPosition.ALL,
+    private val shareScreenZIndex: Int? = null
 ) {
+    enum class LayerPosition { ALL, BELOW_SHARE_SCREEN, ABOVE_SHARE_SCREEN }
     enum class State { IDLE, LOADING_ASSETS, WAITING_FOR_GL, WAITING_FOR_SURFACE, READY, STOPPED, FAILED }
 
     private val appContext = context.applicationContext
@@ -89,7 +92,7 @@ class SceneCanvasLayerController(
         operationId = java.util.UUID.randomUUID().toString()
 
         assetExecutor.execute {
-            val decoded = decodeSceneAssets(project)
+            val decoded = decodeSceneAssets(project, scene)
             mainHandler.post {
                 if (state != State.LOADING_ASSETS) {
                     decoded.bitmaps.values.forEach { if (!it.isRecycled) it.recycle() }
@@ -97,7 +100,7 @@ class SceneCanvasLayerController(
                 }
                 cachedBitmaps = decoded.bitmaps
                 cachedMovies = decoded.movies
-                assetSignature = assetSignature(project)
+                assetSignature = assetSignature(project, scene)
                 state = State.WAITING_FOR_GL
                 waitForGl()
             }
@@ -109,12 +112,15 @@ class SceneCanvasLayerController(
         val movies: Map<String, Movie>
     )
 
-    private fun decodeSceneAssets(project: SceneProject): DecodedAssets {
+    private fun decodeSceneAssets(project: SceneProject, scene: Scene): DecodedAssets {
         val assets = project.assets.associateBy { it.id }
+        val usedSourceIds = scene.elements.filter { it.visible && shouldRenderElement(it) }
+            .mapTo(mutableSetOf()) { it.sourceId }
         val decoded = LinkedHashMap<String, Bitmap>()
         val movies = LinkedHashMap<String, Movie>()
         project.sources.filter {
-            it.enabled && it.type in setOf(SceneSourceType.IMAGE, SceneSourceType.GIF, SceneSourceType.VIDEO)
+            it.id in usedSourceIds && it.enabled &&
+                it.type in setOf(SceneSourceType.IMAGE, SceneSourceType.GIF, SceneSourceType.VIDEO)
         }.forEach { source ->
             val asset = source.assetId?.let(assets::get) ?: return@forEach
             val file = File(appContext.filesDir, asset.relativePath)
@@ -208,14 +214,14 @@ class SceneCanvasLayerController(
         this.project = project
         this.scene = scene
         val surface = outputSurface ?: error("Scene canvas surface is unavailable")
-        val nextSignature = assetSignature(project)
+        val nextSignature = assetSignature(project, scene)
         if (nextSignature == assetSignature) {
             drawFrame(surface)
             return
         }
         val generation = assetGeneration.incrementAndGet()
         assetExecutor.execute {
-            val decoded = decodeSceneAssets(project)
+            val decoded = decodeSceneAssets(project, scene)
             mainHandler.post {
                 if (state != State.READY || generation != assetGeneration.get()) {
                     decoded.bitmaps.values.forEach { if (!it.isRecycled) it.recycle() }
@@ -230,10 +236,12 @@ class SceneCanvasLayerController(
         }
     }
 
-    private fun assetSignature(project: SceneProject): String {
+    private fun assetSignature(project: SceneProject, scene: Scene): String {
         val assets = project.assets.associateBy { it.id }
+        val usedSourceIds = scene.elements.filter { it.visible && shouldRenderElement(it) }
+            .mapTo(mutableSetOf()) { it.sourceId }
         return project.sources
-            .filter { it.type in setOf(SceneSourceType.IMAGE, SceneSourceType.GIF, SceneSourceType.VIDEO) }
+            .filter { it.id in usedSourceIds && it.type in setOf(SceneSourceType.IMAGE, SceneSourceType.GIF, SceneSourceType.VIDEO) }
             .sortedBy { it.id }
             .joinToString("|") { source ->
                 val asset = source.assetId?.let(assets::get)
@@ -249,13 +257,19 @@ class SceneCanvasLayerController(
         val canvas = surface.lockCanvas(null)
         try {
             canvas.drawColor(
-                if (hasShareScreen) Color.TRANSPARENT else currentScene.backgroundArgb.toInt(),
-                if (hasShareScreen) PorterDuff.Mode.CLEAR else PorterDuff.Mode.SRC
+                when (layerPosition) {
+                    LayerPosition.ALL -> if (hasShareScreen) Color.TRANSPARENT else currentScene.backgroundArgb.toInt()
+                    LayerPosition.BELOW_SHARE_SCREEN -> currentScene.backgroundArgb.toInt()
+                    LayerPosition.ABOVE_SHARE_SCREEN -> Color.TRANSPARENT
+                },
+                if (layerPosition == LayerPosition.BELOW_SHARE_SCREEN || (layerPosition == LayerPosition.ALL && !hasShareScreen)) {
+                    PorterDuff.Mode.SRC
+                } else PorterDuff.Mode.CLEAR
             )
             val scaleX = outputWidth.toFloat() / currentScene.canvas.width
             val scaleY = outputHeight.toFloat() / currentScene.canvas.height
             currentScene.elements.asSequence()
-                .filter { it.visible }
+                .filter { it.visible && shouldRenderElement(it) }
                 .sortedBy { it.zIndex }
                 .forEach { element ->
                     val source = sources[element.sourceId] ?: return@forEach
@@ -298,7 +312,8 @@ class SceneCanvasLayerController(
             surface.unlockCanvasAndPost(canvas)
         }
         val hasVisibleGif = currentScene.elements.any { element ->
-            element.visible && sources[element.sourceId]?.type == SceneSourceType.GIF &&
+            element.visible && shouldRenderElement(element) &&
+                sources[element.sourceId]?.type == SceneSourceType.GIF &&
                 cachedMovies.containsKey(element.sourceId)
         }
         if (hasVisibleGif && state == State.READY) {
@@ -308,6 +323,13 @@ class SceneCanvasLayerController(
             mainHandler.removeCallbacks(gifFrameRunnable)
         }
     }
+
+    private fun shouldRenderElement(element: com.iamahsana.ossstudio.scene.model.SceneElement): Boolean =
+        when (layerPosition) {
+            LayerPosition.ALL -> true
+            LayerPosition.BELOW_SHARE_SCREEN -> element.zIndex < (shareScreenZIndex ?: Int.MIN_VALUE)
+            LayerPosition.ABOVE_SHARE_SCREEN -> element.zIndex > (shareScreenZIndex ?: Int.MAX_VALUE)
+        }
 
     private fun drawCachedBitmap(
         canvas: Canvas,
