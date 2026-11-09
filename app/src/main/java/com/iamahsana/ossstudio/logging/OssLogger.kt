@@ -40,7 +40,7 @@ object OssLogger {
     private const val TAG = "OSS/Diagnostics"
     private const val LOG_FILE_NAME = "oss-diagnostics.jsonl"
     private const val MAX_FILE_BYTES = 1024L * 1024L
-    private const val MIN_LEVEL = OssLogLevel.DEBUG
+    private val MIN_LEVEL = OssLogLevel.DEBUG
 
     private val droppedRecords = AtomicLong(0)
     @Volatile private var logFile: File? = null
