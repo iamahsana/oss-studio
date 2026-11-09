@@ -46,7 +46,7 @@ Future source adapters ─┘       │
                                 └─> MONITOR bus ─> selected Android output
 ```
 
-The implemented pure-Kotlin path now consists of `SpscPcmFrameQueue` (bounded timestamped SPSC frames), `PcmTimestampAligner` (preallocated per-source blocks, silence gaps, late-frame accounting), `PcmMixerCore` (independent LIVE/MONITOR routing, gain, pan, mute, solo and Peak/RMS), and `PcmMixerEngine` (reusable fixed-size block orchestration). `processBlock` is intended for one dedicated mixer worker; capture callbacks only enqueue frames. RootEncoder's `BufferAudioSource.setBuffer` is synchronized internally, so only that worker may submit output. No network, file I/O, diagnostic serialization, or UI callbacks are permitted in the mixer worker.
+The implemented PCM path now consists of `RootEncoderPcmCaptureSink` (copies RootEncoder `Frame` PCM and its microsecond timestamp into one source queue), `SpscPcmFrameQueue` (bounded timestamped SPSC frames), `PcmTimestampAligner` (preallocated per-source blocks, silence gaps, late-frame accounting), `PcmMixerCore` (independent LIVE/MONITOR routing, gain, pan, mute, solo and Peak/RMS), `PcmMixerEngine` (reusable fixed-size block orchestration), and `RootEncoderBufferAudioOutput` (timestamped LIVE bus submission to `BufferAudioSource`). `processBlock` is intended for one dedicated mixer worker; capture callbacks only enqueue frames. RootEncoder's `BufferAudioSource.setBuffer` is synchronized internally, so only that worker may submit output. No network, file I/O, diagnostic serialization, or UI callbacks are permitted in the mixer worker.
 
 ## PCM contract
 
