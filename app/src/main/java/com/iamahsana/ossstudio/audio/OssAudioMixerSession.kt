@@ -166,16 +166,22 @@ class OssAudioMixerSession(
         } catch (error: Exception) {
             worker.requestStop()
             val mixerStopped = worker.awaitStopped(MIXER_STOP_TIMEOUT_MS)
-            liveOutput.deactivate()
-            val captureStopped = if (mixerStopped) {
-                val snapshot = capture.stop()
-                snapshot.microphone.state == RootEncoderAudioCaptureSession.SourceState.STOPPED &&
-                    snapshot.internalAudio.state == RootEncoderAudioCaptureSession.SourceState.STOPPED
+            // BufferAudioSource must remain alive while a worker could still
+            // submit PCM. Retain the complete downstream graph on timeout so
+            // stopAsync() can safely retry cleanup later.
+            if (mixerStopped) {
+                liveOutput.deactivate()
+                capture.stop()
+                monitorOutput.requestStop()
+                monitorOutput.awaitStopped(MONITOR_STOP_TIMEOUT_MS)
             } else {
-                false
+                log(
+                    OssLogLevel.ERROR,
+                    "mixer_stop_timeout_during_start_failure",
+                    "Mixer did not stop after startup failure; LIVE, capture and MONITOR resources retained",
+                    "AUDIO_MIXER_STOP_TIMEOUT"
+                )
             }
-            monitorOutput.requestStop()
-            val monitorStopped = monitorOutput.awaitStopped(MONITOR_STOP_TIMEOUT_MS)
             state = State.FAILED
             log(
                 OssLogLevel.ERROR,
