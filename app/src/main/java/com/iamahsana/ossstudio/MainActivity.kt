@@ -42,6 +42,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.iamahsana.ossstudio.scene.source.screen.ShareScreenSessionService
@@ -157,7 +158,7 @@ private fun OssApp() {
 @Composable
 private fun PageContent(page: AppPage, context: Context, activeProject: SceneProject?, onOpenProject: (SceneProject) -> Unit, onProjectChange: (SceneProject) -> Unit) {
     LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp),
+        modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp).testTag("page-content"),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
