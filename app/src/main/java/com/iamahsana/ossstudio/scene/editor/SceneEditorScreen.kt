@@ -415,7 +415,7 @@ fun SceneEditorScreen(
 
 @Composable
 private fun SceneAssetImage(filePath: String, contentDescription: String) {
-    val bitmap = produceState<Bitmap?>(initialValue = null, filePath) {
+    val bitmap = produceState<Bitmap?>(initialValue = null, key1 = filePath) {
         value = withContext(Dispatchers.IO) { decodeEditorBitmap(filePath) }
     }.value
     if (bitmap != null) {
@@ -440,6 +440,6 @@ private fun decodeEditorBitmap(path: String): Bitmap? {
     }
     return BitmapFactory.decodeFile(path, BitmapFactory.Options().apply {
         inSampleSize = sampleSize
-        inPreferredConfig = Bitmap.Config.RGB_565
+        inPreferredConfig = Bitmap.Config.ARGB_8888
     })
 }
