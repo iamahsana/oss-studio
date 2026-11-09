@@ -114,6 +114,17 @@ class OssAudioMixerSession(
             val sources = capture.start(projection)
             if (!sources.hasAnySource) {
                 liveOutput.deactivate()
+                val cleanup = capture.stop()
+                if (cleanup.microphone.state != RootEncoderAudioCaptureSession.SourceState.STOPPED ||
+                    cleanup.internalAudio.state != RootEncoderAudioCaptureSession.SourceState.STOPPED
+                ) {
+                    log(
+                        OssLogLevel.ERROR,
+                        "capture_cleanup_after_start_failure_pending",
+                        "Unavailable audio sources still have pending cleanup",
+                        "AUDIO_CAPTURE_CLEANUP_PENDING"
+                    )
+                }
                 state = State.FAILED
                 log(
                     OssLogLevel.ERROR,
@@ -142,8 +153,19 @@ class OssAudioMixerSession(
             )
             true
         } catch (error: Exception) {
+            worker.requestStop()
+            val mixerStopped = worker.awaitStopped(MIXER_STOP_TIMEOUT_MS)
             liveOutput.deactivate()
-            state = State.FAILED
+            val captureStopped = if (mixerStopped) {
+                val snapshot = capture.stop()
+                snapshot.microphone.state == RootEncoderAudioCaptureSession.SourceState.STOPPED &&
+                    snapshot.internalAudio.state == RootEncoderAudioCaptureSession.SourceState.STOPPED
+            } else {
+                false
+            }
+            monitorOutput.requestStop()
+            val monitorStopped = monitorOutput.awaitStopped(MONITOR_STOP_TIMEOUT_MS)
+            state = if (mixerStopped && captureStopped && monitorStopped) State.FAILED else State.FAILED
             log(
                 OssLogLevel.ERROR,
                 "audio_graph_start_failed",
