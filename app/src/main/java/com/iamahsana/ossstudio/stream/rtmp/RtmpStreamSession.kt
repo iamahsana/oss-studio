@@ -46,7 +46,7 @@ class RtmpStreamSession(
         val height: Int = 1280,
         val fps: Int = 30,
         val videoBitrate: Int = 2_500_000,
-        val audioSampleRate: Int = 44_100,
+        val audioSampleRate: Int = 48_000,
         val audioStereo: Boolean = true,
         val audioBitrate: Int = 64_000
     )
