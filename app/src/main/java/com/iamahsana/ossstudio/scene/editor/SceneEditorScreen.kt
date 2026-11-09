@@ -67,7 +67,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.toSp
 import com.iamahsana.ossstudio.scene.model.SceneProject
 import com.iamahsana.ossstudio.scene.model.Scene
 import com.iamahsana.ossstudio.scene.model.CanvasSize
@@ -336,7 +335,7 @@ fun SceneEditorScreen(
                                 color = textColor,
                                 textAlign = alignment,
                                 fontWeight = if (source.settings["bold"] == "true") FontWeight.Bold else FontWeight.Normal,
-                                fontSize = with(density) { (textSize * scale).toSp() }
+                                fontSize = ((textSize * scale) / density.density).sp
                             )
                         } else {
                             Text(
