@@ -325,11 +325,7 @@ class SceneCanvasLayerController(
     }
 
     private fun shouldRenderElement(element: com.iamahsana.ossstudio.scene.model.SceneElement): Boolean =
-        when (layerPosition) {
-            LayerPosition.ALL -> true
-            LayerPosition.BELOW_SHARE_SCREEN -> element.zIndex < (shareScreenZIndex ?: Int.MIN_VALUE)
-            LayerPosition.ABOVE_SHARE_SCREEN -> element.zIndex > (shareScreenZIndex ?: Int.MAX_VALUE)
-        }
+        isSceneElementInLayer(element.zIndex, layerPosition, shareScreenZIndex)
 
     private fun drawCachedBitmap(
         canvas: Canvas,
@@ -495,4 +491,15 @@ class SceneCanvasLayerController(
         private const val MAX_GL_ATTEMPTS = 100
         private const val GIF_FRAME_INTERVAL_MS = 33L
     }
+}
+
+
+internal fun isSceneElementInLayer(
+    zIndex: Int,
+    layerPosition: SceneCanvasLayerController.LayerPosition,
+    shareScreenZIndex: Int?
+): Boolean = when (layerPosition) {
+    SceneCanvasLayerController.LayerPosition.ALL -> true
+    SceneCanvasLayerController.LayerPosition.BELOW_SHARE_SCREEN -> zIndex < (shareScreenZIndex ?: Int.MIN_VALUE)
+    SceneCanvasLayerController.LayerPosition.ABOVE_SHARE_SCREEN -> zIndex > (shareScreenZIndex ?: Int.MAX_VALUE)
 }
