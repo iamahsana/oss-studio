@@ -1,6 +1,7 @@
 package com.iamahsana.ossstudio.logging
 
 import android.content.Context
+import android.os.Build
 import android.util.Log
 import org.json.JSONObject
 import java.io.File
@@ -80,6 +81,11 @@ object OssLogger {
 
         val record = JSONObject().apply {
             put("timestamp", Instant.now().toString())
+            put("appVersion", BuildConfig.VERSION_NAME)
+            put("buildNumber", BuildConfig.VERSION_CODE)
+            put("androidApi", Build.VERSION.SDK_INT)
+            put("deviceManufacturer", Build.MANUFACTURER)
+            put("deviceModel", Build.MODEL)
             put("level", level.name)
             put("subsystem", safeSubsystem)
             put("component", safeComponent)
