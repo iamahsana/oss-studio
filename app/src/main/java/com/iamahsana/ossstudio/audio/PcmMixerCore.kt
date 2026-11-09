@@ -1,6 +1,7 @@
 package com.iamahsana.ossstudio.audio
 
 import kotlin.math.abs
+import kotlin.math.exp
 import kotlin.math.sqrt
 
 /**
@@ -30,7 +31,24 @@ data class ChannelMixConfig(
  * Reusable output arrays are supplied by the caller so this method performs no
  * per-block allocations. Meter arrays are indexed by input channel.
  */
-class PcmMixerCore {
+class PcmMixerCore(
+    private val sampleRateHz: Int = 48_000,
+    private val limiterCeiling: Float = 0.95f,
+    private val limiterReleaseMs: Float = 100f
+) {
+    init {
+        require(sampleRateHz > 0) { "Sample rate must be positive" }
+        require(limiterCeiling in 0.5f..1f) { "Limiter ceiling must be between 50% and 100%" }
+        require(limiterReleaseMs > 0f) { "Limiter release must be positive" }
+    }
+
+    @Volatile
+    var liveLimiterGain: Float = 1f
+        private set
+
+    @Volatile
+    var monitorLimiterGain: Float = 1f
+        private set
     /**
      * Mix [frameCount] stereo frames from [inputs] into independent buses.
      * Each frame occupies four bytes: L low/high, then R low/high.
@@ -114,6 +132,48 @@ class PcmMixerCore {
                 if (byteCount == 0) 0f else sqrt(sumSquares / (frameCount * CHANNELS)).toFloat().coerceAtMost(1f)
         }
 
+        // Measure the complete block before writing samples. This provides
+        // block-level look-ahead without adding a second PCM delay line.
+        var rawLivePeak = 0f
+        var rawMonitorPeak = 0f
+        var peakByteIndex = 0
+        while (peakByteIndex < byteCount) {
+            var liveLeft = 0f
+            var liveRight = 0f
+            var monitorLeft = 0f
+            var monitorRight = 0f
+
+            for (channelIndex in inputs.indices) {
+                val input = inputs[channelIndex] ?: continue
+                val config = configs[channelIndex]
+                if (config.muted) continue
+                val liveAllowed = config.routeToLive && (!liveHasSolo || config.solo)
+                val monitorAllowed = config.routeToMonitor && (!monitorHasSolo || config.solo)
+                if (!liveAllowed && !monitorAllowed) continue
+
+                val leftGain = config.gain * if (config.pan > 0f) 1f - config.pan else 1f
+                val rightGain = config.gain * if (config.pan < 0f) 1f + config.pan else 1f
+                if (liveAllowed) {
+                    liveLeft += readPcm16(input, peakByteIndex).toFloat() / PCM_SCALE * leftGain
+                    liveRight += readPcm16(input, peakByteIndex + 2).toFloat() / PCM_SCALE * rightGain
+                }
+                if (monitorAllowed) {
+                    monitorLeft += readPcm16(input, peakByteIndex).toFloat() / PCM_SCALE * leftGain
+                    monitorRight += readPcm16(input, peakByteIndex + 2).toFloat() / PCM_SCALE * rightGain
+                }
+            }
+
+            liveLeft *= liveMasterGain * liveLimiterGain
+            liveRight *= liveMasterGain * liveLimiterGain
+            monitorLeft *= monitorMasterGain * monitorLimiterGain
+            rawLivePeak = maxOf(rawLivePeak, abs(liveLeft), abs(liveRight))
+            rawMonitorPeak = maxOf(rawMonitorPeak, abs(monitorLeft), abs(monitorRight))
+            peakByteIndex += BYTES_PER_FRAME
+        }
+
+        liveLimiterGain = nextLimiterGain(liveLimiterGain, rawLivePeak, frameCount)
+        monitorLimiterGain = nextLimiterGain(monitorLimiterGain, rawMonitorPeak, frameCount)
+
         var liveMax = 0f
         var monitorMax = 0f
         var liveSquares = 0.0
@@ -179,6 +239,14 @@ class PcmMixerCore {
             sqrt(liveSquares / sampleCount).toFloat().coerceAtMost(1f)
         monitorRms[0] = if (sampleCount == 0) 0f else
             sqrt(monitorSquares / sampleCount).toFloat().coerceAtMost(1f)
+    }
+
+    private fun nextLimiterGain(current: Float, blockPeak: Float, frameCount: Int): Float {
+        val target = if (blockPeak > limiterCeiling) limiterCeiling / blockPeak else 1f
+        if (target < current) return target
+        val releaseSamples = sampleRateHz.toFloat() * limiterReleaseMs / 1_000f
+        val releaseCoefficient = exp(-frameCount.toFloat() / releaseSamples)
+        return (target + (current - target) * releaseCoefficient).coerceIn(0f, 1f)
     }
 
     private fun readPcm16(buffer: ByteArray, offset: Int): Int {

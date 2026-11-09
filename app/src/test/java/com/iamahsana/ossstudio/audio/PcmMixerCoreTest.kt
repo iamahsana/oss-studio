@@ -77,13 +77,16 @@ class PcmMixerCoreTest {
         assertEquals(0, sample(result.live, 1))
     }
 
-    @Test fun summingSaturatesInsteadOfWrapping() {
+    @Test fun blockPeakLimiterKeepsSummedBusesBelowConfiguredCeiling() {
         val result = mix(
             arrayOf(pcm(30000, 30000), pcm(30000, 30000)),
             arrayOf(ChannelMixConfig(), ChannelMixConfig())
         )
-        assertEquals(Short.MAX_VALUE.toInt(), sample(result.live, 0))
-        assertEquals(Short.MAX_VALUE.toInt(), sample(result.live, 1))
+        assertTrue(result.livePeak <= 0.951f)
+        assertTrue(result.livePeak > 0.94f)
+        assertTrue(result.monitorPeak <= 0.951f)
+        assertTrue(sample(result.live, 0) in 31_100..31_140)
+        assertTrue(sample(result.monitor, 1) in 31_100..31_140)
     }
 
     @Test fun nullSourceProducesSilenceAndZeroMeter() {
