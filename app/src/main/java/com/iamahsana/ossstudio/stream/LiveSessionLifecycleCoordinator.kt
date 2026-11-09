@@ -22,17 +22,7 @@ class LiveSessionLifecycleCoordinator(
     private val screenLayer: ScreenLayer,
     private val streamPipeline: StreamPipeline,
     private val projectionSession: ProjectionSession,
-    private val diagnosticLog: (OssLogLevel, String, String, String?) -> Unit = { level, event, message, errorCode ->
-        OssLogger.log(
-            level = level,
-            subsystem = "OSS/Stream/Core",
-            component = "LiveSessionLifecycleCoordinator",
-            event = event,
-            message = message,
-            errorCode = errorCode,
-            context = OssLogContext(operationId = "lifecycle")
-        )
-    }
+    private val diagnosticLog: ((OssLogLevel, String, String, String?) -> Unit)? = null
 ) {
     fun interface ScreenLayer {
         fun detach()
@@ -123,6 +113,19 @@ class LiveSessionLifecycleCoordinator(
         message: String,
         errorCode: String? = null
     ) {
-        diagnosticLog(level, event, message, errorCode)
+        val sink = diagnosticLog
+        if (sink != null) {
+            sink(level, event, message, errorCode)
+        } else {
+            OssLogger.log(
+                level = level,
+                subsystem = "OSS/Stream/Core",
+                component = "LiveSessionLifecycleCoordinator",
+                event = event,
+                message = message,
+                errorCode = errorCode,
+                context = OssLogContext(operationId = operationId)
+            )
+        }
     }
 }
