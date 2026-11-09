@@ -23,13 +23,13 @@ data class RtmpDestinationProfile(
 ) {
     init {
         require(name.isNotBlank() && name.length <= 60) { "Destination name must contain 1–60 characters" }
-        require(serverUrl.length <= 512 && isValidServerUrl(serverUrl)) {
+        require(serverUrl == serverUrl.trim() && serverUrl.length <= 512 && isValidServerUrl(serverUrl)) {
             "Server URL must use rtmp:// or rtmps:// and must not contain credentials or a stream key"
         }
-        require(streamKey.isNotBlank() && streamKey.length <= 1024) { "Stream key must contain 1–1024 characters" }
+        require(streamKey.isNotBlank() && streamKey == streamKey.trim() && streamKey.length <= 1024) { "Stream key must contain 1–1024 characters" }
     }
 
-    fun endpoint(): String = "${serverUrl.trimEnd('/')}/${streamKey.trimStart('/')}"
+    fun endpoint(): String = "${serverUrl.trim().trimEnd('/')}/${streamKey.trimStart('/')}"
 
     companion object {
         private fun isValidServerUrl(value: String): Boolean {
