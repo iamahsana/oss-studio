@@ -6,14 +6,17 @@ import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import com.iamahsana.ossstudio.scene.model.SceneProject
 
-class SceneProjectDatabase(context: Context) : SQLiteOpenHelper(context.applicationContext,"oss_projects.db",null,1) {
+class SceneProjectDatabase(context: Context) : SQLiteOpenHelper(context.applicationContext, "oss_projects.db", null, DATABASE_VERSION) {
+    companion object { private const val DATABASE_VERSION = 2 }
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL("CREATE TABLE projects(id TEXT PRIMARY KEY NOT NULL,name TEXT NOT NULL,updated_at INTEGER NOT NULL,document TEXT NOT NULL)")
         db.execSQL("CREATE INDEX index_projects_updated_at ON projects(updated_at DESC)")
         db.execSQL("CREATE TABLE project_recovery(project_id TEXT PRIMARY KEY NOT NULL, saved_at INTEGER NOT NULL, document TEXT NOT NULL)")
     }
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        // Versioned migrations are added here before incrementing DATABASE_VERSION.
+        if (oldVersion < 2) {
+            db.execSQL("CREATE TABLE project_recovery(project_id TEXT PRIMARY KEY NOT NULL, saved_at INTEGER NOT NULL, document TEXT NOT NULL)")
+        }
     }
     fun save(project: SceneProject) {
         val values=ContentValues().apply {
