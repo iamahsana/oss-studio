@@ -19,14 +19,35 @@ class SceneProjectDatabase(context: Context) : SQLiteOpenHelper(context.applicat
         }
     }
     fun save(project: SceneProject) {
-        val values=ContentValues().apply {
-            put("id",project.id);put("name",project.name);put("updated_at",project.updatedAtEpochMillis)
-            put("document",SceneProjectJsonCodec.encode(project))
+        val document = SceneProjectJsonCodec.encode(project)
+        val values = ContentValues().apply {
+            put("id", project.id)
+            put("name", project.name)
+            put("updated_at", project.updatedAtEpochMillis)
+            put("document", document)
         }
-        val db=writableDatabase
+        val db = writableDatabase
         db.beginTransaction()
-        try { db.insertWithOnConflict("projects",null,values,SQLiteDatabase.CONFLICT_REPLACE);db.setTransactionSuccessful() }
-        finally { db.endTransaction() }
+        try {
+            val previous = db.query(
+                "projects", arrayOf("document", "updated_at"), "id=?",
+                arrayOf(project.id), null, null, null, "1"
+            ).use { cursor ->
+                if (cursor.moveToFirst()) cursor.getString(0) to cursor.getLong(1) else null
+            }
+            val recovery = ContentValues().apply {
+                put("project_id", project.id)
+                put("saved_at", previous?.second ?: project.updatedAtEpochMillis)
+                put("document", previous?.first ?: document)
+            }
+            db.insertWithOnConflict("project_recovery", null, recovery, SQLiteDatabase.CONFLICT_REPLACE)
+            check(db.insertWithOnConflict("projects", null, values, SQLiteDatabase.CONFLICT_REPLACE) != -1L) {
+                "Unable to persist scene project"
+            }
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
     }
     fun get(id: String): SceneProject? = readableDatabase.query("projects",arrayOf("document"),"id=?",arrayOf(id),null,null,null,"1").use {
         if (it.moveToFirst()) SceneProjectJsonCodec.decode(it.getString(0)) else null
