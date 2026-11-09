@@ -45,6 +45,7 @@ import androidx.core.content.ContextCompat
 import com.iamahsana.ossstudio.scene.source.screen.ShareScreenSessionService
 import com.iamahsana.ossstudio.scene.model.SceneProject
 import com.iamahsana.ossstudio.scene.persistence.ProjectHomeScreen
+import com.iamahsana.ossstudio.scene.editor.SceneEditorScreen
 
 private enum class AppPage(val label: String, val symbol: String) {
     HOME("Home", "⌂"),
@@ -105,17 +106,23 @@ private fun OssApp() {
                 modifier = Modifier.fillMaxSize().padding(padding),
                 color = MaterialTheme.colorScheme.background
             ) {
-                PageContent(page, context, activeProject) { project ->
-                    activeProject = project
-                    selectedPage = AppPage.EDITOR.name
-                }
+                PageContent(
+                    page = page,
+                    context = context,
+                    activeProject = activeProject,
+                    onOpenProject = { project ->
+                        activeProject = project
+                        selectedPage = AppPage.EDITOR.name
+                    },
+                    onProjectChange = { activeProject = it }
+                )
             }
         }
     }
 }
 
 @Composable
-private fun PageContent(page: AppPage, context: Context, activeProject: SceneProject?, onOpenProject: (SceneProject) -> Unit) {
+private fun PageContent(page: AppPage, context: Context, activeProject: SceneProject?, onOpenProject: (SceneProject) -> Unit, onProjectChange: (SceneProject) -> Unit) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -149,7 +156,14 @@ private fun PageContent(page: AppPage, context: Context, activeProject: ScenePro
             }
         }
         if (page == AppPage.EDITOR) {
-            item { ShareScreenPermissionPanel(context) }
+            item {
+                if (activeProject == null) {
+                    Text("Pilih atau buat project dari Home terlebih dahulu.")
+                } else {
+                    SceneEditorScreen(context, activeProject, onProjectChange)
+                }
+            }
+            if (activeProject != null) item { ShareScreenPermissionPanel(context) }
         }
         if (page == AppPage.MIXER) {
             item { AudioPermissionPanel(context) }
