@@ -67,9 +67,15 @@ class ShareScreenSessionService : Service() {
     }
 
     override fun onDestroy() {
-        releaseProjection(stopProjection = true)
-        notifyProjectionState(active = false)
-        log(OssLogLevel.INFO, "service_destroyed", "Share Screen service destroyed and projection released")
+        val released = releaseProjection(stopProjection = true)
+        notifyProjectionState(active = !released)
+        log(
+            if (released) OssLogLevel.INFO else OssLogLevel.ERROR,
+            "service_destroyed",
+            if (released) "Share Screen service destroyed and projection released"
+            else "Service destroyed but MediaProjection release reported a failure",
+            if (released) null else "SCREEN_PROJECTION_DESTROY_RELEASE_FAILED"
+        )
         super.onDestroy()
     }
 
@@ -80,8 +86,7 @@ class ShareScreenSessionService : Service() {
      * release and the inactive state notification complete before this returns.
      */
     fun stopProjectionSession(): Boolean {
-        finishSession(stopProjection = true)
-        return mediaProjection == null
+        return finishSession(stopProjection = true)
     }
 
     private fun startSession(intent: Intent) {
@@ -133,12 +138,22 @@ class ShareScreenSessionService : Service() {
         }
     }
 
-    private fun finishSession(stopProjection: Boolean) {
-        releaseProjection(stopProjection)
-        notifyProjectionState(active = false)
-        stopForeground(STOP_FOREGROUND_REMOVE)
-        stopSelf()
-        log(OssLogLevel.INFO, "service_session_finished", "Share Screen foreground session released")
+    private fun finishSession(stopProjection: Boolean): Boolean {
+        val released = releaseProjection(stopProjection)
+        notifyProjectionState(active = !released)
+        if (released) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf()
+            log(OssLogLevel.INFO, "service_session_finished", "Share Screen foreground session released")
+        } else {
+            log(
+                OssLogLevel.ERROR,
+                "service_session_release_failed",
+                "MediaProjection could not be confirmed released; foreground service remains active",
+                "SCREEN_PROJECTION_RELEASE_FAILED"
+            )
+        }
+        return released
     }
 
     private fun notifyProjectionState(active: Boolean) {
@@ -153,18 +168,43 @@ class ShareScreenSessionService : Service() {
             }
     }
 
-    private fun releaseProjection(stopProjection: Boolean) {
-        val projection = mediaProjection
+    private fun releaseProjection(stopProjection: Boolean): Boolean {
+        val projection = mediaProjection ?: run {
+            projectionCallback = null
+            return true
+        }
         val callback = projectionCallback
+
+        // Stop first while the service still owns the reference. If Android
+        // rejects the stop call, retain ownership so the caller can retry.
+        if (stopProjection) {
+            val stopResult = runCatching { projection.stop() }
+            if (stopResult.isFailure) {
+                val error = stopResult.exceptionOrNull()
+                log(
+                    OssLogLevel.ERROR,
+                    "projection_stop_failed",
+                    error?.message ?: "Android rejected MediaProjection.stop()",
+                    "SCREEN_PROJECTION_STOP_FAILED"
+                )
+                return false
+            }
+        }
+
+        if (callback != null) {
+            runCatching { projection.unregisterCallback(callback) }
+                .onFailure {
+                    log(
+                        OssLogLevel.WARN,
+                        "projection_callback_unregister_failed",
+                        it.message ?: "Unable to unregister MediaProjection callback",
+                        "SCREEN_PROJECTION_CALLBACK_UNREGISTER_FAILED"
+                    )
+                }
+        }
         mediaProjection = null
         projectionCallback = null
-
-        if (projection != null && callback != null) {
-            runCatching { projection.unregisterCallback(callback) }
-        }
-        if (stopProjection) {
-            runCatching { projection?.stop() }
-        }
+        return true
     }
 
     private fun createNotificationChannel() {
