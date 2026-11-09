@@ -42,8 +42,45 @@ class PcmMixerWorkerTest {
     }
 
     @Test
-    fun reportsWorkerFailureAndStopsTheLoop() {
+    fun monitorSinkFailureDoesNotStopLiveMixer() {
         val engine = PcmMixerEngine(
+            sourceQueues = arrayOf(SpscPcmFrameQueue()),
+            initialConfigs = arrayOf(ChannelMixConfig()),
+            framesPerBlock = 480
+        )
+        val liveBlocks = AtomicInteger()
+        val monitorCalls = AtomicInteger()
+        val liveProgress = CountDownLatch(3)
+        val fatalFailure = AtomicInteger()
+        val worker = PcmMixerWorker(
+            engine = engine,
+            liveSink = PcmLiveBlockSink { pcm, _ ->
+                liveBlocks.incrementAndGet()
+                liveProgress.countDown()
+                pcm.size
+            },
+            monitorSink = PcmMonitorBlockSink { _, _ ->
+                monitorCalls.incrementAndGet()
+                throw IllegalStateException("monitor device failure")
+            },
+            clock = PcmMixerClock { System.nanoTime() / 1_000L },
+            onWorkerFailure = { fatalFailure.incrementAndGet() }
+        )
+
+        assertTrue(worker.start())
+        assertTrue(liveProgress.await(2, TimeUnit.SECONDS))
+        assertTrue(worker.isRunning)
+        worker.requestStop()
+
+        assertTrue(worker.awaitStopped(2_000L))
+        assertTrue(liveBlocks.get() >= 3)
+        assertTrue(monitorCalls.get() == 1)
+        assertTrue(worker.monitorRejectedBlocksCount > 0)
+        assertTrue(fatalFailure.get() == 0)
+    }
+
+    @Test
+    fun reportsWorkerFailureAndStopsTheLoop() {        val engine = PcmMixerEngine(
             sourceQueues = arrayOf(SpscPcmFrameQueue()),
             initialConfigs = arrayOf(ChannelMixConfig()),
             framesPerBlock = 480
