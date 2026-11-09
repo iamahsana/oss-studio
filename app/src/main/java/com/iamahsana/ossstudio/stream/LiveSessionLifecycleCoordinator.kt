@@ -18,6 +18,16 @@ import java.util.UUID
  * deliberately best-effort and must never interrupt resource teardown.
  * Call from the main thread.
  */
+data class AudioStopStatus(
+    /** True only when the mixer worker no longer writes into RootEncoder. */
+    val mixerStopped: Boolean,
+    val captureStopped: Boolean,
+    val monitorStopped: Boolean
+) {
+    val cleanupComplete: Boolean
+        get() = mixerStopped && captureStopped && monitorStopped
+}
+
 class LiveSessionLifecycleCoordinator(
     private val screenLayer: ScreenLayer,
     private val streamPipeline: StreamPipeline,
@@ -33,8 +43,8 @@ class LiveSessionLifecycleCoordinator(
         fun release()
 
         /** Optional asynchronous audio teardown, completed before RTMP stops. */
-        fun stopAudio(completion: (Boolean) -> Unit) {
-            completion(true)
+        fun stopAudio(completion: (AudioStopStatus) -> Unit) {
+            completion(AudioStopStatus(true, true, true))
         }
     }
 
@@ -116,18 +126,18 @@ class LiveSessionLifecycleCoordinator(
         }
 
         val callbackOnce = java.util.concurrent.atomic.AtomicBoolean(false)
-        val finishAfterAudio: (Boolean) -> Unit = { audioStopped ->
+        val finishAfterAudio: (AudioStopStatus) -> Unit = { audioStatus ->
             if (callbackOnce.compareAndSet(false, true)) {
-                if (!audioStopped) {
+                if (!audioStatus.cleanupComplete) {
                     failures += "audio_stop"
                     logSafely(
                         OssLogLevel.ERROR,
-                        "audio_stop_failed",
-                        "Audio mixer/capture teardown did not complete",
+                        "audio_stop_incomplete",
+                        "Audio teardown incomplete: mixer=${audioStatus.mixerStopped}, capture=${audioStatus.captureStopped}, monitor=${audioStatus.monitorStopped}",
                         "AUDIO_STOP_FAILED"
                     )
                 } else {
-                    logSafely(OssLogLevel.INFO, "audio_stop_completed", "Audio mixer/capture teardown completed")
+                    logSafely(OssLogLevel.INFO, "audio_stop_completed", "Audio mixer/capture/monitor teardown completed")
                 }
 
                 runStage(failures, "rtmp_stop", "RTMP pipeline stopped") {
@@ -138,8 +148,18 @@ class LiveSessionLifecycleCoordinator(
                         "MediaProjection owner could not confirm release"
                     }
                 }
-                runStage(failures, "rtmp_release", "RTMP pipeline resources released") {
-                    streamPipeline.release()
+                if (audioStatus.mixerStopped) {
+                    runStage(failures, "rtmp_release", "RTMP pipeline resources released") {
+                        streamPipeline.release()
+                    }
+                } else {
+                    failures += "rtmp_release_skipped"
+                    logSafely(
+                        OssLogLevel.ERROR,
+                        "rtmp_release_skipped",
+                        "RootEncoder resources retained because mixer worker may still be writing PCM",
+                        "RTMP_RELEASE_SKIPPED_AUDIO_WORKER_ACTIVE"
+                    )
                 }
 
                 val result = ShutdownResult(failures.isEmpty(), failures.toList())
@@ -158,7 +178,7 @@ class LiveSessionLifecycleCoordinator(
         try {
             streamPipeline.stopAudio(finishAfterAudio)
         } catch (_: Exception) {
-            finishAfterAudio(false)
+            finishAfterAudio(AudioStopStatus(false, false, false))
         }
     }
 

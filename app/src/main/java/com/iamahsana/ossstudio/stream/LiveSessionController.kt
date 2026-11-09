@@ -31,8 +31,8 @@ class LiveSessionController(
         fun attachScreen(listener: ScreenListener)
         fun detachScreen()
         fun stopRtmp()
-        fun stopAudio(completion: (Boolean) -> Unit) {
-            completion(true)
+        fun stopAudio(completion: (AudioStopStatus) -> Unit) {
+            completion(AudioStopStatus(true, true, true))
         }
         fun stopProjection(): Boolean
         fun releaseRtmp()
@@ -196,7 +196,7 @@ class LiveSessionController(
         screenLayer = { target.detachScreen() },
         streamPipeline = object : LiveSessionLifecycleCoordinator.StreamPipeline {
             override fun stop() = target.stopRtmp()
-            override fun stopAudio(completion: (Boolean) -> Unit) = target.stopAudio(completion)
+            override fun stopAudio(completion: (AudioStopStatus) -> Unit) = target.stopAudio(completion)
             override fun release() = target.releaseRtmp()
         },
         projectionSession = { target.stopProjection() }

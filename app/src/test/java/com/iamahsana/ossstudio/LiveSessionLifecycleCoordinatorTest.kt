@@ -77,7 +77,7 @@ class LiveSessionLifecycleCoordinatorTest {
         val coordinator = LiveSessionLifecycleCoordinator(
             screenLayer = { calls += "detach" },
             streamPipeline = object : LiveSessionLifecycleCoordinator.StreamPipeline {
-                override fun stopAudio(completion: (Boolean) -> Unit) {
+                override fun stopAudio(completion: (AudioStopStatus) -> Unit) {
                     calls += "audio"
                     audioCompletion = completion
                 }
@@ -93,7 +93,7 @@ class LiveSessionLifecycleCoordinatorTest {
         assertEquals(listOf("detach", "audio"), calls)
         assertEquals(null, result)
 
-        audioCompletion?.invoke(true)
+        audioCompletion?.invoke(AudioStopStatus(true, true, true))
         assertEquals(listOf("detach", "audio", "rtmp_stop", "projection", "release"), calls)
         assertTrue(result?.completed == true)
     }
@@ -106,7 +106,7 @@ class LiveSessionLifecycleCoordinatorTest {
             streamPipeline = object : LiveSessionLifecycleCoordinator.StreamPipeline {
                 override fun stopAudio(completion: (Boolean) -> Unit) {
                     calls += "audio"
-                    completion(false)
+                    completion(AudioStopStatus(false, false, false))
                 }
                 override fun stop() { calls += "rtmp_stop" }
                 override fun release() { calls += "release" }
@@ -120,7 +120,7 @@ class LiveSessionLifecycleCoordinatorTest {
 
         assertEquals(listOf("detach", "audio", "rtmp_stop", "projection", "release"), calls)
         assertFalse(result?.completed == true)
-        assertEquals(listOf("audio_stop"), result?.failedStages)
+        assertEquals(listOf("audio_stop", "rtmp_release_skipped"), result?.failedStages)
     }
 
     @Test
