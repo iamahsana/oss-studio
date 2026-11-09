@@ -129,8 +129,12 @@ fun ProjectHomeScreen(
                     repository.load(target.id) { loadResult ->
                         val project = loadResult.getOrNull()
                         repository.delete(target.id) { deleteResult ->
-                            project?.assets?.forEach { asset ->
-                                runCatching { SceneAssetStorage.deleteAsset(context, asset) }
+                            deleteResult.onSuccess { deleted ->
+                                if (deleted) {
+                                    project?.assets?.forEach { asset ->
+                                        runCatching { SceneAssetStorage.deleteAsset(context, asset) }
+                                    }
+                                }
                             }
                             mainHandler.post {
                                 working = false
