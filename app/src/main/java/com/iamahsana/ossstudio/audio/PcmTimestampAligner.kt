@@ -19,6 +19,9 @@ class PcmTimestampAligner(
         require(queues.isNotEmpty()) { "At least one PCM source queue is required" }
         require(sampleRateHz > 0) { "Sample rate must be positive" }
         require(maxFrameBytes >= BYTES_PER_FRAME) { "Maximum frame size is too small" }
+        require(queues.all { it.frameBufferCapacityBytes <= maxFrameBytes }) {
+            "Aligner scratch buffers must fit every source queue frame"
+        }
     }
 
     private val currentBuffers = Array(queues.size) { ByteArray(maxFrameBytes) }
@@ -55,6 +58,7 @@ class PcmTimestampAligner(
         require(outputBuffers.size == queues.size) { "One output buffer is required per source" }
 
         val blockBytes = frameCount * BYTES_PER_FRAME
+        if (frameCount == 0) return
         val blockEndMicros = blockStartMicros +
             frameCount.toLong() * MICROS_PER_SECOND / sampleRateHz
 
