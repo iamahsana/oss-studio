@@ -86,4 +86,12 @@ class MainActivitySmokeTest {
         }
     }
 
+    @Test
+    fun studioShowsLiveSessionControls() {
+        composeRule.onNodeWithText("Studio").performClick()
+        composeRule.onNodeWithText("LIVE control").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Mulai LIVE").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Hentikan").performScrollTo().assertIsDisplayed()
+    }
+
 }
