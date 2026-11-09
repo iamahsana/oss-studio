@@ -10,7 +10,12 @@ import java.util.concurrent.locks.LockSupport
 
 /** Non-blocking destination for one already-mixed LIVE PCM block. */
 fun interface PcmLiveBlockSink {
-    fun submitBlock(pcm: ByteArray, timestampMicros: Long): Int
+    fun submitBlock(
+        pcm: ByteArray,
+        timestampMicros: Long,
+        offset: Int = 0,
+        size: Int = pcm.size
+    ): Int
 }
 
 /** Non-blocking MONITOR queue; actual device writes happen on its own thread. */
