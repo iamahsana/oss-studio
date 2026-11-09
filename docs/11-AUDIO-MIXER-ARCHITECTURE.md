@@ -46,7 +46,7 @@ Future source adapters ─┘       │
                                 └─> MONITOR bus ─> selected Android output
 ```
 
-The mixer must not block capture, encoder, GL, or UI threads. Capture callbacks publish bounded PCM frames to a dedicated real-time-safe mixing path. No network, file I/O, logging serialization, locks with unbounded waits, or UI callbacks are permitted on the audio processing callback.
+The implemented pure-Kotlin path now consists of `SpscPcmFrameQueue` (bounded timestamped SPSC frames), `PcmTimestampAligner` (preallocated per-source blocks, silence gaps, late-frame accounting), `PcmMixerCore` (independent LIVE/MONITOR routing, gain, pan, mute, solo and Peak/RMS), and `PcmMixerEngine` (reusable fixed-size block orchestration). `processBlock` is intended for one dedicated mixer worker; capture callbacks only enqueue frames. RootEncoder's `BufferAudioSource.setBuffer` is synchronized internally, so only that worker may submit output. No network, file I/O, diagnostic serialization, or UI callbacks are permitted in the mixer worker.
 
 ## PCM contract
 
@@ -76,7 +76,7 @@ MONITOR output is subject to Android audio routing, focus, latency, Bluetooth de
 
 ## Verification gates
 
-1. Unit tests: PCM16 little-endian decoding/encoding, gain, pan, mute, solo, independent LIVE/MONITOR routing and master gain, saturating sum, peak/RMS meters, bounded SPSC FIFO ordering, timestamps, oversized frames, queue overflow, timestamp alignment, adjacent frames, gaps, late frames, and frames spanning output blocks.
+1. Unit tests: PCM16 little-endian decoding/encoding, gain, pan, mute, solo, independent LIVE/MONITOR routing and master gain, saturating sum, peak/RMS meters, bounded SPSC FIFO ordering, timestamps, oversized frames, queue overflow, timestamp alignment, adjacent frames, gaps, late frames, frames spanning output blocks, and full engine block processing.
 2. Android tests: automatic channel startup with both sources available; microphone-only availability; internal-only availability; both independently; and denied playback capture. These are test conditions, not user-facing pre-LIVE modes.
 3. Routing tests: Song Request LIVE-only; MONITOR-only source; mute/solo; separate master levels.
 4. Device tests: speaker, wired headset, USB audio, Bluetooth where supported; report latency and OEM restrictions.
