@@ -37,6 +37,16 @@ class MainActivitySmokeTest {
             .assertIsDisplayed()
     }
     @Test
+    fun extensionCenterOpensAndShowsPackageInstallControls() {
+        composeRule.onNodeWithText("Extensions").performClick()
+        composeRule.waitUntil(15_000) {
+            composeRule.onAllNodesWithText("Pasang file .osspack").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("Pasang file .osspack").assertIsDisplayed()
+        composeRule.onNodeWithText("Belum ada ekstensi yang dipasang.").assertIsDisplayed()
+    }
+
+    @Test
     fun createsProjectAndOpensItsEmptySceneCanvas() {
         createdSmokeProject = true
         composeRule.onNodeWithText("Project baru").performClick()
