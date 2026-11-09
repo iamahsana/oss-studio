@@ -74,6 +74,7 @@ import com.iamahsana.ossstudio.scene.model.Scene
 import com.iamahsana.ossstudio.scene.model.CanvasSize
 import com.iamahsana.ossstudio.scene.model.CropRect
 import com.iamahsana.ossstudio.scene.model.SceneProjectEditor
+import com.iamahsana.ossstudio.scene.model.SceneProjectHistory
 import com.iamahsana.ossstudio.scene.model.SceneSource
 import com.iamahsana.ossstudio.scene.model.SceneSourceType
 import com.iamahsana.ossstudio.scene.persistence.SceneAssetStorage
@@ -94,15 +95,30 @@ fun SceneEditorScreen(
 ) {
     var currentProject by remember(project.id) { mutableStateOf(project) }
     var selectedElementId by remember(project.id) { mutableStateOf<String?>(null) }
+    val history = remember(project.id) { SceneProjectHistory(project) }
+    var historyVersion by remember(project.id) { mutableStateOf(0) }
+    var showCanvasSettings by remember(project.id) { mutableStateOf(false) }
     val repository = remember(project.id) {
         SceneProjectRepository(SceneProjectStoreProvider.database(context))
     }
     val autosave = remember(repository) { SceneProjectAutosave(repository) }
     val latestProject = rememberUpdatedState(currentProject)
-    fun applyProject(updated: SceneProject) {
+    fun applyProject(updated: SceneProject, historyGroup: String? = null) {
+        history.record(updated, historyGroup)
+        historyVersion++
         currentProject = updated
         onProjectChange(updated)
         autosave.schedule(updated)
+    }
+    fun restoreHistory(updated: SceneProject?) {
+        if (updated == null) return
+        currentProject = updated
+        onProjectChange(updated)
+        autosave.schedule(updated)
+        selectedElementId = selectedElementId?.takeIf { selectedId ->
+            updated.scenes.any { sceneItem -> sceneItem.elements.any { it.id == selectedId } }
+        }
+        historyVersion++
     }
     val importExecutor = remember(repository) { Executors.newSingleThreadExecutor() }
     val importActive = remember(repository) { AtomicBoolean(true) }
@@ -210,6 +226,16 @@ fun SceneEditorScreen(
             Text(currentProject.name, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
             Text("Autosave", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
         }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(enabled = historyVersion >= 0 && history.canUndo, onClick = {
+                history.endGroup()
+                restoreHistory(history.undo())
+            }) { Text("Undo") }
+            OutlinedButton(enabled = historyVersion >= 0 && history.canRedo, onClick = {
+                history.endGroup()
+                restoreHistory(history.redo())
+            }) { Text("Redo") }
+        }
         if (scene == null) {
             Text("Project ini belum memiliki scene.")
         } else {
@@ -235,16 +261,9 @@ fun SceneEditorScreen(
                 }) { Text("＋ Scene") }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = {
-                    applyProject(SceneProjectEditor.updateSceneCanvas(
-                        currentProject, scene.id, CanvasSize.DEFAULT_PORTRAIT, System.currentTimeMillis()
-                    ))
-                }) { Text("Portrait 9:16") }
-                OutlinedButton(onClick = {
-                    applyProject(SceneProjectEditor.updateSceneCanvas(
-                        currentProject, scene.id, CanvasSize.DEFAULT_LANDSCAPE, System.currentTimeMillis()
-                    ))
-                }) { Text("Landscape 16:9") }
+                OutlinedButton(onClick = { showCanvasSettings = true }) {
+                    Text("Pengaturan canvas")
+                }
             }
             Text(scene.name, style = MaterialTheme.typography.titleMedium)
             BoxWithConstraints(
@@ -284,6 +303,8 @@ fun SceneEditorScreen(
                                     var dragY = transform.y
                                     detectDragGestures(
                                         onDragStart = { selectedElementId = element.id },
+                                        onDragEnd = { history.endGroup(); historyVersion++ },
+                                        onDragCancel = { history.endGroup(); historyVersion++ },
                                         onDrag = { change, amount ->
                                             change.consume()
                                             dragX = (dragX + amount.x / scale).coerceIn(0f, (scene.canvas.width - transform.width).coerceAtLeast(0f))
@@ -295,7 +316,7 @@ fun SceneEditorScreen(
                                                 transform.copy(x = dragX, y = dragY),
                                                 System.currentTimeMillis()
                                             )
-                                            applyProject(updated)
+                                            applyProject(updated, "move:${element.id}")
                                         }
                                     )
                                 }
@@ -347,6 +368,37 @@ fun SceneEditorScreen(
                                 color = Color.White,
                                 textAlign = TextAlign.Center,
                                 style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                        if (element.id == selectedElementId && !element.locked) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .size(18.dp)
+                                    .clip(RoundedCornerShape(5.dp))
+                                    .background(MaterialTheme.colorScheme.primary)
+                                    .pointerInput(element.id, scale, scene.id) {
+                                        var resizeWidth = transform.width
+                                        var resizeHeight = transform.height
+                                        detectDragGestures(
+                                            onDragEnd = { history.endGroup(); historyVersion++ },
+                                            onDragCancel = { history.endGroup(); historyVersion++ }
+                                        ) { change, amount ->
+                                            change.consume()
+                                            resizeWidth = (resizeWidth + amount.x / scale)
+                                                .coerceIn(16f, (scene.canvas.width - transform.x).coerceAtLeast(16f))
+                                            resizeHeight = (resizeHeight + amount.y / scale)
+                                                .coerceIn(16f, (scene.canvas.height - transform.y).coerceAtLeast(16f))
+                                            val updated = SceneProjectEditor.updateTransform(
+                                                latestProject.value,
+                                                scene.id,
+                                                element.id,
+                                                transform.copy(width = resizeWidth, height = resizeHeight),
+                                                System.currentTimeMillis()
+                                            )
+                                            applyProject(updated, "resize:${element.id}")
+                                        }
+                                    }
                             )
                         }
                     }
@@ -608,6 +660,39 @@ fun SceneEditorScreen(
                 }
             }
         }
+    }
+
+    if (showCanvasSettings && scene != null) {
+        AlertDialog(
+            onDismissRequest = { showCanvasSettings = false },
+            title = { Text("Pengaturan canvas") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Pilih orientasi dan rasio untuk scene aktif.")
+                    OutlinedButton(
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = {
+                            applyProject(SceneProjectEditor.updateSceneCanvas(
+                                currentProject, scene.id, CanvasSize.DEFAULT_PORTRAIT, System.currentTimeMillis()
+                            ))
+                            showCanvasSettings = false
+                        }
+                    ) { Text("Portrait · 9:16 · 1080 × 1920") }
+                    OutlinedButton(
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = {
+                            applyProject(SceneProjectEditor.updateSceneCanvas(
+                                currentProject, scene.id, CanvasSize.DEFAULT_LANDSCAPE, System.currentTimeMillis()
+                            ))
+                            showCanvasSettings = false
+                        }
+                    ) { Text("Landscape · 16:9 · 1920 × 1080") }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showCanvasSettings = false }) { Text("Tutup") }
+            }
+        )
     }
 
     if (confirmRemoveSource && selectedSource != null) {
