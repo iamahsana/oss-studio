@@ -11,7 +11,7 @@ import com.pedro.encoder.input.sources.audio.BufferAudioSource
  */
 class RootEncoderBufferAudioOutput(
     private val bufferAudioSource: BufferAudioSource
-) {
+) : PcmLiveBlockSink {
     @Volatile
     private var active = false
 
@@ -29,7 +29,7 @@ class RootEncoderBufferAudioOutput(
      * Submit one interleaved PCM16 little-endian block with its producer
      * timestamp in microseconds. Returns bytes accepted by RootEncoder.
      */
-    fun submitBlock(
+    override fun submitBlock(
         pcm: ByteArray,
         timestampMicros: Long,
         offset: Int = 0,
