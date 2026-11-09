@@ -123,6 +123,7 @@ class ShareScreenSessionService : Service() {
             projectionStopCompleted = false
             val callback = object : MediaProjection.Callback() {
                 override fun onStop() {
+                    projectionStopCompleted = true
                     log(OssLogLevel.INFO, "projection_stopped", "Android MediaProjection session stopped")
                     finishSession(stopProjection = false)
                 }
