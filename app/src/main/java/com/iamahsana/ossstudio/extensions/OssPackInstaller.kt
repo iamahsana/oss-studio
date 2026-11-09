@@ -17,7 +17,7 @@ object OssPackInstaller {
         val destination = File(root, validation.manifest.id).canonicalFile
         require(destination.parentFile == root) { "ID ekstensi keluar dari direktori instalasi" }
         require(!destination.exists()) { "Ekstensi dengan ID ini sudah terpasang" }
-        val staging = File(root, ".\${validation.manifest.id}-\${UUID.randomUUID()}.staging")
+        val staging = File(root, ".${validation.manifest.id}-${UUID.randomUUID()}.staging")
         check(staging.mkdir()) { "Direktori staging tidak dapat dibuat" }
         try {
             val expected = validation.manifest.files.associateBy { it.path }
