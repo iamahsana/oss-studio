@@ -63,6 +63,9 @@ class MainActivitySmokeTest {
             composeRule.onAllNodesWithText("Canvas kosong").fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithText("Canvas kosong").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Snap grid").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Grid").assertIsDisplayed()
+        composeRule.onNodeWithText("Safe area").assertIsDisplayed()
         composeRule.onNodeWithText("Undo").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Redo").performScrollTo().assertIsDisplayed()
 
