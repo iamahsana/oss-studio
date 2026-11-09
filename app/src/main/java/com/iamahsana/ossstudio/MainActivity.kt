@@ -49,6 +49,7 @@ import com.iamahsana.ossstudio.scene.persistence.ProjectHomeScreen
 import com.iamahsana.ossstudio.scene.persistence.SceneProjectRepository
 import com.iamahsana.ossstudio.scene.persistence.SceneProjectStoreProvider
 import com.iamahsana.ossstudio.scene.editor.SceneEditorScreen
+import com.iamahsana.ossstudio.audio.AudioMixerScreen
 
 private enum class AppPage(val label: String, val symbol: String) {
     HOME("Home", "⌂"),
@@ -192,6 +193,8 @@ private fun PageContent(page: AppPage, context: Context, activeProject: ScenePro
         }
         if (page == AppPage.MIXER) {
             item { AudioPermissionPanel(context) }
+            item { ShareScreenPermissionPanel(context) }
+            item { AudioMixerScreen(context) }
         }
         if (page == AppPage.HOME) {
             item { ProjectHomeScreen(context, onOpenProject) }
