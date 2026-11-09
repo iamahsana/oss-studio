@@ -89,10 +89,11 @@ class SceneCanvasLayerController(
             val decoded = decodeSceneAssets(project)
             mainHandler.post {
                 if (state != State.LOADING_ASSETS) {
-                    decoded.values.forEach { if (!it.isRecycled) it.recycle() }
+                    decoded.bitmaps.values.forEach { if (!it.isRecycled) it.recycle() }
                     return@post
                 }
-                cachedBitmaps = decoded
+                cachedBitmaps = decoded.bitmaps
+                cachedMovies = decoded.movies
                 state = State.WAITING_FOR_GL
                 waitForGl()
             }
