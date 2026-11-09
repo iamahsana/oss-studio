@@ -163,6 +163,28 @@ object SceneProjectEditor {
         )
     }
 
+    fun setElementOpacity(
+        project: SceneProject,
+        sceneId: String,
+        elementId: String,
+        opacity: Float,
+        nowEpochMillis: Long
+    ): SceneProject {
+        require(opacity.isFinite() && opacity in 0f..1f) { "Element opacity must be between 0 and 1" }
+        val sceneIndex = project.scenes.indexOfFirst { it.id == sceneId }
+        require(sceneIndex >= 0) { "Scene does not exist" }
+        val scene = project.scenes[sceneIndex]
+        require(scene.elements.any { it.id == elementId }) { "Element does not exist" }
+        return project.copy(
+            scenes = project.scenes.toMutableList().also { list ->
+                list[sceneIndex] = scene.copy(
+                    elements = scene.elements.map { if (it.id == elementId) it.copy(opacity = opacity) else it }
+                )
+            },
+            updatedAtEpochMillis = nextTimestamp(project, nowEpochMillis)
+        )
+    }
+
     fun addElement(
         project: SceneProject,
         sceneId: String,
