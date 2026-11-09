@@ -14,7 +14,7 @@ import java.util.concurrent.TimeUnit
 @RunWith(AndroidJUnit4::class)
 class SceneProjectDatabaseTest {
     @Test fun saveLoadRecentDeleteAndRecoveryAreConsistent() {
-        val db=SceneProjectDatabase(ApplicationProvider.getApplicationContext<Context>())
+        val db=SceneProjectDatabase(ApplicationProvider.getApplicationContext<Context>(), "oss_projects_roundtrip_test.db")
         val id="scene-db-test"
         try {
             val source=SceneSource(id="text",type=SceneSourceType.TEXT,displayName="Title",text="LIVE")
@@ -38,9 +38,9 @@ class SceneProjectDatabaseTest {
     }
     @Test fun versionOneDatabaseMigratesRecoveryTableWithoutLosingProjects() {
         val context=ApplicationProvider.getApplicationContext<Context>()
-        context.deleteDatabase("oss_projects.db")
+        context.deleteDatabase("oss_projects_migration_test.db")
         val project=SceneProject(id="migration-test",name="Migrated",createdAtEpochMillis=1,updatedAtEpochMillis=1)
-        val legacy=SQLiteDatabase.openOrCreateDatabase(context.getDatabasePath("oss_projects.db"),null)
+        val legacy=SQLiteDatabase.openOrCreateDatabase(context.getDatabasePath("oss_projects_migration_test.db"),null)
         try {
             legacy.execSQL("CREATE TABLE projects(id TEXT PRIMARY KEY NOT NULL,name TEXT NOT NULL,updated_at INTEGER NOT NULL,document TEXT NOT NULL)")
             legacy.execSQL("CREATE INDEX index_projects_updated_at ON projects(updated_at DESC)")
@@ -49,7 +49,7 @@ class SceneProjectDatabaseTest {
             legacy.version=1
         } finally { legacy.close() }
 
-        val db=SceneProjectDatabase(context)
+        val db=SceneProjectDatabase(context, "oss_projects_migration_test.db")
         try {
             assertEquals(project,db.get(project.id))
             db.saveRecovery(project,2L)
@@ -57,14 +57,14 @@ class SceneProjectDatabaseTest {
             assertEquals(2,db.readableDatabase.version)
         } finally {
             db.close()
-            context.deleteDatabase("oss_projects.db")
+            context.deleteDatabase("oss_projects_migration_test.db")
         }
     }
 
     @Test fun closeFlushesNewestDebouncedSnapshot() {
         val context=ApplicationProvider.getApplicationContext<Context>()
         val id="autosave-close-test"
-        val db=SceneProjectDatabase(context)
+        val db=SceneProjectDatabase(context, "oss_projects_autosave_test.db")
         val repository=SceneProjectRepository(db)
         val saved=CountDownLatch(1)
         val autosave=SceneProjectAutosave(repository, debounceMillis=10_000L, onSaved={ saved.countDown() })
