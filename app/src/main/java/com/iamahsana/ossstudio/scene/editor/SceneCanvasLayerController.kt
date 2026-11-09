@@ -303,22 +303,51 @@ class SceneCanvasLayerController(
         val settings = source.settings
         val size = (settings["fontSize"]?.toFloatOrNull() ?: 48f) * scaleY
         val color = runCatching { Color.parseColor(settings["color"] ?: "#FFFFFFFF") }.getOrDefault(Color.WHITE)
-        val typeface = if (settings["bold"] == "true") Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-            else Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+        val bold = settings["bold"] == "true"
+        val italic = settings["italic"] == "true"
+        val typefaceStyle = when {
+            bold && italic -> Typeface.BOLD_ITALIC
+            bold -> Typeface.BOLD
+            italic -> Typeface.ITALIC
+            else -> Typeface.NORMAL
+        }
+        val alignment = when (settings["align"]) {
+            "left" -> Paint.Align.LEFT
+            "right" -> Paint.Align.RIGHT
+            else -> Paint.Align.CENTER
+        }
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             this.color = color
             textSize = size.coerceIn(8f, 512f)
-            this.typeface = typeface
+            typeface = Typeface.create(Typeface.DEFAULT, typefaceStyle)
+            textAlign = alignment
             alpha = (opacity * 255f).toInt().coerceIn(0, 255)
         }
+        val outlineColor = settings["outlineColor"]?.let {
+            runCatching { Color.parseColor(it) }.getOrNull()
+        }
+        val outlineWidth = (settings["outlineWidth"]?.toFloatOrNull() ?: 0f) * scaleY
         val text = source.text.orEmpty()
         val lines = wrapText(text, paint, bounds.width().coerceAtLeast(1f))
         val metrics = paint.fontMetrics
         val lineHeight = (metrics.descent - metrics.ascent) * 1.15f
         val totalHeight = lineHeight * lines.size
         var baseline = (bounds.height() - totalHeight) / 2f - metrics.ascent
+        val x = when (alignment) {
+            Paint.Align.LEFT -> 0f
+            Paint.Align.RIGHT -> bounds.width()
+            else -> bounds.width() / 2f
+        }
         lines.forEach { line ->
-            canvas.drawText(line, 0f, baseline, paint)
+            if (outlineColor != null && outlineWidth > 0f) {
+                val outline = Paint(paint).apply {
+                    color = outlineColor
+                    style = Paint.Style.STROKE
+                    strokeWidth = outlineWidth.coerceAtMost(24f)
+                }
+                canvas.drawText(line, x, baseline, outline)
+            }
+            canvas.drawText(line, x, baseline, paint)
             baseline += lineHeight
         }
     }
