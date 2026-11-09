@@ -39,7 +39,7 @@ class PcmMixerCore {
      * Output buffers and meter arrays must be preallocated by the caller.
      */
     fun mixInto(
-        inputs: Array<ByteArray?>,
+        inputs: Array<out ByteArray?>,
         configs: Array<ChannelMixConfig>,
         frameCount: Int,
         liveOutput: ByteArray,
