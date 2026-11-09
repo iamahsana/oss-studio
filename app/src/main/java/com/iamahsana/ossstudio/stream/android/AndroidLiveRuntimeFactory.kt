@@ -87,15 +87,26 @@ class AndroidLiveRuntimeFactory(
             stream = newStream
             audioMixerSession = OssAudioMixerSession(
                 context = appContext,
-                bufferAudioSource = bufferAudioSource
-            ) { snapshot ->
+                bufferAudioSource = bufferAudioSource,
+                onCaptureStatus = { snapshot ->
                 log(
                     if (snapshot.hasAnySource) OssLogLevel.INFO else OssLogLevel.WARN,
                     "audio_capture_status",
                     "Audio sources: mic=${snapshot.microphone.state}, internal=${snapshot.internalAudio.state}",
                     snapshot.microphone.errorCode ?: snapshot.internalAudio.errorCode
                 )
-            }
+                },
+                onFatalError = { error ->
+                    log(
+                        OssLogLevel.ERROR,
+                        "audio_mixer_worker_failed",
+                        "Audio mixer worker failed while LIVE; initiating session failure cleanup",
+                        "AUDIO_MIXER_WORKER_FAILED",
+                        error
+                    )
+                    dispatchMain { reportFailureOnce() }
+                }
+            )
             log(
                 OssLogLevel.INFO,
                 "runtime_prepared",
