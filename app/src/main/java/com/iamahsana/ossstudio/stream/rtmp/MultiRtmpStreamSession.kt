@@ -13,6 +13,30 @@ import com.pedro.library.multiple.MultiType
 import com.pedro.library.view.GlStreamInterface
 import java.util.UUID
 
+
+internal fun reduceMultiRtmpState(
+    destinationStates: List<MultiRtmpStreamSession.DestinationState>
+): MultiRtmpStreamSession.State? {
+    if (destinationStates.isEmpty()) return null
+    return when {
+        destinationStates.any { it == MultiRtmpStreamSession.DestinationState.CONNECTED } ->
+            MultiRtmpStreamSession.State.LIVE
+        destinationStates.any { it == MultiRtmpStreamSession.DestinationState.CONNECTING } ->
+            MultiRtmpStreamSession.State.CONNECTING
+        destinationStates.all {
+            it in setOf(
+                MultiRtmpStreamSession.DestinationState.FAILED,
+                MultiRtmpStreamSession.DestinationState.AUTH_ERROR,
+                MultiRtmpStreamSession.DestinationState.DISCONNECTED
+            )
+        } -> if (destinationStates.any {
+                it == MultiRtmpStreamSession.DestinationState.FAILED ||
+                    it == MultiRtmpStreamSession.DestinationState.AUTH_ERROR
+            }) MultiRtmpStreamSession.State.FAILED else MultiRtmpStreamSession.State.STOPPED
+        else -> null
+    }
+}
+
 /**
  * One hardware encoder feeding independent RTMP destinations through RootEncoder MultiStream.
  * A failure on one destination changes only that destination's state.
@@ -193,13 +217,7 @@ class MultiRtmpStreamSession(
                 destinationStates[index]
             }
             if (state !in setOf(State.STOPPING, State.STOPPED, State.RELEASED)) {
-                val current = snapshots
-                when {
-                    current.any { it.state == DestinationState.CONNECTED } -> state = State.LIVE
-                    current.any { it.state == DestinationState.CONNECTING } -> state = State.CONNECTING
-                    current.all { it.state in setOf(DestinationState.FAILED, DestinationState.AUTH_ERROR, DestinationState.DISCONNECTED) } ->
-                        state = if (current.any { it.state == DestinationState.FAILED || it.state == DestinationState.AUTH_ERROR }) State.FAILED else State.STOPPED
-                }
+                reduceMultiRtmpState(snapshots.map { it.state })?.let { state = it }
             }
         }
         runCatching { listener?.onDestinationChanged(snapshot) }
