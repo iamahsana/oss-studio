@@ -56,6 +56,7 @@ class OssAudioMixerSession(
         sampleRateHz = RootEncoderAudioCaptureSession.SAMPLE_RATE_HZ
     )
     private val cleanupInProgress = AtomicBoolean(false)
+    private val cleanupCallbacks = mutableListOf<(StopResult) -> Unit>()
 
     @Volatile
     var state: State = State.NEW
@@ -165,7 +166,7 @@ class OssAudioMixerSession(
             }
             monitorOutput.requestStop()
             val monitorStopped = monitorOutput.awaitStopped(MONITOR_STOP_TIMEOUT_MS)
-            state = if (mixerStopped && captureStopped && monitorStopped) State.FAILED else State.FAILED
+            state = State.FAILED
             log(
                 OssLogLevel.ERROR,
                 "audio_graph_start_failed",
@@ -195,13 +196,25 @@ class OssAudioMixerSession(
      * A failed mixer join keeps capture sources alive for a safe retry.
      */
     fun stopAsync(onComplete: (StopResult) -> Unit) {
-        if (state == State.STOPPED) {
+        val alreadyStopped = synchronized(this) {
+            if (state == State.STOPPED) {
+                true
+            } else {
+                cleanupCallbacks += onComplete
+                if (!cleanupInProgress.compareAndSet(false, true)) {
+                    return
+                }
+                state = State.STOPPING
+                // start() is synchronized on this same instance, so this
+                // request cannot race ahead of a still-starting capture graph.
+                worker.requestStop()
+                false
+            }
+        }
+        if (alreadyStopped) {
             onComplete(StopResult(true, true, true, true))
             return
         }
-        if (!cleanupInProgress.compareAndSet(false, true)) return
-        state = State.STOPPING
-        worker.requestStop()
 
         Thread({
             var mixerStopped = false
@@ -241,15 +254,18 @@ class OssAudioMixerSession(
                     captureStopped = captureStopped,
                     monitorStopped = monitorStopped
                 )
-                state = if (result.completed) State.STOPPED else State.FAILED
-                cleanupInProgress.set(false)
+                val callbacks = synchronized(this) {
+                    state = if (result.completed) State.STOPPED else State.FAILED
+                    cleanupInProgress.set(false)
+                    cleanupCallbacks.toList().also { cleanupCallbacks.clear() }
+                }
                 log(
                     if (result.completed) OssLogLevel.INFO else OssLogLevel.ERROR,
                     if (result.completed) "audio_graph_stopped" else "audio_graph_cleanup_pending",
                     if (result.completed) "OSS audio graph fully stopped" else "OSS audio graph cleanup remains incomplete",
                     if (result.completed) null else "AUDIO_GRAPH_CLEANUP_PENDING"
                 )
-                runCatching { onComplete(result) }
+                callbacks.forEach { callback -> runCatching { callback(result) } }
             }
         }, "oss-audio-graph-cleanup").apply {
             isDaemon = true
