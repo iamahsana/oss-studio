@@ -107,6 +107,9 @@ class AndroidLiveRuntimeFactory(
                                             reportFailureOnce()
                                         }
                                     }
+                                    MultiRtmpStreamSession.State.STOPPED -> {
+                                        if (rtmpConnected) reportFailureOnce()
+                                    }
                                     else -> Unit
                                 }
                             }
@@ -119,7 +122,7 @@ class AndroidLiveRuntimeFactory(
                                 if (destination.state == MultiRtmpStreamSession.DestinationState.CONNECTED) OssLogLevel.INFO else OssLogLevel.WARN,
                                 "rtmp_destination_state",
                                 "RTMP destination state: ${destination.state}",
-                                destination.id
+                                destinationId = destination.id
                             )
                         }
                     }
@@ -265,6 +268,7 @@ class AndroidLiveRuntimeFactory(
                     reportConnectedIfReady()
                 }
                 RtmpStreamSession.State.FAILED -> reportFailureOnce()
+                RtmpStreamSession.State.STOPPED -> if (rtmpConnected) reportFailureOnce()
                 else -> Unit
             }
         }
@@ -462,7 +466,8 @@ class AndroidLiveRuntimeFactory(
             event: String,
             message: String,
             errorCode: String? = null,
-            error: Throwable? = null
+            error: Throwable? = null,
+            destinationId: String? = null
         ) {
             OssLogger.log(
                 level = level,
@@ -471,7 +476,7 @@ class AndroidLiveRuntimeFactory(
                 event = event,
                 message = message,
                 errorCode = errorCode,
-                context = OssLogContext(operationId = runtimeId),
+                context = OssLogContext(operationId = runtimeId, destinationId = destinationId),
                 throwable = error
             )
         }
