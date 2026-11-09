@@ -69,8 +69,8 @@ class SceneProjectHistoryTest {
         }
 
         assertTrue(history.canUndo)
+        assertEquals("2", history.undo()?.name)
         assertEquals("1", history.undo()?.name)
-        assertEquals("0", history.undo()?.name)
         assertNull(history.undo())
     }
 }
