@@ -58,6 +58,8 @@ class LiveSessionController(
     private var screenReady = false
     private var stopping = false
     private var cleanupIncomplete = false
+    private val pendingStopCallbacks =
+        mutableListOf<(LiveSessionLifecycleCoordinator.ShutdownResult) -> Unit>()
     private var sessionId: String? = null
 
     /** Starts a new session. Endpoint must be supplied by secure UI state. */
@@ -155,6 +157,7 @@ class LiveSessionController(
             }
             return
         }
+        onComplete?.let(pendingStopCallbacks::add)
         if (stopping) return
         stopping = true
         cleanupIncomplete = true
@@ -169,7 +172,7 @@ class LiveSessionController(
                 if (result.completed) "LIVE session stopped" else "LIVE cleanup had failed stages",
                 if (result.completed) null else "LIVE_CLEANUP_INCOMPLETE"
             )
-            runCatching { onComplete?.invoke(result) }
+            notifyStopCallbacks(result)
         }
     }
 
@@ -203,7 +206,14 @@ class LiveSessionController(
                     "LIVE_CLEANUP_INCOMPLETE"
                 )
             }
+            notifyStopCallbacks(result)
         }
+    }
+
+    private fun notifyStopCallbacks(result: LiveSessionLifecycleCoordinator.ShutdownResult) {
+        val callbacks = pendingStopCallbacks.toList()
+        pendingStopCallbacks.clear()
+        callbacks.forEach { callback -> runCatching { callback(result) } }
     }
 
     private fun createTeardown(target: Runtime) = LiveSessionLifecycleCoordinator(
