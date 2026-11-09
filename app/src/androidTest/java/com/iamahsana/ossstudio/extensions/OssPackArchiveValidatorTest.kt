@@ -49,6 +49,19 @@ class OssPackArchiveValidatorTest {
         }
     }
 
+    @Test fun refusesToOverwriteAnInstalledExtensionId() {
+        val archive = createPackage(byteArrayOf(4, 3, 2, 1))
+        val root = File(context.cacheDir, "extensions-duplicate-" + System.nanoTime())
+        try {
+            OssPackInstaller.install(archive, root)
+            val error = runCatching { OssPackInstaller.install(archive, root) }.exceptionOrNull()
+            assertTrue(error?.message.orEmpty().contains("sudah terpasang"))
+        } finally {
+            archive.delete()
+            root.deleteRecursively()
+        }
+    }
+
     @Test fun rejectsPayloadChecksumMismatch() {
         val archive = createPackage(byteArrayOf(1, 2, 3), manifestHashOverride = "0".repeat(64))
         try {
