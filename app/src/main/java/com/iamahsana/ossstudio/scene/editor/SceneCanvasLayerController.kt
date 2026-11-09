@@ -43,7 +43,7 @@ class SceneCanvasLayerController(
 
     private val appContext = context.applicationContext
     private val mainHandler = Handler(Looper.getMainLooper())
-    private val assetExecutor = Executors.newSingleThreadExecutor()
+    @Volatile private var assetExecutor = Executors.newSingleThreadExecutor()
     private var filter: SurfaceFilterRender? = null
     private var outputSurface: Surface? = null
     private var cachedBitmaps: Map<String, Bitmap> = emptyMap()
@@ -88,6 +88,9 @@ class SceneCanvasLayerController(
         this.hasShareScreen = hasShareScreen
         readyCallback = onReady
         failureCallback = onFailure
+        if (assetExecutor.isShutdown || assetExecutor.isTerminated) {
+            assetExecutor = Executors.newSingleThreadExecutor()
+        }
         state = State.LOADING_ASSETS
         operationId = java.util.UUID.randomUUID().toString()
 
