@@ -25,7 +25,10 @@ class OssAudioMixerSession(
     context: Context,
     bufferAudioSource: BufferAudioSource,
     private val onCaptureStatus: ((RootEncoderAudioCaptureSession.Snapshot) -> Unit)? = null,
-    private val onFatalError: ((Throwable) -> Unit)? = null
+    private val onFatalError: ((Throwable) -> Unit)? = null,
+    initialChannelConfigs: Array<ChannelMixConfig> = arrayOf(ChannelMixConfig(), ChannelMixConfig()),
+    initialLiveMasterGain: Float = 1f,
+    initialMonitorMasterGain: Float = 1f
 ) {
     enum class State { NEW, STARTING, RUNNING, STOPPING, STOPPED, FAILED }
 
@@ -45,7 +48,7 @@ class OssAudioMixerSession(
     private val monitorOutput = AndroidAudioTrackMonitorOutput()
     private val engine = PcmMixerEngine(
         sourceQueues = arrayOf(capture.microphoneQueue, capture.internalAudioQueue),
-        initialConfigs = arrayOf(ChannelMixConfig(), ChannelMixConfig()),
+        initialConfigs = initialChannelConfigs.copyOf(),
         framesPerBlock = DEFAULT_BLOCK_FRAMES,
         sampleRateHz = RootEncoderAudioCaptureSession.SAMPLE_RATE_HZ
     )
@@ -71,6 +74,12 @@ class OssAudioMixerSession(
     private val cleanupInProgress = AtomicBoolean(false)
     private val callbackLock = Any()
     private val cleanupCallbacks = mutableListOf<(StopResult) -> Unit>()
+
+    init {
+        require(initialChannelConfigs.size == 2) { "Mixer requires microphone and internal audio channel settings" }
+        engine.liveMasterGain = initialLiveMasterGain
+        engine.monitorMasterGain = initialMonitorMasterGain
+    }
 
     @Volatile
     var state: State = State.NEW
