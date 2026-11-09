@@ -43,6 +43,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.iamahsana.ossstudio.scene.model.SceneProject
+import com.iamahsana.ossstudio.scene.model.Scene
+import com.iamahsana.ossstudio.scene.model.CanvasSize
 import com.iamahsana.ossstudio.scene.model.SceneProjectEditor
 import com.iamahsana.ossstudio.scene.model.SceneSource
 import com.iamahsana.ossstudio.scene.model.SceneSourceType
@@ -117,6 +119,39 @@ fun SceneEditorScreen(
         if (scene == null) {
             Text("Project ini belum memiliki scene.")
         } else {
+            Row(
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                currentProject.scenes.forEach { item ->
+                    OutlinedButton(onClick = {
+                        applyProject(SceneProjectEditor.setActiveScene(currentProject, item.id, System.currentTimeMillis()))
+                        selectedElementId = null
+                    }) { Text(if (item.id == scene.id) "✓ ${item.name}" else item.name) }
+                }
+                OutlinedButton(onClick = {
+                    val newScene = Scene(
+                        projectId = currentProject.id,
+                        name = "Scene ${currentProject.scenes.size + 1}",
+                        canvas = scene.canvas
+                    )
+                    val withScene = SceneProjectEditor.addScene(currentProject, newScene, System.currentTimeMillis())
+                    applyProject(SceneProjectEditor.setActiveScene(withScene, newScene.id, System.currentTimeMillis()))
+                    selectedElementId = null
+                }) { Text("＋ Scene") }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = {
+                    applyProject(SceneProjectEditor.updateSceneCanvas(
+                        currentProject, scene.id, CanvasSize.DEFAULT_PORTRAIT, System.currentTimeMillis()
+                    ))
+                }) { Text("Portrait 9:16") }
+                OutlinedButton(onClick = {
+                    applyProject(SceneProjectEditor.updateSceneCanvas(
+                        currentProject, scene.id, CanvasSize.DEFAULT_LANDSCAPE, System.currentTimeMillis()
+                    ))
+                }) { Text("Landscape 16:9") }
+            }
             Text(scene.name, style = MaterialTheme.typography.titleMedium)
             BoxWithConstraints(
                 modifier = Modifier.fillMaxWidth()
