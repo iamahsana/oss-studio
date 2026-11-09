@@ -126,4 +126,12 @@ class SceneProjectEditorTest {
         assertEquals(CanvasSize.DEFAULT_PORTRAIT, original.scenes.single().canvas)
     }
 
+    @Test
+    fun elementLockStateChangesWithoutMutatingOriginal() {
+        val original = project()
+        val updated = SceneProjectEditor.setElementLocked(original, "scene", "first", true, 30L)
+        assertTrue(updated.scenes.single().elements.first().locked)
+        assertFalse(original.scenes.single().elements.first().locked)
+    }
+
 }
