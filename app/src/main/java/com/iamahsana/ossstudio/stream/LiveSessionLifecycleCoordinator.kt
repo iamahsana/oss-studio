@@ -21,7 +21,18 @@ import java.util.UUID
 class LiveSessionLifecycleCoordinator(
     private val screenLayer: ScreenLayer,
     private val streamPipeline: StreamPipeline,
-    private val projectionSession: ProjectionSession
+    private val projectionSession: ProjectionSession,
+    private val diagnosticLog: (OssLogLevel, String, String, String?) -> Unit = { level, event, message, errorCode ->
+        OssLogger.log(
+            level = level,
+            subsystem = "OSS/Stream/Core",
+            component = "LiveSessionLifecycleCoordinator",
+            event = event,
+            message = message,
+            errorCode = errorCode,
+            context = OssLogContext(operationId = "lifecycle")
+        )
+    }
 ) {
     fun interface ScreenLayer {
         fun detach()
@@ -112,14 +123,6 @@ class LiveSessionLifecycleCoordinator(
         message: String,
         errorCode: String? = null
     ) {
-        OssLogger.log(
-            level = level,
-            subsystem = "OSS/Stream/Core",
-            component = "LiveSessionLifecycleCoordinator",
-            event = event,
-            message = message,
-            errorCode = errorCode,
-            context = OssLogContext(operationId = operationId)
-        )
+        diagnosticLog(level, event, message, errorCode)
     }
 }
