@@ -62,6 +62,7 @@ class ShareScreenSessionService : Service() {
 
     override fun onDestroy() {
         releaseProjection(stopProjection = true)
+        notifyProjectionState(active = false)
         log(OssLogLevel.INFO, "service_destroyed", "Share Screen service destroyed and projection released")
         super.onDestroy()
     }
