@@ -110,6 +110,25 @@ class SceneProjectEditorTest {
     }
 
     @Test
+    fun elementOpacityCanBeAdjustedWithoutChangingOtherElements() {
+        val original = project()
+        val updated = SceneProjectEditor.setElementOpacity(original, "scene", "first", 0.35f, 30L)
+        assertEquals(0.35f, updated.scenes.single().elements.first().opacity)
+        assertEquals(1f, updated.scenes.single().elements.last().opacity)
+        assertEquals(1f, original.scenes.single().elements.first().opacity)
+    }
+
+    @Test
+    fun elementOpacityRejectsNonFiniteAndOutOfRangeValues() {
+        assertThrows(IllegalArgumentException::class.java) {
+            SceneProjectEditor.setElementOpacity(project(), "scene", "first", Float.NaN, 30L)
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            SceneProjectEditor.setElementOpacity(project(), "scene", "first", 1.5f, 30L)
+        }
+    }
+
+    @Test
     fun elementVisibilityCanBeChangedWithoutChangingOtherElements() {
         val updated = SceneProjectEditor.setElementVisibility(project(), "scene", "first", false, 30L)
         assertFalse(updated.scenes.single().elements.first().visible)
