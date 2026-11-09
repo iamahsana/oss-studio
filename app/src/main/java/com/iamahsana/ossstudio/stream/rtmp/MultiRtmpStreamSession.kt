@@ -51,6 +51,7 @@ class MultiRtmpStreamSession(
     private val appContext = context.applicationContext
     private val enabledProfiles = profiles.filter { it.enabled }
     private val operationId = UUID.randomUUID().toString()
+    private val stateLock = Any()
     private val destinationStates = enabledProfiles.map {
         DestinationSnapshot(it.id, it.name, DestinationState.IDLE)
     }.toMutableList()
@@ -153,22 +154,25 @@ class MultiRtmpStreamSession(
             runCatching { stream.stopStream(MultiType.RTMP, index) }
                 .onFailure { updateDestination(index, DestinationState.FAILED, "Gagal memutus tujuan") }
         }
-        runCatching { stream.release() }
-            .onSuccess {
-                state = State.STOPPED
-                updateAllDisconnected()
-            }
-            .onFailure {
-                state = State.FAILED
-                log(OssLogLevel.ERROR, "multi_stream_release_failed", "Shared RTMP encoder release failed", error = it)
-            }
+        val releaseResult = runCatching { stream.release() }
+        releaseResult.onSuccess {
+            state = State.STOPPED
+            updateAllDisconnected()
+        }.onFailure {
+            state = State.FAILED
+            log(OssLogLevel.ERROR, "multi_stream_release_failed", "Shared RTMP encoder release failed", error = it)
+        }
         notifyState()
+        releaseResult.exceptionOrNull()?.let {
+            throw IllegalStateException("Shared RTMP encoder cleanup is incomplete", it)
+        }
     }
 
     fun release() {
         checkMainThread()
         if (state == State.RELEASED) return
         if (state != State.STOPPED) stopAndRelease()
+        check(state == State.STOPPED) { "Multi RTMP cleanup did not complete" }
         state = State.RELEASED
         notifyState()
     }
@@ -182,15 +186,21 @@ class MultiRtmpStreamSession(
     }
 
     private fun updateDestination(index: Int, next: DestinationState, detail: String? = null) {
-        val snapshot = synchronized(destinationStates) {
-            destinationStates[index] = destinationStates[index].copy(state = next, detail = detail)
-            destinationStates[index]
-        }
-        when {
-            snapshots.any { it.state == DestinationState.CONNECTED } -> state = State.LIVE
-            snapshots.any { it.state == DestinationState.CONNECTING } -> state = State.CONNECTING
-            snapshots.all { it.state in setOf(DestinationState.FAILED, DestinationState.AUTH_ERROR, DestinationState.DISCONNECTED) } ->
-                state = if (snapshots.any { it.state == DestinationState.FAILED || it.state == DestinationState.AUTH_ERROR }) State.FAILED else State.STOPPED
+        val snapshot: DestinationSnapshot
+        synchronized(stateLock) {
+            snapshot = synchronized(destinationStates) {
+                destinationStates[index] = destinationStates[index].copy(state = next, detail = detail)
+                destinationStates[index]
+            }
+            if (state !in setOf(State.STOPPING, State.STOPPED, State.RELEASED)) {
+                val current = snapshots
+                when {
+                    current.any { it.state == DestinationState.CONNECTED } -> state = State.LIVE
+                    current.any { it.state == DestinationState.CONNECTING } -> state = State.CONNECTING
+                    current.all { it.state in setOf(DestinationState.FAILED, DestinationState.AUTH_ERROR, DestinationState.DISCONNECTED) } ->
+                        state = if (current.any { it.state == DestinationState.FAILED || it.state == DestinationState.AUTH_ERROR }) State.FAILED else State.STOPPED
+                }
+            }
         }
         runCatching { listener?.onDestinationChanged(snapshot) }
         notifyState()
