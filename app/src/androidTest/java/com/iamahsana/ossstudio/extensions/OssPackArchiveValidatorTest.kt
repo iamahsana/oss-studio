@@ -50,6 +50,25 @@ class OssPackArchiveValidatorTest {
         }
     }
 
+    @Test fun installerUsesUniqueStagingDirectoryForEachExtension() {
+        val firstArchive = createPackage(byteArrayOf(1, 3, 5), id = "com.example.first")
+        val secondArchive = createPackage(byteArrayOf(2, 4, 6), id = "com.example.second")
+        val root = File(context.cacheDir, "extensions-multiple-" + System.nanoTime())
+        try {
+            val first = OssPackInstaller.install(firstArchive, root)
+            val second = OssPackInstaller.install(secondArchive, root)
+            assertTrue(first.isDirectory)
+            assertTrue(second.isDirectory)
+            assertTrue(File(first, "assets/icon.png").isFile)
+            assertTrue(File(second, "assets/icon.png").isFile)
+            assertFalse(root.listFiles().orEmpty().any { it.name.endsWith(".staging") })
+        } finally {
+            firstArchive.delete()
+            secondArchive.delete()
+            root.deleteRecursively()
+        }
+    }
+
     @Test fun refusesToOverwriteAnInstalledExtensionId() {
         val archive = createPackage(byteArrayOf(4, 3, 2, 1))
         val root = File(context.cacheDir, "extensions-duplicate-" + System.nanoTime())
@@ -67,7 +86,7 @@ class OssPackArchiveValidatorTest {
         val archive = createPackage(byteArrayOf(1, 2, 3), manifestHashOverride = "0".repeat(64))
         try {
             val error = runCatching { OssPackArchiveValidator.validate(archive) }.exceptionOrNull()
-            assertTrue(error?.message.orEmpty().contains("Checksum"))
+            assertTrue(error?.message.orEmpty().contains("assets/icon.png"))
         } finally { archive.delete() }
     }
 
@@ -127,7 +146,7 @@ class OssPackArchiveValidatorTest {
         } finally { archive.delete() }
     }
 
-    private fun createPackage(payload: ByteArray, manifestHashOverride: String? = null): File {
+    private fun createPackage(payload: ByteArray, manifestHashOverride: String? = null, id: String = "com.example.overlay"): File {
         val hash = manifestHashOverride ?: sha256(payload)
         val manifest = """{"format":"oss-extension","formatVersion":1,"payloadType":"declarative","id":"com.example.overlay","name":"Example Overlay","version":"1.0.0","minOssVersion":"0.1.0","capabilities":["scene-overlay"],"files":[{"path":"assets/icon.png","sha256":"$hash","byteSize":""" + payload.size + "}]} "
         return createRawPackage(manifest.trim(), "assets/icon.png" to payload)
