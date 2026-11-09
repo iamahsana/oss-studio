@@ -12,6 +12,7 @@ Open Stream Software (OSS) is a lightweight, modular Android live-streaming stud
 - Multi-destination RTMP/RTMPS.
 - Dedicated scene editor and audio mixer.
 - Phone-first build and test workflow through GitHub Actions.
+- Secure automatic update checks and optional background downloads; installation follows Android's supported confirmation flow for direct APK distribution.
 
 ## Documentation
 1. [Product Specification](docs/01-PRODUCT-SPECIFICATION.md)
@@ -24,6 +25,7 @@ Open Stream Software (OSS) is a lightweight, modular Android live-streaming stud
 8. [Build Toolchain](docs/08-BUILD-TOOLCHAIN.md)
 9. [Third-Party Component Audit](docs/09-THIRD-PARTY-COMPONENT-AUDIT.md)
 10. [Logging and Diagnostics](docs/10-LOGGING-DIAGNOSTICS.md)
+11. [Update and Release Delivery](docs/11-UPDATE-DELIVERY.md)
 
 ## Repository boundaries
 The previous `oss-mobile` repository is retained as an archived/reference project. This repository is the clean restart; existing code will only be reused after compatibility, license, security, and architecture review.
