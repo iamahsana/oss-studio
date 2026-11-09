@@ -87,7 +87,7 @@ private fun OssApp() {
     var activeProject by remember { mutableStateOf<SceneProject?>(null) }
     val page = AppPage.valueOf(selectedPage)
     val context = LocalContext.current
-    SideEffect { ActiveSceneProjectRegistry.project = activeProject }
+    SideEffect { ActiveSceneProjectRegistry.publish(activeProject) }
     val projectLoader = remember(context) {
         SceneProjectRepository(SceneProjectStoreProvider.database(context))
     }
