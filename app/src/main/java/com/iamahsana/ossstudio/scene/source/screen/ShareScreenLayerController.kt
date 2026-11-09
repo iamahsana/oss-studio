@@ -76,6 +76,12 @@ class ShareScreenLayerController(
             state != State.CAPTURING) {
             "Share Screen source is already attached"
         }
+        check(
+            projection == null && virtualDisplay == null &&
+                surfaceFilter == null && projectionCallback == null
+        ) {
+            "Previous Share Screen resources still require cleanup"
+        }
 
         operationId = UUID.randomUUID().toString()
         projection = mediaProjection
@@ -216,64 +222,113 @@ class ShareScreenLayerController(
     /** Remove only the scene layer; keep the service-owned projection active. */
     fun detach() {
         checkMainThread()
-        releaseInternal(stopProjection = false, finalState = State.STOPPED)
+        check(releaseInternal(stopProjection = false, finalState = State.STOPPED)) {
+            "Share Screen resources remain active; cleanup can be retried"
+        }
     }
 
     /** User explicitly ends screen capture and the underlying projection. */
     fun stop() {
         checkMainThread()
-        releaseInternal(stopProjection = true, finalState = State.STOPPED)
+        check(releaseInternal(stopProjection = true, finalState = State.STOPPED)) {
+            "Share Screen resources remain active; cleanup can be retried"
+        }
     }
 
-    private fun releaseInternal(stopProjection: Boolean, finalState: State) {
+    /**
+     * Release every owned layer resource independently. A failed release keeps
+     * its handle so a later detach()/stop() can retry instead of losing the
+     * only reference to a still-live Android/GL resource.
+     */
+    private fun releaseInternal(stopProjection: Boolean, finalState: State): Boolean {
         checkMainThread()
         pendingGlCheck?.let(mainHandler::removeCallbacks)
         pendingGlCheck = null
 
+        var failed = false
         val oldProjection = projection
         val oldCallback = projectionCallback
         val oldFilter = surfaceFilter
+        val oldDisplay = virtualDisplay
 
-        projection = null
-        projectionCallback = null
-        surfaceFilter = null
-
-        runCatching { virtualDisplay?.release() }
-            .onFailure {
+        if (oldDisplay != null) {
+            try {
+                oldDisplay.release()
+                if (virtualDisplay === oldDisplay) virtualDisplay = null
+            } catch (error: Exception) {
+                failed = true
                 log(
-                    level = OssLogLevel.WARN,
+                    level = OssLogLevel.ERROR,
                     event = "virtual_display_release_failed",
                     errorCode = "SCREEN_VIRTUAL_DISPLAY_RELEASE_FAILED",
-                    message = it.message ?: "Virtual display release failed"
+                    message = error.message ?: "Virtual display release failed"
                 )
             }
-        virtualDisplay = null
+        }
+
+        if (oldFilter != null) {
+            try {
+                glInterface.removeFilter(oldFilter)
+                if (surfaceFilter === oldFilter) surfaceFilter = null
+            } catch (error: Exception) {
+                failed = true
+                log(
+                    level = OssLogLevel.ERROR,
+                    event = "layer_remove_failed",
+                    errorCode = "SCREEN_LAYER_REMOVE_FAILED",
+                    message = error.message ?: "Share Screen layer removal failed"
+                )
+            }
+        }
 
         if (oldProjection != null && oldCallback != null) {
-            runCatching { oldProjection.unregisterCallback(oldCallback) }
-        }
-        if (oldFilter != null) {
-            runCatching { glInterface.removeFilter(oldFilter) }
-                .onFailure {
-                    log(
-                        level = OssLogLevel.ERROR,
-                        event = "layer_remove_failed",
-                        errorCode = "SCREEN_LAYER_REMOVE_FAILED",
-                        message = it.message ?: "Share Screen layer removal failed"
-                    )
-                }
-        }
-        if (stopProjection) {
-            runCatching { oldProjection?.stop() }
+            try {
+                oldProjection.unregisterCallback(oldCallback)
+                if (projectionCallback === oldCallback) projectionCallback = null
+            } catch (error: Exception) {
+                failed = true
+                log(
+                    level = OssLogLevel.WARN,
+                    event = "projection_callback_unregister_failed",
+                    errorCode = "SCREEN_PROJECTION_CALLBACK_UNREGISTER_FAILED",
+                    message = error.message ?: "Unable to unregister MediaProjection callback"
+                )
+            }
         }
 
-        state = finalState
+        if (stopProjection && oldProjection != null) {
+            try {
+                oldProjection.stop()
+                if (projection === oldProjection) projection = null
+            } catch (error: Exception) {
+                failed = true
+                log(
+                    level = OssLogLevel.ERROR,
+                    event = "projection_stop_failed",
+                    errorCode = "SCREEN_PROJECTION_STOP_FAILED",
+                    message = error.message ?: "MediaProjection stop failed"
+                )
+            }
+        } else if (!failed && projection === oldProjection) {
+            // The foreground service remains the projection owner. This
+            // controller drops its reference only after its layer resources
+            // and callback have all been released successfully.
+            projection = null
+        }
+
+        state = if (failed) State.FAILED else finalState
         log(
-            level = if (finalState == State.FAILED) OssLogLevel.ERROR else OssLogLevel.INFO,
-            event = "capture_stopped",
-            errorCode = if (finalState == State.FAILED) "SCREEN_CAPTURE_FAILED" else null,
-            message = "Share Screen capture resources released"
+            level = if (failed || finalState == State.FAILED) OssLogLevel.ERROR else OssLogLevel.INFO,
+            event = if (failed) "capture_cleanup_incomplete" else "capture_stopped",
+            errorCode = if (failed) "SCREEN_CAPTURE_CLEANUP_PENDING"
+                else if (finalState == State.FAILED) "SCREEN_CAPTURE_FAILED" else null,
+            message = if (failed) {
+                "Share Screen cleanup incomplete; failed resource handles were retained for retry"
+            } else {
+                "Share Screen capture resources released"
+            }
         )
+        return !failed
     }
 
     private fun checkMainThread() {
