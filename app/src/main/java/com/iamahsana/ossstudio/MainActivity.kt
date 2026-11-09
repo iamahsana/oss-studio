@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import com.iamahsana.ossstudio.logging.OssLogger
+import com.iamahsana.ossstudio.logging.OssLogLevel
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -41,7 +42,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         OssLogger.initialize(applicationContext)
         OssLogger.log(
-            level = com.iamahsana.ossstudio.logging.OssLogLevel.INFO,
+            level = OssLogLevel.INFO,
             subsystem = "OSS/App",
             component = "MainActivity",
             event = "activity_created",
@@ -63,7 +64,16 @@ private fun OssApp() {
                     AppPage.entries.forEach { item ->
                         NavigationBarItem(
                             selected = page == item,
-                            onClick = { selectedPage = item.name },
+                            onClick = {
+                                OssLogger.log(
+                                    level = OssLogLevel.INFO,
+                                    subsystem = "OSS/Navigation",
+                                    component = "BottomNavigation",
+                                    event = "page_changed",
+                                    message = "Navigation changed from $selectedPage to ${item.name}"
+                                )
+                                selectedPage = item.name
+                            },
                             icon = { Text(item.symbol) },
                             label = { Text(item.label) }
                         )
