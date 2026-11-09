@@ -3,6 +3,10 @@ package com.iamahsana.ossstudio.scene.editor
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.ImageDecoder
+import android.graphics.drawable.AnimatedImageDrawable
+import android.graphics.drawable.Drawable
+import android.widget.ImageView
 import android.media.MediaMetadataRetriever
 import java.io.File
 import android.net.Uri
@@ -28,6 +32,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.Image
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.runtime.produceState
@@ -54,6 +59,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -297,7 +303,8 @@ fun SceneEditorScreen(
                                 SceneAssetImage(
                                     filePath = File(context.filesDir, asset.relativePath).absolutePath,
                                     contentDescription = source.displayName,
-                                    isVideo = source.type == SceneSourceType.VIDEO
+                                    isVideo = source.type == SceneSourceType.VIDEO,
+                                    isGif = source.type == SceneSourceType.GIF
                                 )
                             } else {
                                 Text(label, color = Color.White, textAlign = TextAlign.Center)
@@ -451,7 +458,16 @@ fun SceneEditorScreen(
 }
 
 @Composable
-private fun SceneAssetImage(filePath: String, contentDescription: String, isVideo: Boolean = false) {
+private fun SceneAssetImage(
+    filePath: String,
+    contentDescription: String,
+    isVideo: Boolean = false,
+    isGif: Boolean = false
+) {
+    if (isGif) {
+        SceneAnimatedGif(filePath)
+        return
+    }
     val bitmap = produceState<Bitmap?>(initialValue = null, key1 = filePath) {
         value = withContext(Dispatchers.IO) {
             if (isVideo) decodeVideoPreview(filePath) else decodeEditorBitmap(filePath)
@@ -497,5 +513,37 @@ private fun decodeVideoPreview(path: String): Bitmap? {
         null
     } finally {
         retriever.release()
+    }
+}
+
+@Composable
+private fun SceneAnimatedGif(filePath: String) {
+    val context = LocalContext.current
+    val drawable = produceState<Drawable?>(initialValue = null, key1 = filePath) {
+        value = withContext(Dispatchers.IO) {
+            runCatching {
+                ImageDecoder.decodeDrawable(ImageDecoder.createSource(File(filePath)))
+            }.getOrNull()
+        }
+    }.value
+    if (drawable is AnimatedImageDrawable) {
+        DisposableEffect(drawable) {
+            drawable.start()
+            onDispose { drawable.stop() }
+        }
+    }
+    if (drawable != null) {
+        AndroidView(
+            factory = {
+                ImageView(it).apply {
+                    scaleType = ImageView.ScaleType.CENTER_CROP
+                    setImageDrawable(drawable)
+                }
+            },
+            update = { it.setImageDrawable(drawable) },
+            modifier = Modifier.fillMaxSize()
+        )
+    } else {
+        Text("GIF tidak dapat dimuat", color = Color.White, textAlign = TextAlign.Center)
     }
 }
