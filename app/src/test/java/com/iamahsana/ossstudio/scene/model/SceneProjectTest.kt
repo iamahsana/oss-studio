@@ -55,6 +55,61 @@ class SceneProjectTest {
     }
 
     @Test
+    fun projectValidatesSceneSourceAndAssetOwnership() {
+        val projectId = "project"
+        val asset = SceneAsset(
+            id = "asset",
+            relativePath = "media/photo.png",
+            mimeType = "image/png",
+            byteSize = 12L,
+            sha256 = "a".repeat(64)
+        )
+        val source = SceneSource(
+            id = "source",
+            type = SceneSourceType.IMAGE,
+            displayName = "Photo",
+            assetId = asset.id
+        )
+        val scene = Scene(
+            id = "scene",
+            projectId = projectId,
+            name = "Main",
+            elements = listOf(SceneElement(sourceId = source.id, zIndex = 0))
+        )
+        val project = SceneProject(
+            id = projectId,
+            name = "Project",
+            createdAtEpochMillis = 1L,
+            updatedAtEpochMillis = 1L,
+            activeSceneId = scene.id,
+            scenes = listOf(scene),
+            sources = listOf(source),
+            assets = listOf(asset)
+        )
+        assertEquals(scene.id, project.activeSceneId)
+
+        assertThrows(IllegalArgumentException::class.java) {
+            project.copy(sources = emptyList())
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            project.copy(assets = emptyList())
+        }
+    }
+
+    @Test
+    fun sceneCannotBelongToAnotherProject() {
+        assertThrows(IllegalArgumentException::class.java) {
+            SceneProject(
+                id = "project",
+                name = "Project",
+                createdAtEpochMillis = 1L,
+                updatedAtEpochMillis = 1L,
+                scenes = listOf(Scene(projectId = "other-project", name = "Scene"))
+            )
+        }
+    }
+
+    @Test
     fun transformRejectsInvalidDimensions() {
         assertThrows(IllegalArgumentException::class.java) {
             ElementTransform(width = 0f)
