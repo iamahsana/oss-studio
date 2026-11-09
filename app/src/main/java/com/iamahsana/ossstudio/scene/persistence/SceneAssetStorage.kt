@@ -111,7 +111,15 @@ object SceneAssetStorage {
     internal fun hasValidContentSignature(file: File, mimeType: String): Boolean {
         if (!file.isFile || file.length() < 4L) return false
         val header = ByteArray(12)
-        val count = FileInputStream(file).use { it.read(header) }
+        val count = FileInputStream(file).use { input ->
+            var offset = 0
+            while (offset < header.size) {
+                val read = input.read(header, offset, header.size - offset)
+                if (read < 0) break
+                offset += read
+            }
+            offset
+        }
         if (count < 4) return false
         fun ascii(offset: Int, value: String): Boolean {
             val bytes = value.toByteArray(Charsets.US_ASCII)
