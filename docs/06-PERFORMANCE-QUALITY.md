@@ -35,5 +35,9 @@ Do not publish a maximum number of simultaneous media sources until measured on 
 ## Diagnostics
 Diagnostics are opt-in/exportable metadata and signal-level summaries. Do not record audio/video by default. Redact credentials and private identifiers. Include app version, device/API metadata, engine states, error codes, and relevant timing/counter data.
 
+## Logging quality gate
+
+All subsystems must use the shared structured logging service with per-component/object identifiers, stable error codes, correlation IDs, bounded asynchronous storage, and central secret redaction. Logging must not block LIVE-critical threads. Diagnostics remain local and export only after explicit user action. See [Logging and Diagnostics](10-LOGGING-DIAGNOSTICS.md).
+
 ## Quality gates
 A stage is accepted only after CI build/tests, launch test, key workflow test, regression review, and resource measurements. Test plans should be grouped into meaningful milestones rather than asking the user to repeat already-passed checks.
