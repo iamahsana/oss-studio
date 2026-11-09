@@ -13,12 +13,13 @@
 Persist scene geometry in logical canvas coordinates, not screen pixels. Transform operations must remain stable when the editor rotates or resizes. Portrait and Landscape are explicit canvas modes. Any orientation conversion is an explicit operation that updates geometry predictably and can be undone.
 
 ## Persistence strategy
-Room is the current database candidate for structured project data and registry state. DataStore is the candidate for global preferences. Store media assets as managed files with references from the database. Use transactions for structural edits and migrations for schema changes.
+Current implementation: SQLiteOpenHelper stores versioned project documents and indexed project summaries in `oss_projects.db`; writes are transactional and version 2 migrates the recovery table for databases created by version 1. The repository serializes database work on a single I/O executor. DataStore remains a candidate for global preferences. Store media assets as managed files with references from the database. Use explicit transactions and forward-only migrations for structural schema changes.
 
 ## Autosave and recovery
 - Persist meaningful edits automatically.
 - Debounce high-frequency drag updates while preserving crash recovery.
-- Keep a recoverable last-known-good project state.
+- Keep a recoverable last-known-good project state. Each successful save atomically snapshots the previous document before replacing it; the first save seeds recovery with the initial document.
+- Debounced autosave exposes an immediate flush operation and flushes the latest pending snapshot when the autosave owner closes.
 - Detect interrupted writes and offer recovery rather than silently discarding work.
 - Provide export/backup independently from the live project database.
 
