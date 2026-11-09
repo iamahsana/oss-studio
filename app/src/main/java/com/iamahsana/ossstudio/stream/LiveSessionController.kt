@@ -1,5 +1,10 @@
 package com.iamahsana.ossstudio.stream
 
+import com.iamahsana.ossstudio.logging.OssLogContext
+import com.iamahsana.ossstudio.logging.OssLogLevel
+import com.iamahsana.ossstudio.logging.OssLogger
+import java.util.UUID
+
 /**
  * Coordinates one LIVE attempt. A fresh Runtime and teardown coordinator are
  * created for every start, so a stopped session can never reuse released GL,
@@ -49,6 +54,7 @@ class LiveSessionController(
     private var rtmpConnected = false
     private var screenReady = false
     private var stopping = false
+    private var sessionId: String? = null
 
     /** Starts a new session. Endpoint must be supplied by secure UI state. */
     fun start(endpoint: String): Boolean {
@@ -60,27 +66,33 @@ class LiveSessionController(
             "Cannot start LIVE while controller is in state $state"
         }
 
-        val newRuntime = runtimeFactory.create()
-        runtime = newRuntime
-        teardown = createTeardown(newRuntime)
+        val newSessionId = UUID.randomUUID().toString()
+        sessionId = newSessionId
+        runtime = null
+        teardown = null
         rtmpConnected = false
         screenReady = false
         stopping = false
         setState(State.PREPARING)
 
         return try {
+            val newRuntime = runtimeFactory.create()
+            runtime = newRuntime
+            teardown = createTeardown(newRuntime)
+            log(OssLogLevel.INFO, "runtime_created", "LIVE runtime created")
             check(newRuntime.prepare()) { "Encoder preparation failed" }
             setState(State.STARTING)
             newRuntime.startRtmp(endpoint, object : RtmpListener {
                 override fun onConnected() {
                     if (stopping || runtime !== newRuntime) return
                     rtmpConnected = true
+                    log(OssLogLevel.INFO, "rtmp_connected", "RTMP destination connected")
                     updateLiveState()
                 }
 
                 override fun onFailure() {
                     if (stopping || runtime !== newRuntime) return
-                    failAndCleanup("RTMP connection failed")
+                    failAndCleanup("RTMP connection failed", "RTMP_CONNECT_FAILED")
                 }
             })
             // Some adapters may report an immediate connection failure from
@@ -91,17 +103,21 @@ class LiveSessionController(
                 override fun onReady() {
                     if (stopping || runtime !== newRuntime) return
                     screenReady = true
+                    log(OssLogLevel.INFO, "screen_source_ready", "Share Screen source is ready")
                     updateLiveState()
                 }
 
                 override fun onFailure() {
                     if (stopping || runtime !== newRuntime) return
-                    failAndCleanup("Share Screen source failed to attach")
+                    failAndCleanup(
+                        "Share Screen source failed to attach",
+                        "SCREEN_SOURCE_ATTACH_FAILED"
+                    )
                 }
             })
             !stopping
-        } catch (error: Exception) {
-            failAndCleanup(error.message ?: "LIVE startup failed")
+        } catch (_: Exception) {
+            failAndCleanup("LIVE startup failed", "LIVE_STARTUP_FAILED")
             false
         }
     }
@@ -117,6 +133,12 @@ class LiveSessionController(
         setState(State.STOPPING)
         val result = current.shutdown()
         setState(if (result.completed) State.STOPPED else State.FAILED)
+        log(
+            if (result.completed) OssLogLevel.INFO else OssLogLevel.ERROR,
+            if (result.completed) "session_stopped" else "session_stop_incomplete",
+            if (result.completed) "LIVE session stopped" else "LIVE cleanup had failed stages",
+            if (result.completed) null else "LIVE_CLEANUP_INCOMPLETE"
+        )
         return result
     }
 
@@ -126,13 +148,20 @@ class LiveSessionController(
         }
     }
 
-    private fun failAndCleanup(detail: String) {
+    private fun failAndCleanup(detail: String, errorCode: String) {
         if (stopping) return
         stopping = true
+        log(OssLogLevel.ERROR, "session_failed", detail, errorCode)
         setState(State.FAILED, detail)
-        teardown?.shutdown()
-        // Preserve FAILED as the externally visible startup result, even if
-        // cleanup also reports failures. The lifecycle coordinator logs stages.
+        val result = teardown?.shutdown()
+        if (result != null && !result.completed) {
+            log(
+                OssLogLevel.ERROR,
+                "failure_cleanup_incomplete",
+                "LIVE failure cleanup had failed stages",
+                "LIVE_CLEANUP_INCOMPLETE"
+            )
+        }
     }
 
     private fun createTeardown(target: Runtime) = LiveSessionLifecycleCoordinator(
@@ -145,7 +174,32 @@ class LiveSessionController(
     )
 
     private fun setState(next: State, detail: String? = null) {
+        val previous = state
         state = next
+        if (previous != next) {
+            log(
+                OssLogLevel.DEBUG,
+                "state_changed",
+                "LIVE state changed: ${previous.name} -> ${next.name}"
+            )
+        }
         runCatching { stateListener?.invoke(next, detail) }
+    }
+
+    private fun log(
+        level: OssLogLevel,
+        event: String,
+        message: String,
+        errorCode: String? = null
+    ) {
+        OssLogger.log(
+            level = level,
+            subsystem = "OSS/Stream/Core",
+            component = "LiveSessionController",
+            event = event,
+            message = message,
+            errorCode = errorCode,
+            context = OssLogContext(sessionId = sessionId)
+        )
     }
 }
