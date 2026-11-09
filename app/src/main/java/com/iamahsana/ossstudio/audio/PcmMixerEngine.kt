@@ -28,8 +28,7 @@ class PcmMixerEngine(
 
     private val aligner = PcmTimestampAligner(sourceQueues, sampleRateHz, maxFrameBytes)
     private val mixer = PcmMixerCore()
-    private val channelInputs: Array<ByteArray?> =
-        Array(sourceQueues.size) { ByteArray(framesPerBlock * BYTES_PER_FRAME) }
+    private val channelInputs = Array(sourceQueues.size) { ByteArray(framesPerBlock * BYTES_PER_FRAME) }
     private val liveBuffer = ByteArray(framesPerBlock * BYTES_PER_FRAME)
     private val monitorBuffer = ByteArray(framesPerBlock * BYTES_PER_FRAME)
     private val channelPeaks = FloatArray(sourceQueues.size)
