@@ -136,3 +136,11 @@ A dedicated `ShareScreenSessionService` now owns the Android foreground-service 
 - Does not request permission itself. The Activity/Compose permission launcher must call `ShareScreenSessionService.start(...)` only after the system consent result succeeds, then bind to the service and pass its active projection to `ShareScreenLayerController`.
 
 This service and the existing scene-layer controller are not yet wired into the UI and have not been validated on a physical device. Android 10–16 build and lifecycle checks remain required; Android 14+ behavior must be specifically exercised because MediaProjection foreground-service enforcement is stricter.
+
+
+### Share Screen lifecycle hardening and CI validation (2026-11-09)
+
+- The foreground service now releases its MediaProjection callback/session in `onDestroy` as a final cleanup path, in addition to explicit stop and Android's projection-stop callback.
+- Added an instrumentation assertion that the service is non-exported and declared with the `mediaProjection` foreground-service type.
+- The emulator workflow now enables KVM on GitHub-hosted Linux runners, uses explicit headless emulator options and a longer boot timeout, and waits for Android's Package Manager service before installing test APKs. This addresses a prior API 29 job that failed because the emulator reported `Can't find service: package` during APK installation; that failure was emulator readiness, not a test assertion.
+- These changes still require a successful run against the newest commit. A manifest assertion does not simulate user consent, Android 14+ projection-token rules, notification behavior, or OEM process management. Those remain separate lifecycle/device tests.
