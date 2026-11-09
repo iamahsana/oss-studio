@@ -397,11 +397,23 @@ fun SceneEditorScreen(
                                 OutlinedButton(onClick = { updateTextSetting("color", "#FFFFD54F") }) { Text("Kuning") }
                                 OutlinedButton(onClick = { updateTextSetting("color", "#FF4DD0E1") }) { Text("Cyan") }
                             }
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedButton(onClick = { updateTextSetting("align", "left") }) { Text("Kiri") }
+                                OutlinedButton(onClick = { updateTextSetting("align", "center") }) { Text("Tengah") }
+                                OutlinedButton(onClick = { updateTextSetting("align", "right") }) { Text("Kanan") }
+                            }
                             Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                                 Text("Tebal", modifier = Modifier.weight(1f))
                                 Switch(
                                     checked = selectedSource.settings["bold"] == "true",
                                     onCheckedChange = { updateTextSetting("bold", it.toString()) }
+                                )
+                            }
+                            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                                Text("Miring", modifier = Modifier.weight(1f))
+                                Switch(
+                                    checked = selectedSource.settings["italic"] == "true",
+                                    onCheckedChange = { updateTextSetting("italic", it.toString()) }
                                 )
                             }
                         }
