@@ -49,4 +49,24 @@ class LiveSessionLifecycleCoordinatorTest {
         assertEquals(listOf("screen_layer_detach"), result.failedStages)
         assertEquals(listOf("detach", "stop", "projection", "release"), calls)
     }
+
+    @Test
+    fun diagnosticSinkFailureNeverInterruptsCleanup() {
+        val calls = mutableListOf<String>()
+        val coordinator = LiveSessionLifecycleCoordinator(
+            screenLayer = { calls += "detach" },
+            streamPipeline = object : LiveSessionLifecycleCoordinator.StreamPipeline {
+                override fun stop() { calls += "stop" }
+                override fun release() { calls += "release" }
+            },
+            projectionSession = { calls += "projection" },
+            diagnosticLog = { _, _, _, _ -> error("diagnostics unavailable") }
+        )
+
+        val result = coordinator.shutdown()
+
+        assertTrue(result.completed)
+        assertEquals(emptyList<String>(), result.failedStages)
+        assertEquals(listOf("detach", "stop", "projection", "release"), calls)
+    }
 }
