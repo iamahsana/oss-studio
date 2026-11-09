@@ -163,4 +163,17 @@ class SceneProjectEditorTest {
         assertTrue(afterLast.assets.isEmpty())
     }
 
+    @Test
+    fun duplicateElementCreatesIndependentTopLayerCopy() {
+        val original = project()
+        val updated = SceneProjectEditor.duplicateElement(original, "scene", "first", 30L)
+        val elements = updated.scenes.single().elements
+        assertEquals(3, elements.size)
+        assertNotEquals("first", elements.last().id)
+        assertEquals("a", elements.last().sourceId)
+        assertEquals(2, elements.last().zIndex)
+        assertFalse(elements.last().locked)
+        assertEquals(2, original.scenes.single().elements.size)
+    }
+
 }
