@@ -36,7 +36,7 @@ class RootEncoderRtmpDestination(
     }
 
     private val client = RtmpClient(this)
-    private val operationId = UUID.randomUUID().toString()
+    @Volatile private var operationId = UUID.randomUUID().toString()
 
     @Volatile
     var state: State = State.DISCONNECTED
@@ -70,6 +70,7 @@ class RootEncoderRtmpDestination(
      * The endpoint is passed only to RootEncoder and is never included in OSS logs.
      */
     fun connect(endpoint: String) {
+        operationId = UUID.randomUUID().toString()
         log(
             level = OssLogLevel.INFO,
             event = "connect_requested",
@@ -157,7 +158,16 @@ class RootEncoderRtmpDestination(
 
     private fun updateState(newState: State) {
         state = newState
-        listener?.onStateChanged(destinationId, newState)
+        try {
+            listener?.onStateChanged(destinationId, newState)
+        } catch (error: Exception) {
+            log(
+                level = OssLogLevel.ERROR,
+                event = "state_listener_failed",
+                errorCode = "RTMP_STATE_LISTENER_FAILED",
+                message = error.message ?: "Destination state listener failed"
+            )
+        }
     }
 
     private fun log(
