@@ -6,6 +6,7 @@ import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.Movie
 import android.graphics.PorterDuff
 import android.graphics.Rect
 import android.graphics.RectF
@@ -13,6 +14,7 @@ import android.graphics.Typeface
 import android.media.MediaMetadataRetriever
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.view.Surface
 import com.iamahsana.ossstudio.scene.model.Scene
 import com.iamahsana.ossstudio.scene.model.SceneProject
@@ -41,6 +43,9 @@ class SceneCanvasLayerController(
     private var filter: SurfaceFilterRender? = null
     private var outputSurface: Surface? = null
     private var cachedBitmaps: Map<String, Bitmap> = emptyMap()
+    private var cachedMovies: Map<String, Movie> = emptyMap()
+    private val gifStartTime = SystemClock.uptimeMillis()
+    private val gifFrameRunnable = Runnable { outputSurface?.let { drawFrame(it) } }
     private var project: SceneProject? = null
     private var scene: Scene? = null
     private var outputWidth = 0
@@ -94,21 +99,30 @@ class SceneCanvasLayerController(
         }
     }
 
-    private fun decodeSceneAssets(project: SceneProject): Map<String, Bitmap> {
+    private data class DecodedAssets(
+        val bitmaps: Map<String, Bitmap>,
+        val movies: Map<String, Movie>
+    )
+
+    private fun decodeSceneAssets(project: SceneProject): DecodedAssets {
         val assets = project.assets.associateBy { it.id }
         val decoded = LinkedHashMap<String, Bitmap>()
+        val movies = LinkedHashMap<String, Movie>()
         project.sources.filter {
             it.enabled && it.type in setOf(SceneSourceType.IMAGE, SceneSourceType.GIF, SceneSourceType.VIDEO)
         }.forEach { source ->
             val asset = assets[source.assetId] ?: return@forEach
             val file = File(appContext.filesDir, asset.relativePath)
-            val bitmap = when (source.type) {
-                SceneSourceType.VIDEO -> decodeVideoFrame(file)
-                else -> decodeBitmap(file)
+            if (source.type == SceneSourceType.GIF) {
+                val movie = runCatching { Movie.decodeFile(file.absolutePath) }.getOrNull()
+                if (movie != null) movies[source.id] = movie
+                else decodeBitmap(file)?.let { decoded[source.id] = it }
+            } else {
+                val bitmap = if (source.type == SceneSourceType.VIDEO) decodeVideoFrame(file) else decodeBitmap(file)
+                if (bitmap != null) decoded[source.id] = bitmap
             }
-            if (bitmap != null) decoded[source.id] = bitmap
         }
-        return decoded
+        return DecodedAssets(decoded, movies)
     }
 
     private fun decodeBitmap(file: File): Bitmap? {
@@ -221,21 +235,23 @@ class SceneCanvasLayerController(
                     val destination = RectF(0f, 0f, width, height)
                     when (source.type) {
                         SceneSourceType.TEXT -> drawText(canvas, source, destination, element.opacity, scaleY)
-                        SceneSourceType.IMAGE, SceneSourceType.GIF, SceneSourceType.VIDEO -> {
-                            cachedBitmaps[source.id]?.let { bitmap ->
-                                val crop = element.crop
-                                val sourceRect = Rect(
-                                    (crop.left * bitmap.width).toInt(),
-                                    (crop.top * bitmap.height).toInt(),
-                                    (crop.right * bitmap.width).toInt(),
-                                    (crop.bottom * bitmap.height).toInt()
-                                )
-                                val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
+                        SceneSourceType.GIF -> {
+                            val movie = cachedMovies[source.id]
+                            if (movie != null && movie.width() > 0 && movie.height() > 0) {
+                                val layer = canvas.saveLayer(destination, Paint().apply {
                                     alpha = (element.opacity * 255f).toInt().coerceIn(0, 255)
-                                }
-                                canvas.drawBitmap(bitmap, sourceRect, destination, paint)
+                                })
+                                val duration = movie.duration().takeIf { it > 0 } ?: 1000
+                                movie.setTime(((SystemClock.uptimeMillis() - gifStartTime) % duration).toInt())
+                                canvas.scale(width / movie.width().toFloat(), height / movie.height().toFloat())
+                                movie.draw(canvas, 0f, 0f)
+                                canvas.restoreToCount(layer)
+                            } else {
+                                drawCachedBitmap(canvas, source.id, element.crop, destination, element.opacity)
                             }
                         }
+                        SceneSourceType.IMAGE, SceneSourceType.VIDEO ->
+                            drawCachedBitmap(canvas, source.id, element.crop, destination, element.opacity)
                         SceneSourceType.CAMERA -> drawPlaceholder(canvas, destination, "Camera", element.opacity)
                         SceneSourceType.USB_VIDEO -> drawPlaceholder(canvas, destination, "USB Video", element.opacity)
                         SceneSourceType.SHARE_SCREEN -> Unit
@@ -245,6 +261,29 @@ class SceneCanvasLayerController(
         } finally {
             surface.unlockCanvasAndPost(canvas)
         }
+        if (cachedMovies.isNotEmpty() && state == State.READY) {
+            mainHandler.removeCallbacks(gifFrameRunnable)
+            mainHandler.postDelayed(gifFrameRunnable, GIF_FRAME_INTERVAL_MS)
+        }
+    }
+
+    private fun drawCachedBitmap(
+        canvas: Canvas,
+        sourceId: String,
+        crop: com.iamahsana.ossstudio.scene.model.CropRect,
+        destination: RectF,
+        opacity: Float
+    ) {
+        val bitmap = cachedBitmaps[sourceId] ?: return
+        val left = (crop.left * bitmap.width).toInt().coerceIn(0, bitmap.width - 1)
+        val top = (crop.top * bitmap.height).toInt().coerceIn(0, bitmap.height - 1)
+        val right = (crop.right * bitmap.width).toInt().coerceIn(left + 1, bitmap.width)
+        val bottom = (crop.bottom * bitmap.height).toInt().coerceIn(top + 1, bitmap.height)
+        val sourceRect = Rect(left, top, right, bottom)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
+            alpha = (opacity * 255f).toInt().coerceIn(0, 255)
+        }
+        canvas.drawBitmap(bitmap, sourceRect, destination, paint)
     }
 
     private fun drawText(
@@ -306,6 +345,7 @@ class SceneCanvasLayerController(
         checkMainThread()
         glCheck?.let(mainHandler::removeCallbacks)
         glCheck = null
+        mainHandler.removeCallbacks(gifFrameRunnable)
         var failed = false
         val oldFilter = filter
         if (oldFilter != null) {
@@ -321,6 +361,7 @@ class SceneCanvasLayerController(
         if (!failed) {
             cachedBitmaps.values.forEach { if (!it.isRecycled) it.recycle() }
             cachedBitmaps = emptyMap()
+            cachedMovies = emptyMap()
             project = null
             scene = null
             state = State.STOPPED
@@ -357,5 +398,6 @@ class SceneCanvasLayerController(
     companion object {
         private const val GL_RETRY_MS = 50L
         private const val MAX_GL_ATTEMPTS = 100
+        private const val GIF_FRAME_INTERVAL_MS = 33L
     }
 }
