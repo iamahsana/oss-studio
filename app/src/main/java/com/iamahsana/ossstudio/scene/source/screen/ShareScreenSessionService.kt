@@ -46,6 +46,7 @@ class ShareScreenSessionService : Service() {
     private val binder = LocalBinder()
     private var mediaProjection: MediaProjection? = null
     private var projectionCallback: MediaProjection.Callback? = null
+    private var projectionStopCompleted = false
     private var projectionStateListener: ((Boolean) -> Unit)? = null
     private var operationId: String = UUID.randomUUID().toString()
 
@@ -119,6 +120,7 @@ class ShareScreenSessionService : Service() {
             // Publish ownership before callback registration. If registration
             // throws, the catch path can still stop and release this token.
             mediaProjection = projection
+            projectionStopCompleted = false
             val callback = object : MediaProjection.Callback() {
                 override fun onStop() {
                     log(OssLogLevel.INFO, "projection_stopped", "Android MediaProjection session stopped")
@@ -173,20 +175,23 @@ class ShareScreenSessionService : Service() {
     private fun releaseProjection(stopProjection: Boolean): Boolean {
         val projection = mediaProjection ?: run {
             projectionCallback = null
+            projectionStopCompleted = false
             return true
         }
         val callback = projectionCallback
 
-        // Stop first while the service still owns the reference. If Android
-        // rejects the stop call, retain ownership so the caller can retry.
-        if (stopProjection) {
-            val stopResult = runCatching { projection.stop() }
-            if (stopResult.isFailure) {
-                val error = stopResult.exceptionOrNull()
+        // Retain the service-owned handle on failure. If stop succeeded but
+        // callback unregistration failed, remember the stop so a retry does
+        // not repeat MediaProjection.stop().
+        if (stopProjection && !projectionStopCompleted) {
+            try {
+                projection.stop()
+                projectionStopCompleted = true
+            } catch (error: Exception) {
                 log(
                     OssLogLevel.ERROR,
                     "projection_stop_failed",
-                    error?.message ?: "Android rejected MediaProjection.stop()",
+                    error.message ?: "Android rejected MediaProjection.stop()",
                     "SCREEN_PROJECTION_STOP_FAILED"
                 )
                 return false
@@ -194,18 +199,23 @@ class ShareScreenSessionService : Service() {
         }
 
         if (callback != null) {
-            runCatching { projection.unregisterCallback(callback) }
-                .onFailure {
-                    log(
-                        OssLogLevel.WARN,
-                        "projection_callback_unregister_failed",
-                        it.message ?: "Unable to unregister MediaProjection callback",
-                        "SCREEN_PROJECTION_CALLBACK_UNREGISTER_FAILED"
-                    )
-                }
+            try {
+                projection.unregisterCallback(callback)
+                if (projectionCallback === callback) projectionCallback = null
+            } catch (error: Exception) {
+                log(
+                    OssLogLevel.ERROR,
+                    "projection_callback_unregister_failed",
+                    error.message ?: "Unable to unregister MediaProjection callback",
+                    "SCREEN_PROJECTION_CALLBACK_UNREGISTER_FAILED"
+                )
+                return false
+            }
         }
+
         mediaProjection = null
         projectionCallback = null
+        projectionStopCompleted = false
         return true
     }
 
