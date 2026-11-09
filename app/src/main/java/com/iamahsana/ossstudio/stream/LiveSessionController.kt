@@ -129,25 +129,16 @@ class LiveSessionController(
         }
     }
 
-    /** Idempotent for a session; a later start() creates entirely new resources. */
+    /**
+     * Compatibility wrapper. Android audio teardown is asynchronous, so this
+     * returns a result only when the runtime completes synchronously. New UI
+     * code should use stopAsync() and observe its callback.
+     */
+    @Deprecated("Use stopAsync() for non-blocking Android audio teardown")
     fun stop(): LiveSessionLifecycleCoordinator.ShutdownResult? {
-        val current = teardown ?: run {
-            setState(State.STOPPED)
-            return null
-        }
-        if (stopping) return null
-        stopping = true
-        setState(State.STOPPING)
-        val result = current.shutdown()
-        cleanupIncomplete = !result.completed
-        setState(if (result.completed) State.STOPPED else State.FAILED)
-        log(
-            if (result.completed) OssLogLevel.INFO else OssLogLevel.ERROR,
-            if (result.completed) "session_stopped" else "session_stop_incomplete",
-            if (result.completed) "LIVE session stopped" else "LIVE cleanup had failed stages",
-            if (result.completed) null else "LIVE_CLEANUP_INCOMPLETE"
-        )
-        return result
+        var immediateResult: LiveSessionLifecycleCoordinator.ShutdownResult? = null
+        stopAsync { immediateResult = it }
+        return immediateResult
     }
 
     /**
@@ -156,7 +147,12 @@ class LiveSessionController(
      */
     fun stopAsync(onComplete: ((LiveSessionLifecycleCoordinator.ShutdownResult) -> Unit)? = null) {
         val current = teardown ?: run {
+            cleanupIncomplete = false
+            stopping = false
             setState(State.STOPPED)
+            runCatching {
+                onComplete?.invoke(LiveSessionLifecycleCoordinator.ShutdownResult(true, emptyList()))
+            }
             return
         }
         if (stopping) return
@@ -188,7 +184,14 @@ class LiveSessionController(
         cleanupIncomplete = true
         log(OssLogLevel.ERROR, "session_failed", detail, errorCode)
         setState(State.FAILED, detail)
-        teardown?.shutdownAsync { result ->
+        val current = teardown
+        if (current == null) {
+            // RuntimeFactory failed before acquiring any resources.
+            cleanupIncomplete = false
+            stopping = false
+            return
+        }
+        current.shutdownAsync { result ->
             cleanupIncomplete = !result.completed
             if (!result.completed) {
                 log(
