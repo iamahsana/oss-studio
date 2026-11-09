@@ -180,14 +180,15 @@ class LiveSessionController(
         stopping = true
         log(OssLogLevel.ERROR, "session_failed", detail, errorCode)
         setState(State.FAILED, detail)
-        val result = teardown?.shutdown()
-        if (result != null && !result.completed) {
-            log(
-                OssLogLevel.ERROR,
-                "failure_cleanup_incomplete",
-                "LIVE failure cleanup had failed stages",
-                "LIVE_CLEANUP_INCOMPLETE"
-            )
+        teardown?.shutdownAsync { result ->
+            if (!result.completed) {
+                log(
+                    OssLogLevel.ERROR,
+                    "failure_cleanup_incomplete",
+                    "LIVE failure cleanup had failed stages",
+                    "LIVE_CLEANUP_INCOMPLETE"
+                )
+            }
         }
     }
 
