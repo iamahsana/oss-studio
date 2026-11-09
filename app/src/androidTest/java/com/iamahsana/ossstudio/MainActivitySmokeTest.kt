@@ -6,6 +6,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performScrollTo
 import org.junit.Rule
 import org.junit.Test
 
@@ -39,6 +40,16 @@ class MainActivitySmokeTest {
             composeRule.onAllNodesWithText("Canvas kosong").fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithText("Canvas kosong").assertIsDisplayed()
+    }
+
+    @Test
+    fun mixerPageShowsIndependentCoreChannelsAndBuses() {
+        composeRule.onNodeWithText("Mixer").performClick()
+        composeRule.onNodeWithText("Mixer utama").assertIsDisplayed()
+        composeRule.onNodeWithText("LIVE master: 100%").assertIsDisplayed()
+        composeRule.onNodeWithText("MONITOR master: 100%").assertIsDisplayed()
+        composeRule.onNodeWithText("Microphone").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Internal / Game audio").performScrollTo().assertIsDisplayed()
     }
 
 }
