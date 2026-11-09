@@ -165,3 +165,17 @@ Architecture decision:
 - Before writing a custom StreamBase subclass, run a disposable integration spike using upstream MultiStream with a fixed destination set. Compare lifecycle, reconnect behavior, error isolation, and 1/2/3-output performance against the current RtmpDestinationManager + per-destination RtmpClient adapter.
 - Prefer upstream MultiStream if it meets OSS requirements without invasive workarounds. Retain a custom StreamBase fan-out only if a documented gap (for example dynamic lifecycle or destination isolation) is demonstrated by tests.
 - Do not describe MultiStream as production-ready or remove the existing manager until the comparison is complete.
+
+
+### RootEncoder GL API integration contract — follow-up (2.8.1)
+
+Further source inspection confirmed these exact integration details:
+
+- `StreamBase.getGlInterface()` publicly exposes the same `GlStreamInterface` used by the stream encoder. It is documented for sending filters to the stream and is available after `prepareVideo`.
+- `GlStreamInterface.addFilter` and `removeFilter` append commands to an internal filter queue. The GL render loop consumes those commands and applies them to `MainRender`; callers must not assume the filter chain changed synchronously when the method returns.
+- `SurfaceFilterRender.initGlFilter` creates its external texture, `SurfaceTexture`, and `Surface` on the GL initialization path, then posts its surface-ready callback to the Android main thread. The controller's use of the callback and the filter-owned surface matches this upstream contract.
+- `SurfaceFilterRender.release` releases both its `SurfaceTexture` and `Surface` when the filter is torn down. The owning stream/compositor must remain responsible for completing GL teardown; OSS must not manually release those filter-owned objects while the filter may still be drawing.
+
+This confirms the proposed MediaProjection-to-filter API path at source level, but not runtime correctness. The controller is now connected to the Activity permission/session UI and foreground service; **it is still not connected to a real running RootEncoder encoder session**, so there is no verified Share Screen LIVE output yet. This supersedes the earlier statement that the service and controller were not wired into the UI. The earlier statement that they were not runtime-validated remains true.
+
+**Next acceptance gate:** implement one stream-session owner around an upstream RootEncoder stream, prepare video, obtain its shared GL interface, attach/detach the Share Screen layer using the authorized service projection, and validate the actual encoded output. Explicitly test asynchronous filter add/remove, filter teardown during stream stop, permission denial/revoke, Android 14+ foreground-service rules, rotation/resize, and device lifecycle. Do not start a parallel GL renderer.
