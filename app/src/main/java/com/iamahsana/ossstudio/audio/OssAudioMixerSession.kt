@@ -112,6 +112,9 @@ class OssAudioMixerSession(
     val monitorDroppedBlocks: Long
         get() = monitorOutput.droppedBlockCount
 
+    fun channelPeak(index: Int): Float = engine.channelPeak(index)
+    fun channelRms(index: Int): Float = engine.channelRms(index)
+
     /**
      * Starts all available core capture channels. A missing source is reported
      * independently; LIVE audio is ready if at least one channel is running.
