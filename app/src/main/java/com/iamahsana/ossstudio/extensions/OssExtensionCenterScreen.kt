@@ -86,7 +86,7 @@ fun OssExtensionCenterScreen(context: Context) {
                     busy = false
                     result.fold(
                         onSuccess = { directory ->
-                            status = "Ekstensi berhasil dipasang: \${directory.name}"
+                            status = "Ekstensi berhasil dipasang: ${directory.name}"
                             refresh()
                         },
                         onFailure = { error ->
@@ -111,7 +111,7 @@ fun OssExtensionCenterScreen(context: Context) {
             Text(if (busy) "Memasang…" else "Pasang file .osspack")
         }
         Text(status, style = MaterialTheme.typography.bodySmall)
-        Text("Ekstensi terpasang (\${installed.size})", style = MaterialTheme.typography.titleMedium)
+        Text("Ekstensi terpasang (${installed.size})", style = MaterialTheme.typography.titleMedium)
         if (installed.isEmpty()) {
             Text("Belum ada ekstensi yang dipasang.", style = MaterialTheme.typography.bodyMedium)
         } else {
@@ -143,7 +143,7 @@ fun OssExtensionCenterScreen(context: Context) {
         AlertDialog(
             onDismissRequest = { pendingRemoval = null },
             title = { Text("Hapus ekstensi?") },
-            text = { Text("Resource \${extension.name} akan dihapus dari penyimpanan OSS.") },
+            text = { Text("Resource ${extension.name} akan dihapus dari penyimpanan OSS.") },
             confirmButton = {
                 TextButton(onClick = {
                     pendingRemoval = null
