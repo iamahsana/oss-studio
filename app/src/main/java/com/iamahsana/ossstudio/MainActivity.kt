@@ -55,6 +55,7 @@ import com.iamahsana.ossstudio.stream.rtmp.RtmpDestinationProfilesScreen
 import com.iamahsana.ossstudio.stream.android.ProjectionServiceRegistry
 import com.iamahsana.ossstudio.stream.android.ActiveSceneProjectRegistry
 import com.iamahsana.ossstudio.stream.android.StudioLiveControlScreen
+import com.iamahsana.ossstudio.extensions.OssExtensionCenterScreen
 
 private enum class AppPage(val label: String, val symbol: String) {
     HOME("Home", "⌂"),
@@ -209,6 +210,9 @@ private fun PageContent(page: AppPage, context: Context, activeProject: ScenePro
         }
         if (page == AppPage.HOME) {
             item { ProjectHomeScreen(context, onOpenProject) }
+        }
+        if (page == AppPage.EXTENSIONS) {
+            item { OssExtensionCenterScreen(context) }
         }
     }
 }
