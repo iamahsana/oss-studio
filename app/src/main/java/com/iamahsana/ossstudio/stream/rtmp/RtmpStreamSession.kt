@@ -185,6 +185,9 @@ class RtmpStreamSession(
                 error.message ?: "Unable to stop RTMP stream",
                 error
             )
+            // Let the lifecycle coordinator record this stage as failed while
+            // still proceeding with projection stop and final release.
+            throw error
         }
     }
 
@@ -192,19 +195,23 @@ class RtmpStreamSession(
     fun release() {
         checkMainThread()
         if (state == State.RELEASED) return
-        runCatching { stream.release() }
-            .onFailure {
-                log(
-                    OssLogLevel.ERROR,
-                    "stream_release_failed",
-                    it.message ?: "RootEncoder resource release failed",
-                    "RTMP_STREAM_RELEASE_FAILED",
-                    it
-                )
-            }
+        val releaseError = runCatching { stream.release() }.exceptionOrNull()
+        if (releaseError != null) {
+            log(
+                OssLogLevel.ERROR,
+                "stream_release_failed",
+                releaseError.message ?: "RootEncoder resource release failed",
+                "RTMP_STREAM_RELEASE_FAILED",
+                releaseError
+            )
+        }
         state = State.RELEASED
-        log(OssLogLevel.INFO, "session_released", "RootEncoder stream session resources released")
+        log(OssLogLevel.INFO, "session_released", "RootEncoder stream session release attempted")
         notifyState()
+        // Do not hide partial teardown failures from the session coordinator.
+        if (releaseError != null) {
+            throw IllegalStateException("RootEncoder resource release failed", releaseError)
+        }
     }
 
     override fun onConnectionStarted(url: String) {
