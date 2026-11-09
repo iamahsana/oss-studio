@@ -23,6 +23,11 @@ Current implementation: SQLiteOpenHelper stores versioned project documents and 
 - Detect interrupted writes and offer recovery rather than silently discarding work.
 - Provide export/backup independently from the live project database.
 
+## Media asset ingestion and rendering status
+- User-selected assets enter through Android's Storage Access Framework document picker and are copied into app-private storage; external provider URIs are not retained as long-term project paths.
+- Import enforces per-type byte limits, an allowlist of raster-image/video MIME types, matching file-signature checks, and SHA-256 integrity metadata. SVG, HTML, and unknown formats are rejected.
+- Image and GIF elements can be rendered as scene layers. Video import and poster-frame display are present, but continuous video playback in the LIVE compositor is not yet accepted as complete; it requires a Media3/RootEncoder integration spike and device-level frame-pacing/lifecycle tests. Do not advertise imported video as a playing LIVE source until those gates pass.
+
 ## .osspack package
 A shareable project package is a ZIP container with:
 - versioned manifest
