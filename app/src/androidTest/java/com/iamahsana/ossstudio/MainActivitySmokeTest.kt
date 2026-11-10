@@ -88,6 +88,25 @@ class MainActivitySmokeTest {
     }
 
     @Test
+    fun activeProjectIsRestoredAfterActivityRecreation() {
+        createdSmokeProject = true
+        composeRule.onNodeWithText("Project baru").performClick()
+        composeRule.onNodeWithText("Nama project").performTextInput("OSS UI Smoke")
+        composeRule.onNodeWithText("Buat").performClick()
+        composeRule.waitUntil("new project opens its editor", 15_000L) {
+            composeRule.onAllNodesWithText("Canvas kosong").fetchSemanticsNodes().isNotEmpty()
+        }
+
+        composeRule.activityRule.scenario.recreate()
+
+        composeRule.waitUntil("saved active project reloads after Activity recreation", 15_000L) {
+            composeRule.onAllNodesWithText("Canvas kosong").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("Scene Editor").assertIsDisplayed()
+        composeRule.onNodeWithText("Canvas kosong").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
     fun deletingActiveProjectDoesNotLeaveStaleEditorProject() {
         createdSmokeProject = true
         composeRule.onNodeWithText("Project baru").performClick()
