@@ -615,6 +615,76 @@ fun SceneEditorScreen(
                                     }
                             )
                         }
+                        if (element.id == selectedElementId && !element.locked) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .size(18.dp)
+                                    .testTag("scene-resize-handle-top-end")
+                                    .clip(RoundedCornerShape(5.dp))
+                                    .background(MaterialTheme.colorScheme.primary)
+                                    .pointerInput(element.id, scale, scene.id) {
+                                        var resizeY = transform.y
+                                        var resizeWidth = transform.width
+                                        var resizeHeight = transform.height
+                                        val fixedBottom = transform.y + transform.height
+                                        detectDragGestures(
+                                            onDragEnd = { history.endGroup(); historyVersion++ },
+                                            onDragCancel = { history.endGroup(); historyVersion++ }
+                                        ) { change, amount ->
+                                            change.consume()
+                                            resizeWidth = (resizeWidth + amount.x / scale)
+                                                .coerceIn(16f, (scene.canvas.width - transform.x).coerceAtLeast(16f))
+                                            resizeY = (resizeY + amount.y / scale)
+                                                .coerceIn(0f, (fixedBottom - 16f).coerceAtLeast(0f))
+                                            resizeHeight = (fixedBottom - resizeY).coerceAtLeast(16f)
+                                            val updated = SceneProjectEditor.updateTransform(
+                                                latestProject.value,
+                                                scene.id,
+                                                element.id,
+                                                transform.copy(y = resizeY, width = resizeWidth, height = resizeHeight),
+                                                System.currentTimeMillis()
+                                            )
+                                            applyProject(updated, "resize:${element.id}")
+                                        }
+                                    }
+                            )
+                        }
+                        if (element.id == selectedElementId && !element.locked) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.BottomStart)
+                                    .size(18.dp)
+                                    .testTag("scene-resize-handle-bottom-start")
+                                    .clip(RoundedCornerShape(5.dp))
+                                    .background(MaterialTheme.colorScheme.primary)
+                                    .pointerInput(element.id, scale, scene.id) {
+                                        var resizeX = transform.x
+                                        var resizeWidth = transform.width
+                                        var resizeHeight = transform.height
+                                        val fixedRight = transform.x + transform.width
+                                        detectDragGestures(
+                                            onDragEnd = { history.endGroup(); historyVersion++ },
+                                            onDragCancel = { history.endGroup(); historyVersion++ }
+                                        ) { change, amount ->
+                                            change.consume()
+                                            resizeX = (resizeX + amount.x / scale)
+                                                .coerceIn(0f, (fixedRight - 16f).coerceAtLeast(0f))
+                                            resizeWidth = (fixedRight - resizeX).coerceAtLeast(16f)
+                                            resizeHeight = (resizeHeight + amount.y / scale)
+                                                .coerceIn(16f, (scene.canvas.height - transform.y).coerceAtLeast(16f))
+                                            val updated = SceneProjectEditor.updateTransform(
+                                                latestProject.value,
+                                                scene.id,
+                                                element.id,
+                                                transform.copy(x = resizeX, width = resizeWidth, height = resizeHeight),
+                                                System.currentTimeMillis()
+                                            )
+                                            applyProject(updated, "resize:${element.id}")
+                                        }
+                                    }
+                            )
+                        }
                     }
                 }
                 if (scene.elements.none { it.visible }) {
