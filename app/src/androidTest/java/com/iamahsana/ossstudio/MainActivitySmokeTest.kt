@@ -262,3 +262,11 @@ class MainActivitySmokeTest {
             val database = SceneProjectStoreProvider.database(context)
             database.listRecent().filter { it.name == "OSS UI Smoke" }.forEach { summary ->
                 database.get(summary.id)?.assets?.forEach { asset ->
+                    runCatching { SceneAssetStorage.deleteAsset(context, asset) }
+                }
+                database.delete(summary.id)
+            }
+        }
+    }
+
+}
