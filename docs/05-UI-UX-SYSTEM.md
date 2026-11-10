@@ -15,15 +15,17 @@ Each destination displays its own state and error. The primary action changes fr
 The editor should closely reproduce the usability and interaction conventions of PixelLab while retaining OSS identity and original implementation/assets.
 
 - Canvas is the dominant work area and scales to the available editor space.
-- Canvas logical aspect ratio is independent from phone display orientation.
+- Canvas logical aspect ratio follows the selected LIVE output orientation, not the phone's physical display orientation.
 - Initial canvas is empty.
-- Portrait and Landscape canvas modes only.
-- Canvas dimensions/ratio controls live in a dedicated canvas settings menu.
+- Portrait (9:16) and Landscape (16:9) are the only initial canvas modes.
+- LIVE settings provide the orientation selector. The Scene Editor displays the resulting canvas and does not provide independent ratio presets, custom width/height fields, or per-scene aspect-ratio settings.
+- The editor canvas remains a composition surface for LIVE output. Share Screen is inserted as a source/element from the element shelf and can be transformed like other supported sources.
+- Orientation changes are made while LIVE is stopped; the app explains that all scenes in the active project will be converted. The conversion preserves composition proportionally where possible and is undoable/recoverable.
 - Bottom tool rail presents installed elements/modules; selecting an element opens contextual tools in the same tool area.
 - Contextual tools include transform, crop, opacity, style, arrangement, and source-specific settings.
 - Include layer list, undo/redo, duplicate, lock, delete, group, grid/snap, safe-area guides, and asset manager.
 - Touch interactions must support direct drag/resize/rotate with clear selection handles.
-- Editor UI orientation follows the selected editor orientation; it must not distort scene geometry.
+- Editor UI may rotate to suit the selected LIVE orientation where supported; viewport rotation/zoom/pan must not alter logical scene geometry.
 
 ## Audio Mixer
 Dedicated page with visible meters and individual channel strips. Each source exposes only controls it supports: gain/volume, mute, balance, routing, and source status. LIVE and MONITOR buses are explicit. Do not silently replace unavailable sources.
