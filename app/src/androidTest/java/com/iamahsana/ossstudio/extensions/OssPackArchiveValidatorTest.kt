@@ -34,6 +34,41 @@ class OssPackArchiveValidatorTest {
         } finally { archive.delete() }
     }
 
+    @Test fun readsNamespacedDeclarativeSceneElementsAndDefaults() {
+        val payload = byteArrayOf(1, 2, 3, 4)
+        val manifest = """{"format":"oss-extension","formatVersion":1,"payloadType":"declarative","id":"com.example.overlay","name":"Example Overlay","version":"1.0.0","minOssVersion":"0.1.0","capabilities":["scene-overlay"],"files":[{"path":"assets/icon.png","sha256":"${sha256(payload)}","byteSize":4}],"elements":[{"typeId":"com.example.overlay.badge","name":"Badge","kind":"sticker","resourcePath":"assets/icon.png","defaults":{"anchor":"top-right","opacity":0.8}},{"typeId":"com.example.overlay.title","name":"Title","kind":"text","defaults":{"text":"Hello","fontSize":48,"bold":true}}]}"""
+        val archive = createRawPackage(manifest, "assets/icon.png" to payload)
+        try {
+            val result = OssPackArchiveValidator.validate(archive)
+            assertEquals(2, result.manifest.elements.size)
+            assertEquals("com.example.overlay.badge", result.manifest.elements[0].typeId)
+            assertEquals("assets/icon.png", result.manifest.elements[0].resourcePath)
+            assertEquals("top-right", result.manifest.elements[0].defaults["anchor"])
+            assertEquals("0.8", result.manifest.elements[0].defaults["opacity"])
+            assertEquals("Hello", result.manifest.elements[1].defaults["text"])
+        } finally { archive.delete() }
+    }
+
+    @Test fun rejectsElementTypeIdsOutsideExtensionNamespace() {
+        val payload = byteArrayOf(1, 2, 3)
+        val manifest = """{"format":"oss-extension","formatVersion":1,"payloadType":"declarative","id":"com.example.overlay","name":"Example","version":"1.0.0","minOssVersion":"0.1.0","capabilities":["scene-overlay"],"files":[{"path":"assets/icon.png","sha256":"${sha256(payload)}","byteSize":3}],"elements":[{"typeId":"com.other.badge","name":"Badge","kind":"sticker","resourcePath":"assets/icon.png"}]}"""
+        val archive = createRawPackage(manifest, "assets/icon.png" to payload)
+        try {
+            val error = runCatching { OssPackArchiveValidator.validate(archive) }.exceptionOrNull()
+            assertTrue(error?.message.orEmpty().contains("namespaced"))
+        } finally { archive.delete() }
+    }
+
+    @Test fun rejectsElementResourcesNotDeclaredInPackageFiles() {
+        val payload = byteArrayOf(1, 2, 3)
+        val manifest = """{"format":"oss-extension","formatVersion":1,"payloadType":"declarative","id":"com.example.overlay","name":"Example","version":"1.0.0","minOssVersion":"0.1.0","capabilities":["scene-overlay"],"files":[{"path":"assets/icon.png","sha256":"${sha256(payload)}","byteSize":3}],"elements":[{"typeId":"com.example.overlay.badge","name":"Badge","kind":"sticker","resourcePath":"assets/missing.png"}]}"""
+        val archive = createRawPackage(manifest, "assets/icon.png" to payload)
+        try {
+            val error = runCatching { OssPackArchiveValidator.validate(archive) }.exceptionOrNull()
+            assertTrue(error?.message.orEmpty().contains("tidak tercantum"))
+        } finally { archive.delete() }
+    }
+
     @Test fun installerPublishesOnlyVerifiedFiles() {
         val payload = byteArrayOf(8, 7, 6, 5)
         val archive = createPackage(payload)
@@ -44,6 +79,27 @@ class OssPackArchiveValidatorTest {
             assertArrayEquals(payload, File(installed, "assets/icon.png").readBytes())
             assertTrue(File(installed, "manifest.json").isFile)
             assertFalse(root.listFiles().orEmpty().any { it.name.endsWith(".staging") })
+        } finally {
+            archive.delete()
+            root.deleteRecursively()
+        }
+    }
+
+    @Test fun installedCatalogRevalidatesResourceAndReturnsElementDefinitions() {
+        val payload = byteArrayOf(4, 3, 2, 1)
+        val manifest = """{"format":"oss-extension","formatVersion":1,"payloadType":"declarative","id":"com.example.catalog","name":"Catalog","version":"1.0.0","minOssVersion":"0.1.0","capabilities":["scene-overlay"],"files":[{"path":"assets/badge.png","sha256":"${sha256(payload)}","byteSize":4}],"elements":[{"typeId":"com.example.catalog.badge","name":"Badge","kind":"sticker","resourcePath":"assets/badge.png","defaults":{"opacity":0.9}}]}"""
+        val archive = createRawPackage(manifest, "assets/badge.png" to payload)
+        val root = File(context.cacheDir, "extensions-catalog-" + System.nanoTime())
+        try {
+            val installed = OssPackInstaller.install(archive, root)
+            val catalog = OssPackArchiveValidator.readInstalledManifest(installed)
+            assertEquals("com.example.catalog", catalog.id)
+            assertEquals("com.example.catalog.badge", catalog.elements.single().typeId)
+            assertEquals("0.9", catalog.elements.single().defaults["opacity"])
+
+            File(installed, "assets/badge.png").writeBytes(byteArrayOf(9, 9, 9))
+            val error = runCatching { OssPackArchiveValidator.readInstalledManifest(installed) }.exceptionOrNull()
+            assertTrue(error?.message.orEmpty().contains("resource"))
         } finally {
             archive.delete()
             root.deleteRecursively()

@@ -39,6 +39,7 @@ private data class InstalledOssExtension(
     val id: String,
     val name: String,
     val version: String,
+    val elements: List<OssPackElement>,
     val directory: File
 )
 
@@ -130,6 +131,9 @@ fun OssExtensionCenterScreen(context: Context) {
                                 Text(extension.name, style = MaterialTheme.typography.titleSmall)
                                 Text(extension.id, style = MaterialTheme.typography.bodySmall)
                                 Text("Versi ${extension.version}", style = MaterialTheme.typography.labelSmall)
+                                if (extension.elements.isNotEmpty()) {
+                                    Text("Elemen: " + extension.elements.joinToString { "${it.name} (${it.kind})" }, style = MaterialTheme.typography.bodySmall)
+                                }
                             }
                             OutlinedButton(onClick = { pendingRemoval = extension }) { Text("Hapus") }
                         }
@@ -205,11 +209,12 @@ private fun readInstalledExtensions(root: File): List<InstalledOssExtension> {
         .filter { it.isDirectory && !it.name.startsWith(".") }
         .mapNotNull { directory ->
             runCatching {
-                val manifest = JSONObject(File(directory, "manifest.json").readText())
+                val manifest = OssPackArchiveValidator.readInstalledManifest(directory)
                 InstalledOssExtension(
-                    id = manifest.getString("id"),
-                    name = manifest.getString("name"),
-                    version = manifest.getString("version"),
+                    id = manifest.id,
+                    name = manifest.name,
+                    version = manifest.version,
+                    elements = manifest.elements,
                     directory = directory
                 )
             }.getOrNull()

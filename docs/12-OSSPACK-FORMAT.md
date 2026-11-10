@@ -47,6 +47,14 @@ The current parser reads:
 - `capabilities`
 - `files` entries with `path`, `sha256`, and `byteSize`
 
+The parser also accepts an optional `elements` array (maximum 64 entries). Each entry contains:
+- `typeId`: unique, namespaced under the package ID, for example `com.example.overlay.badge`.
+- `name`: display name, at most 80 characters.
+- `kind`: one of `text`, `image`, `sticker`, `shape`, `background`, `font`, `gif`, or `video`.
+- `resourcePath`: optional path to a file declared in `files`. It is required for image, sticker, background, GIF, video, and font kinds.
+- `defaults`: optional map of primitive string, number, or boolean values. Nested objects and arrays are rejected.
+
+A package declaring scene elements must include the `scene-overlay` capability. The Extension Center re-reads installed manifests and verifies each declared resource's size and SHA-256 before listing element definitions. This makes definitions discoverable, but does **not** mean every kind already has an insertion workflow or renderer in Scene Editor.
 Fields such as `elementTypes`, `permissions`, and `dependencies` are not currently interpreted or enforced. Do not rely on them for package compatibility or security decisions.
 
 ## Validation and security policy
