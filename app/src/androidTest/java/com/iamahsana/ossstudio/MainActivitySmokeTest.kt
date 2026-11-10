@@ -80,6 +80,9 @@ class MainActivitySmokeTest {
         assertTrue(composeRule.onAllNodesWithTag("scene-resize-handle").fetchSemanticsNodes().isEmpty())
         composeRule.onNodeWithText("Redo").performScrollTo().performClick()
         composeRule.onNodeWithText("Teks baru").performScrollTo().assertIsDisplayed()
+        // Undo clears the selection when the element is absent; reselect it after redo.
+        composeRule.onAllNodesWithTag("scene-element-item")[0].performScrollTo().performClick()
+        composeRule.onNodeWithTag("scene-resize-handle").assertIsDisplayed()
 
         composeRule.onNodeWithText("Tambah teks").performScrollTo().performClick()
         composeRule.onNodeWithText("Pilih beberapa").performScrollTo().performClick()
