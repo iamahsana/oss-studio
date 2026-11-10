@@ -56,6 +56,8 @@ import com.iamahsana.ossstudio.stream.rtmp.RtmpDestinationProfilesScreen
 import com.iamahsana.ossstudio.stream.android.ProjectionServiceRegistry
 import com.iamahsana.ossstudio.stream.android.ActiveSceneProjectRegistry
 import com.iamahsana.ossstudio.stream.android.StudioLiveControlScreen
+import com.iamahsana.ossstudio.stream.LiveSessionController
+import com.iamahsana.ossstudio.stream.android.LiveSessionControllerRegistry
 import com.iamahsana.ossstudio.extensions.OssExtensionCenterScreen
 
 private enum class AppPage(val label: String, val symbol: String) {
@@ -143,12 +145,26 @@ private fun OssApp() {
                     page = page,
                     context = context,
                     activeProject = activeProject,
+                    activeProjectId = activeProjectId,
+                    canDeleteActiveProject = {
+                        LiveSessionControllerRegistry.state in setOf(
+                            LiveSessionController.State.IDLE,
+                            LiveSessionController.State.STOPPED
+                        )
+                    },
                     onOpenProject = { project ->
                         activeProjectId = project.id
                         activeProject = project
                         selectedPage = AppPage.EDITOR.name
                     },
-                    onProjectChange = { activeProject = it }
+                    onProjectChange = { activeProject = it },
+                    onProjectDeleted = { deletedId ->
+                        if (activeProject?.id == deletedId) {
+                            activeProject = null
+                            activeProjectId = null
+                            selectedPage = AppPage.HOME.name
+                        }
+                    }
                 )
             }
         }
@@ -156,7 +172,16 @@ private fun OssApp() {
 }
 
 @Composable
-private fun PageContent(page: AppPage, context: Context, activeProject: SceneProject?, onOpenProject: (SceneProject) -> Unit, onProjectChange: (SceneProject) -> Unit) {
+private fun PageContent(
+    page: AppPage,
+    context: Context,
+    activeProject: SceneProject?,
+    activeProjectId: String?,
+    canDeleteActiveProject: () -> Boolean,
+    onOpenProject: (SceneProject) -> Unit,
+    onProjectChange: (SceneProject) -> Unit,
+    onProjectDeleted: (String) -> Unit
+) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp).testTag("page-content"),
         verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -210,7 +235,15 @@ private fun PageContent(page: AppPage, context: Context, activeProject: ScenePro
             item { AudioMixerScreen(context) }
         }
         if (page == AppPage.HOME) {
-            item { ProjectHomeScreen(context, onOpenProject) }
+            item {
+                ProjectHomeScreen(
+                    context = context,
+                    activeProjectId = activeProjectId,
+                    canDeleteActiveProject = canDeleteActiveProject,
+                    onOpenProject = onOpenProject,
+                    onProjectDeleted = onProjectDeleted
+                )
+            }
         }
         if (page == AppPage.EXTENSIONS) {
             item { OssExtensionCenterScreen(context) }
