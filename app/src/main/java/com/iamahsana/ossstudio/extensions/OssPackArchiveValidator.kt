@@ -11,9 +11,17 @@ import java.util.Locale
 import java.util.zip.ZipInputStream
 
 data class OssPackFile(val path: String, val sha256: String, val byteSize: Long)
+data class OssPackElement(
+    val typeId: String,
+    val name: String,
+    val kind: String,
+    val resourcePath: String?,
+    val defaults: Map<String, String>
+)
 data class OssPackManifest(
     val id: String, val name: String, val version: String, val minOssVersion: String,
-    val capabilities: Set<String>, val files: List<OssPackFile>
+    val capabilities: Set<String>, val files: List<OssPackFile>,
+    val elements: List<OssPackElement> = emptyList()
 )
 data class OssPackValidationResult(val manifest: OssPackManifest, val totalUncompressedBytes: Long, val manifestSha256: String)
 
@@ -28,6 +36,7 @@ object OssPackArchiveValidator {
     private const val MANIFEST_NAME = "manifest.json"
     private val supportedCapabilities = setOf("scene-overlay", "media-source", "text-widget")
     private val allowedExtensions = setOf("json", "png", "jpg", "jpeg", "webp", "gif", "ttf", "otf", "mp3", "wav", "ogg")
+    private val supportedElementKinds = setOf("text", "image", "sticker", "shape", "background", "font", "gif", "video")
     private val forbiddenExtensions = setOf("apk", "dex", "jar", "so", "class", "js", "mjs", "cjs", "html", "htm", "wasm", "sh", "bat", "ps1", "py")
 
     fun validate(archive: File): OssPackValidationResult {
@@ -128,7 +137,45 @@ object OssPackArchiveValidator {
             require(size in 1..MAX_ENTRY_BYTES) { "Ukuran file manifest tidak valid" }
             OssPackFile(path, hash, size)
         }
-        return OssPackManifest(id, name, version, minOssVersion, capabilities, files)
+        val elementsJson = json.optJSONArray("elements") ?: JSONArray()
+        require(elementsJson.length() <= 64) { "Paket mendefinisikan terlalu banyak elemen" }
+        val declaredPaths = files.mapTo(mutableSetOf()) { it.path }
+        val elements = (0 until elementsJson.length()).map { index ->
+            val item = elementsJson.optJSONObject(index)
+                ?: throw IllegalArgumentException("Definisi elemen ekstensi tidak valid")
+            val typeId = item.requiredString("typeId")
+            require(typeId.matches(Regex("^[a-z][a-z0-9]*(?:[.-][a-z0-9]+){1,7}$")) && typeId.startsWith(id + ".")) {
+                "typeId harus namespaced di bawah ID ekstensi: $typeId"
+            }
+            val elementName = item.requiredString("name")
+            require(elementName.length <= 80) { "Nama elemen terlalu panjang" }
+            val kind = item.requiredString("kind")
+            require(kind in supportedElementKinds) { "Jenis elemen tidak didukung: $kind" }
+            val resourcePath = item.opt("resourcePath").takeUnless { it == null || it === JSONObject.NULL }
+                ?.let { it as? String ?: throw IllegalArgumentException("resourcePath harus berupa teks") }
+            if (resourcePath != null) {
+                validatePath(resourcePath)
+                require(resourcePath in declaredPaths) { "Resource elemen tidak tercantum di files: $resourcePath" }
+            }
+            if (kind in setOf("image", "sticker", "background", "gif", "video", "font")) {
+                require(resourcePath != null) { "Elemen $kind wajib memiliki resourcePath" }
+            }
+            val defaultsJson = item.optJSONObject("defaults") ?: JSONObject()
+            val defaults = buildMap {
+                defaultsJson.keys().forEach { key ->
+                    require(key.matches(Regex("^[a-zA-Z][a-zA-Z0-9_.-]{0,63}$"))) { "Nama properti default tidak valid: $key" }
+                    val value = defaultsJson.get(key)
+                    require(value is String || value is Number || value is Boolean) { "Nilai default harus primitif: $key" }
+                    put(key, value.toString())
+                }
+            }
+            OssPackElement(typeId, elementName, kind, resourcePath, defaults)
+        }
+        require(elements.map { it.typeId }.distinct().size == elements.size) { "typeId elemen duplikat" }
+        require(elements.isEmpty() || "scene-overlay" in capabilities) {
+            "Paket dengan elemen scene wajib memiliki kapabilitas scene-overlay"
+        }
+        return OssPackManifest(id, name, version, minOssVersion, capabilities, files, elements)
     }
 
     private fun JSONObject.requiredString(key: String): String {
