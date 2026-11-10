@@ -746,9 +746,6 @@ fun SceneEditorScreen(
                         selectedElementIds
                     }
                 }) { Text(if (multiSelectMode) "Selesai memilih" else "Pilih beberapa") }
-                if (multiSelectMode) {
-                    Text("Dipilih: ${selectedElementIds.size}", modifier = Modifier.testTag("scene-multiselect-count"))
-                }
                 val selectedGroupIds = scene.elements
                     .filter { it.id in selectedElementIds }
                     .mapNotNull { it.groupId }
@@ -775,6 +772,12 @@ fun SceneEditorScreen(
                         selectedElementIds = selectedElementId?.let(::setOf) ?: emptySet()
                     }) { Text("Pisahkan grup") }
                 }
+            }
+            if (multiSelectMode) {
+                Text(
+                    "Mode pemilihan aktif · Dipilih: ${selectedElementIds.size}",
+                    modifier = Modifier.testTag("scene-multiselect-status")
+                )
             }
             Row(
                 modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),

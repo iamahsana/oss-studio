@@ -92,7 +92,8 @@ class MainActivitySmokeTest {
         composeRule.onNodeWithText("Tambah teks").performScrollTo().performClick()
         composeRule.onNodeWithTag("scene-multiselect-toggle").performScrollTo().performClick()
         // Verify the mode itself, then select two different layer rows.
-        composeRule.onNodeWithTag("scene-multiselect-count").assertExists()
+        composeRule.onNodeWithTag("scene-multiselect-status").assertExists().assertIsDisplayed()
+        composeRule.onNodeWithText("Mode pemilihan aktif · Dipilih: 0").assertIsDisplayed()
         assertTrue(composeRule.onAllNodesWithTag("scene-element-item").fetchSemanticsNodes().size == 2)
         composeRule.onAllNodesWithTag("scene-element-item")[0].performScrollTo().performClick()
         composeRule.onAllNodesWithTag("scene-element-item")[1].performScrollTo().performClick()
