@@ -17,7 +17,7 @@ Status: normative product baseline. This register records decisions that future 
 | ID | Decision | Status |
 |---|---|---|
 | L-001 | LIVE output stability takes priority over nonessential editor/UI work. | Approved |
-| L-002 | The scene compositor output is the actual LIVE output. A separate preview renderer is not part of the initial release. | Approved |
+| L-002 | The scene compositor output is the actual LIVE output. Preview is deferred and excluded from the initial release; do not design or implement a separate preview renderer until the user explicitly reopens the decision. | Approved |
 | L-003 | LIVE session state must survive navigation between app pages. | Approved |
 | L-004 | Stream destination failures must be isolated; one failed destination must not silently terminate healthy destinations. | Required product behavior |
 | L-005 | Scene edits should update the compositor without unnecessarily restarting the encoder/session. | Required architecture behavior |
@@ -26,7 +26,7 @@ Status: normative product baseline. This register records decisions that future 
 
 | ID | Decision | Status |
 |---|---|---|
-| S-001 | The Scene Editor interaction model should be close to PixelLab in usability, while using OSS's own implementation, assets, and identity. | Approved |
+| S-001 | The Scene Editor must achieve PixelLab functional/workflow parity, including its complete user-facing feature set and editing flow, while using OSS's own implementation, assets, and identity. A feature-by-feature parity matrix is required; a merely PixelLab-inspired or reduced editor is not acceptable. | Approved |
 | S-002 | Canvas supports only Portrait (9:16) and Landscape (16:9) in the initial release. No square, 4:5, 3:4, 4:3, or arbitrary custom dimensions. | Approved |
 | S-003 | The selected LIVE output orientation is the single source of truth for canvas orientation/aspect ratio. Every scene in the active project must remain synchronized with it. | Approved |
 | S-004 | The canvas is the composition surface sent to LIVE. It starts empty. | Approved |
@@ -35,7 +35,7 @@ Status: normative product baseline. This register records decisions that future 
 | S-007 | Editor zoom and pan affect only the editor viewport, never scene coordinates or LIVE output geometry. | Approved |
 | S-008 | Orientation changes are performed while LIVE is stopped and convert all scenes in the active project predictably, without stretching content. The operation must be recoverable and undoable. | Approved behavior; conversion algorithm requires tests |
 | S-009 | The canvas should dominate the editor workspace. The bottom tool shelf contains installed elements/modules; selecting an element exposes contextual controls in that same tool area. | Approved |
-| S-010 | Required editor capabilities include direct drag, resize, rotate, crop, layer order, duplicate, lock, delete, grouping, grid/snap, safe areas, and undo/redo. | Approved scope; individual capabilities still require implementation/acceptance |
+| S-010 | Required editor baseline includes direct drag, corner resize, rotate, crop, layer order/reorder, visibility, duplicate, lock, delete, grouping, alignment, grid/snap, guides, safe areas, contextual typography/style controls, undo/redo, autosave/recovery, and touch-first one-handed workflow. This is a minimum list; full PixelLab feature parity is the acceptance target. | Approved scope; individual capabilities still require implementation/acceptance |
 
 ## Audio
 
@@ -58,6 +58,8 @@ Status: normative product baseline. This register records decisions that future 
 | X-004 | Overlay packs and nonessential visual features are modules, not a reason to bloat the streaming Core. | Approved |
 | X-005 | Overlay/source changes that require scene reconfiguration must be prepared before LIVE starts; do not promise that enabling a module mid-stream will always take effect safely. | Approved behavior direction |
 | X-006 | Extension updates must be user-controllable. Automatic update checks may be supported, but downloads default to asking the user and installation must follow Android's supported confirmation flow. | Approved direction; exact settings UI can evolve |
+| X-007 | Every user-addable scene element/source type, including Text, Image, Shape, GIF, Video, Share Screen, and future camera/source types, is an installable extension; Core supplies the editor tools, extension host, scene graph, and compositor contracts. | Approved |
+| X-008 | Production downloads are on demand only: when a user selects an uninstalled element, ask for confirmation before downloading it; never silently bulk-download the full catalog. Beta/testing builds may bundle only the extensions required for test scenarios. | Approved |
 
 ## User experience and quality
 
