@@ -1,6 +1,7 @@
 package com.iamahsana.ossstudio
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -141,6 +142,70 @@ class MainActivitySmokeTest {
         }
         composeRule.onNodeWithText(uniqueName).assertIsDisplayed()
         assertTrue(composeRule.onAllNodesWithText("private-smoke-key").fetchSemanticsNodes().isEmpty())
+    }
+
+
+    @Test
+    fun activeProjectIsRestoredAfterActivityRecreation() {
+        createdSmokeProject = true
+        composeRule.onNodeWithText("Project baru").performClick()
+        composeRule.onNodeWithText("Nama project").performTextInput("OSS UI Smoke")
+        composeRule.onNodeWithText("Buat").performClick()
+        composeRule.waitUntil("new project opens its editor", 15_000L) {
+            composeRule.onAllNodesWithText("Canvas kosong").fetchSemanticsNodes().isNotEmpty()
+        }
+
+        composeRule.activityRule.scenario.recreate()
+
+        composeRule.waitUntil("saved active project reloads after Activity recreation", 15_000L) {
+            composeRule.onAllNodesWithText("Canvas kosong").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("Scene Editor").assertIsDisplayed()
+        composeRule.onNodeWithText("Canvas kosong").performScrollTo().assertIsDisplayed()
+    }
+
+
+    @Test
+    fun deletingActiveProjectDoesNotLeaveStaleEditorProject() {
+        createdSmokeProject = true
+        composeRule.onNodeWithText("Project baru").performClick()
+        composeRule.onNodeWithText("Nama project").performTextInput("OSS UI Smoke")
+        composeRule.onNodeWithText("Buat").performClick()
+        // ProjectHomeScreen invokes onOpenProject only after the database save succeeds.
+        // Wait for the asynchronous repository callback, then assert the destination page.
+        composeRule.waitUntil("newly created project opens Scene Editor", 15_000L) {
+            composeRule.onAllNodesWithText("Scene Editor").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("Scene Editor").assertIsDisplayed()
+
+        composeRule.onNodeWithText("Home").performClick()
+        composeRule.waitUntil("saved project appears after returning Home", 15_000L) {
+            composeRule.onAllNodesWithText("OSS UI Smoke").fetchSemanticsNodes().isNotEmpty()
+        }
+        val smokeContext = ApplicationProvider.getApplicationContext<Context>()
+        val smokeProjectId = SceneProjectStoreProvider.database(smokeContext)
+            .listRecent().first { it.name == "OSS UI Smoke" }.id
+        composeRule.onNodeWithTag("delete-project-$smokeProjectId").performClick()
+        composeRule.onNodeWithText("Hapus project?").assertIsDisplayed()
+        composeRule.onNodeWithTag("confirm-delete-project").performClick()
+        composeRule.waitUntil("delete dialog closes or reports a deletion error", 15_000L) {
+            composeRule.onAllNodesWithText("Hapus project?").fetchSemanticsNodes().isEmpty() ||
+                composeRule.onAllNodesWithText("Project tidak ditemukan.").fetchSemanticsNodes().isNotEmpty() ||
+                composeRule.onAllNodesWithText("Project tidak dapat dibaca; file media tidak dihapus.").fetchSemanticsNodes().isNotEmpty() ||
+                composeRule.onAllNodesWithText("Gagal menghapus project").fetchSemanticsNodes().isNotEmpty() ||
+                composeRule.onAllNodesWithText("Hentikan atau selesaikan cleanup LIVE sebelum menghapus project aktif.").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onAllNodesWithText("Project tidak ditemukan.").assertCountEquals(0)
+        composeRule.onAllNodesWithText("Gagal menghapus project").assertCountEquals(0)
+        composeRule.waitUntil("target project is deleted from persistent storage", 15_000L) {
+            SceneProjectStoreProvider.database(smokeContext).get(smokeProjectId) == null
+        }
+        composeRule.waitUntil("deleted project row disappears from Home", 15_000L) {
+            composeRule.onAllNodesWithTag("delete-project-$smokeProjectId").fetchSemanticsNodes().isEmpty()
+        }
+
+        composeRule.onNodeWithText("Editor").performClick()
+        composeRule.onNodeWithText("Pilih atau buat project dari Home terlebih dahulu.").assertIsDisplayed()
     }
 
 
