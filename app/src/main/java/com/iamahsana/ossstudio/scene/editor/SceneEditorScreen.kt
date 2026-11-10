@@ -783,25 +783,30 @@ fun SceneEditorScreen(
                     modifier = Modifier.testTag("scene-multiselect-status")
                 )
             }
-            Row(
-                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 scene.elements.sortedBy { it.zIndex }.forEach { element ->
                     val source = currentProject.sources.firstOrNull { it.id == element.sourceId }
                     val chosen = element.id in selectedElementIds
                     OutlinedButton(
-                        modifier = Modifier.testTag("scene-element-item"),
+                        modifier = Modifier.fillMaxWidth().testTag("scene-element-item"),
                         onClick = {
-                        if (multiSelectMode) {
-                            selectedElementIds = if (chosen) selectedElementIds - element.id else selectedElementIds + element.id
-                            selectedElementId = element.id
-                        } else {
-                            selectedElementId = element.id
-                            selectedElementIds = setOf(element.id)
+                            if (multiSelectMode) {
+                                selectedElementIds = if (chosen) {
+                                    selectedElementIds - element.id
+                                } else {
+                                    selectedElementIds + element.id
+                                }
+                                selectedElementId = element.id
+                            } else {
+                                selectedElementId = element.id
+                                selectedElementIds = setOf(element.id)
+                            }
+                            editingText = source?.text.orEmpty()
                         }
-                        editingText = source?.text.orEmpty()
-                    }) {
+                    ) {
                         Text((if (chosen && multiSelectMode) "✓ " else "") + (source?.displayName ?: "Element"))
                     }
                 }
