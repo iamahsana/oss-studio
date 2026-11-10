@@ -85,6 +85,27 @@ class OssPackArchiveValidatorTest {
         }
     }
 
+    @Test fun installedCatalogRevalidatesResourceAndReturnsElementDefinitions() {
+        val payload = byteArrayOf(4, 3, 2, 1)
+        val manifest = """{"format":"oss-extension","formatVersion":1,"payloadType":"declarative","id":"com.example.catalog","name":"Catalog","version":"1.0.0","minOssVersion":"0.1.0","capabilities":["scene-overlay"],"files":[{"path":"assets/badge.png","sha256":"${sha256(payload)}","byteSize":4}],"elements":[{"typeId":"com.example.catalog.badge","name":"Badge","kind":"sticker","resourcePath":"assets/badge.png","defaults":{"opacity":0.9}}]}"""
+        val archive = createRawPackage(manifest, "assets/badge.png" to payload)
+        val root = File(context.cacheDir, "extensions-catalog-" + System.nanoTime())
+        try {
+            val installed = OssPackInstaller.install(archive, root)
+            val catalog = OssPackArchiveValidator.readInstalledManifest(installed)
+            assertEquals("com.example.catalog", catalog.id)
+            assertEquals("com.example.catalog.badge", catalog.elements.single().typeId)
+            assertEquals("0.9", catalog.elements.single().defaults["opacity"])
+
+            File(installed, "assets/badge.png").writeBytes(byteArrayOf(9, 9, 9))
+            val error = runCatching { OssPackArchiveValidator.readInstalledManifest(installed) }.exceptionOrNull()
+            assertTrue(error?.message.orEmpty().contains("resource"))
+        } finally {
+            archive.delete()
+            root.deleteRecursively()
+        }
+    }
+
     @Test fun installerUsesUniqueStagingDirectoryForEachExtension() {
         val firstArchive = createPackage(byteArrayOf(1, 3, 5), id = "com.example.first")
         val secondArchive = createPackage(byteArrayOf(2, 4, 6), id = "com.example.second")
