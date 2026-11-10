@@ -41,6 +41,8 @@ class MainActivitySmokeTest {
     fun bottomNavigationOpensEditorPage() {
         composeRule.onNodeWithText("Editor").performClick()
         composeRule.onNodeWithText("Scene Editor").assertIsDisplayed()
+        composeRule.onNodeWithText("← Home").assertIsDisplayed()
+        composeRule.onNodeWithTag("editor-workspace").assertIsDisplayed()
         composeRule.onNodeWithText("Build the scene that will be sent directly to LIVE.")
             .assertIsDisplayed()
     }
@@ -217,7 +219,7 @@ class MainActivitySmokeTest {
         }
         composeRule.onNodeWithText("Scene Editor").assertIsDisplayed()
 
-        composeRule.onNodeWithText("Home").performClick()
+        composeRule.onNodeWithText("← Home").performClick()
         composeRule.waitUntil("saved project appears after returning Home", 15_000L) {
             composeRule.onAllNodesWithText("OSS UI Smoke").fetchSemanticsNodes().isNotEmpty()
         }
