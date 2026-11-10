@@ -40,6 +40,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.runtime.produceState
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -234,7 +235,9 @@ fun SceneEditorScreen(
     }
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 6.dp),
+        modifier = Modifier.fillMaxSize()
+            .padding(horizontal = 8.dp, vertical = 6.dp)
+            .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Row(
