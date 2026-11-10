@@ -40,7 +40,7 @@ Example manifest:
 - Paths must be normalized relative paths; traversal, absolute paths, backslashes and duplicate paths are rejected.
 - Every payload file must be declared in the manifest with its exact byte size and SHA-256 digest.
 - Only JSON, common image formats (including GIF), fonts and audio resources are accepted as extension payload resources.
-- A package may declare a host-provided capability such as text-element, image-element, shape-element, drawing-element, video-source, or share-screen-source; the manifest does not provide executable implementation code.
+- A package may declare a host-provided capability such as text-element, image-element, shape-element, sticker-element, emoji-element, drawing-element, gif-element, video-source, template-pack, or share-screen-source; the manifest does not provide executable implementation code.
 - Video media selected by a user is a managed project asset, not executable extension payload. The video-source extension declares the required trusted Core capability.
 - Share Screen extension declares a trusted, permission-gated Core capture capability; an extension cannot access MediaProjection or compositor internals directly.
 - Templates, sticker packs, emoji packs, fonts, text presets, shapes and effects are resource/configuration extensions and are installed only on demand.
