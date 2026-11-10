@@ -733,44 +733,48 @@ fun SceneEditorScreen(
                 }
             }
             Text("Elemen scene", style = MaterialTheme.typography.titleMedium)
-            Row(
-                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                OutlinedButton(modifier = Modifier.testTag("scene-multiselect-toggle"), onClick = {
+            // Keep the mode toggle outside the horizontal action scroller.
+            // A horizontally scrollable parent was preventing reliable taps in
+            // the emulator accessibility test and is also harder to use on phones.
+            OutlinedButton(
+                modifier = Modifier.testTag("scene-multiselect-toggle"),
+                onClick = {
                     val enteringMultiSelect = !multiSelectMode
                     multiSelectMode = enteringMultiSelect
-                    selectedElementIds = if (enteringMultiSelect) {
-                        emptySet()
-                    } else {
-                        selectedElementIds
-                    }
-                }) { Text(if (multiSelectMode) "Selesai memilih" else "Pilih beberapa") }
-                val selectedGroupIds = scene.elements
-                    .filter { it.id in selectedElementIds }
-                    .mapNotNull { it.groupId }
-                    .distinct()
-                val canGroup = selectedElementIds.size >= 2 &&
-                    scene.elements.filter { it.id in selectedElementIds }.all { it.groupId == null }
-                if (canGroup) {
-                    OutlinedButton(onClick = {
-                        val updated = SceneProjectEditor.groupElements(
-                            currentProject, scene.id, selectedElementIds, System.currentTimeMillis()
-                        )
-                        applyProject(updated)
-                        multiSelectMode = false
-                        selectedElementId = selectedElementIds.firstOrNull()
-                        selectedElementIds = selectedElementId?.let(::setOf) ?: emptySet()
-                    }) { Text("Kelompokkan (" + selectedElementIds.size + ")") }
+                    selectedElementIds = if (enteringMultiSelect) emptySet() else selectedElementIds
                 }
-                if (selectedGroupIds.size == 1) {
-                    OutlinedButton(onClick = {
-                        applyProject(SceneProjectEditor.ungroupElements(
-                            currentProject, scene.id, selectedGroupIds.single(), System.currentTimeMillis()
-                        ))
-                        multiSelectMode = false
-                        selectedElementIds = selectedElementId?.let(::setOf) ?: emptySet()
-                    }) { Text("Pisahkan grup") }
+            ) { Text(if (multiSelectMode) "Selesai memilih" else "Pilih beberapa") }
+            val selectedGroupIds = scene.elements
+                .filter { it.id in selectedElementIds }
+                .mapNotNull { it.groupId }
+                .distinct()
+            val canGroup = selectedElementIds.size >= 2 &&
+                scene.elements.filter { it.id in selectedElementIds }.all { it.groupId == null }
+            if (canGroup || selectedGroupIds.size == 1) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    if (canGroup) {
+                        OutlinedButton(onClick = {
+                            val updated = SceneProjectEditor.groupElements(
+                                currentProject, scene.id, selectedElementIds, System.currentTimeMillis()
+                            )
+                            applyProject(updated)
+                            multiSelectMode = false
+                            selectedElementId = selectedElementIds.firstOrNull()
+                            selectedElementIds = selectedElementId?.let(::setOf) ?: emptySet()
+                        }) { Text("Kelompokkan (" + selectedElementIds.size + ")") }
+                    }
+                    if (selectedGroupIds.size == 1) {
+                        OutlinedButton(onClick = {
+                            applyProject(SceneProjectEditor.ungroupElements(
+                                currentProject, scene.id, selectedGroupIds.single(), System.currentTimeMillis()
+                            ))
+                            multiSelectMode = false
+                            selectedElementIds = selectedElementId?.let(::setOf) ?: emptySet()
+                        }) { Text("Pisahkan grup") }
+                    }
                 }
             }
             if (multiSelectMode) {
