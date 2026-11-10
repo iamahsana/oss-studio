@@ -1,7 +1,7 @@
 package com.iamahsana.ossstudio.scene.model
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotSame
+import org.junit.Assert.assertSame
 import org.junit.Test
 
 class SceneProjectOrientationConverterTest {
@@ -112,7 +112,7 @@ class SceneProjectOrientationConverterTest {
             CanvasOrientation.LANDSCAPE
         )
 
-        assertNotSame(scene, result.scenes.single())
+        assertSame(scene, result.scenes.single())
         assertEquals(scene, result.scenes.single())
     }
 
