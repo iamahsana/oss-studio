@@ -71,8 +71,8 @@ class MainActivitySmokeTest {
         }
         composeRule.onNodeWithText("Canvas kosong").assertIsDisplayed()
         composeRule.onNodeWithTag("scene-element-insertion-shelf").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithTag("scene-add-media").assertIsDisplayed()
-        composeRule.onNodeWithTag("scene-add-share-screen").assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-add-media").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-add-share-screen").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Snap grid").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Grid").assertIsDisplayed()
         composeRule.onNodeWithText("Safe area").assertIsDisplayed()
