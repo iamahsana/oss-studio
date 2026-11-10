@@ -59,6 +59,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.geometry.Offset
@@ -353,6 +354,7 @@ fun SceneEditorScreen(
                                 with(density) { (transform.width * scale).toDp() },
                                 with(density) { (transform.height * scale).toDp() }
                             )
+                            .clipToBounds()
                             .graphicsLayer { rotationZ = transform.rotationDegrees }
                             .then(
                                 if (element.id == selectedElementId) Modifier.border(2.dp, MaterialTheme.colorScheme.primary)
@@ -408,6 +410,7 @@ fun SceneEditorScreen(
                             ),
                         contentAlignment = Alignment.Center
                     ) {
+                        Box(Modifier.fillMaxSize().graphicsLayer { alpha = element.opacity }, contentAlignment = Alignment.Center) {
                         val label = when (source.type) {
                             SceneSourceType.TEXT -> source.text.orEmpty()
                             SceneSourceType.SHARE_SCREEN -> "Share Screen"
@@ -424,7 +427,8 @@ fun SceneEditorScreen(
                                     filePath = File(context.filesDir, asset.relativePath).absolutePath,
                                     contentDescription = source.displayName,
                                     isVideo = source.type == SceneSourceType.VIDEO,
-                                    isGif = source.type == SceneSourceType.GIF
+                                    isGif = source.type == SceneSourceType.GIF,
+                                    crop = element.crop
                                 )
                             } else {
                                 Text(label, color = Color.White, textAlign = TextAlign.Center)
@@ -454,6 +458,7 @@ fun SceneEditorScreen(
                                 textAlign = TextAlign.Center,
                                 style = MaterialTheme.typography.bodySmall
                             )
+                        }
                         }
                         if (element.id == selectedElementId && !element.locked) {
                             Box(
@@ -882,10 +887,11 @@ private fun SceneAssetImage(
     filePath: String,
     contentDescription: String,
     isVideo: Boolean = false,
-    isGif: Boolean = false
+    isGif: Boolean = false,
+    crop: CropRect = CropRect()
 ) {
     if (isGif) {
-        SceneAnimatedGif(filePath, contentDescription)
+        SceneAnimatedGif(filePath, contentDescription, crop)
         return
     }
     val bitmap = produceState<Bitmap?>(initialValue = null, key1 = filePath) {
@@ -898,7 +904,14 @@ private fun SceneAssetImage(
             bitmap = bitmap.asImageBitmap(),
             contentDescription = contentDescription,
             contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize().graphicsLayer {
+                val cropWidth = (crop.right - crop.left).coerceAtLeast(0.001f)
+                val cropHeight = (crop.bottom - crop.top).coerceAtLeast(0.001f)
+                scaleX = 1f / cropWidth
+                scaleY = 1f / cropHeight
+                translationX = ((0.5f - (crop.left + crop.right) / 2f) / cropWidth) * size.width
+                translationY = ((0.5f - (crop.top + crop.bottom) / 2f) / cropHeight) * size.height
+            }
         )
     } else {
         Text("Memuat media…", color = Color.White, textAlign = TextAlign.Center)
@@ -937,7 +950,7 @@ private fun decodeVideoPreview(path: String): Bitmap? {
 }
 
 @Composable
-private fun SceneAnimatedGif(filePath: String, contentDescription: String) {
+private fun SceneAnimatedGif(filePath: String, contentDescription: String, crop: CropRect) {
     val context = LocalContext.current
     val drawable = produceState<Drawable?>(initialValue = null, key1 = filePath) {
         value = withContext(Dispatchers.IO) {
@@ -962,7 +975,14 @@ private fun SceneAnimatedGif(filePath: String, contentDescription: String) {
                 }
             },
             update = { it.setImageDrawable(drawable) },
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize().graphicsLayer {
+                val cropWidth = (crop.right - crop.left).coerceAtLeast(0.001f)
+                val cropHeight = (crop.bottom - crop.top).coerceAtLeast(0.001f)
+                scaleX = 1f / cropWidth
+                scaleY = 1f / cropHeight
+                translationX = ((0.5f - (crop.left + crop.right) / 2f) / cropWidth) * size.width
+                translationY = ((0.5f - (crop.top + crop.bottom) / 2f) / cropHeight) * size.height
+            }
         )
     } else {
         Text("GIF tidak dapat dimuat", color = Color.White, textAlign = TextAlign.Center)
