@@ -737,7 +737,7 @@ fun SceneEditorScreen(
                 modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                OutlinedButton(onClick = {
+                OutlinedButton(modifier = Modifier.testTag("scene-multiselect-toggle"), onClick = {
                     val enteringMultiSelect = !multiSelectMode
                     multiSelectMode = enteringMultiSelect
                     selectedElementIds = if (enteringMultiSelect) {
