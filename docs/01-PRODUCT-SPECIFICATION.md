@@ -16,21 +16,24 @@ Open Stream Software (OSS) is a lightweight, modular Android live-streaming stud
 - Kotlin and Jetpack Compose are the current implementation direction.
 - No desktop dependency for normal development/testing workflow.
 - Scene preview is explicitly out of the initial release scope. The editor canvas defines the composition sent to LIVE; no duplicate preview renderer is required.
+- LIVE output orientation is configured in LIVE settings and governs every scene canvas. Only Portrait (9:16) and Landscape (16:9) are supported initially; no square, 4:5, 3:4, 4:3, or arbitrary custom dimensions.
 
 ## Main application areas
 - **Home:** recent projects, activity, shortcuts, and module information. It is not the LIVE control page.
 - **Studio:** streaming destinations, quality, connection state, quick audio controls, LIVE status, and Go Live / End Live.
-- **Scene Editor:** canvas, elements, layers, asset management, transforms, undo/redo, and scene settings.
+- **Scene Editor:** canvas whose orientation follows LIVE output settings, elements, layers, asset management, transforms, undo/redo, and scene settings.
 - **Audio Mixer:** independent source channels, meters, mute, gain, balance, and LIVE/MONITOR routing.
 - **Extension Center:** discover, install, update, inspect, and remove extensions.
 - **Settings:** account, appearance, global preferences, storage, backups, module permissions, updates, and diagnostics.
 
 ## Scene and source model
-A scene is an ordered composition of independently managed sources. The canvas starts empty. Text, image, GIF, video, Share Screen, and later camera/USB adapters are sources that users explicitly add. Share Screen is not the canvas and is never attached automatically.
+A scene is an ordered composition of independently managed sources. The canvas starts empty. Text, image, shape, sticker, emoji, drawing, GIF, video, template, Share Screen, and later camera/USB adapters are elements/sources that users explicitly add. Share Screen is not the canvas and is never attached automatically.
 
-Portrait and Landscape are the only initial canvas orientations. Suggested logical dimensions are 1080×1920 and 1920×1080. Editor display rotation must not mutate logical scene geometry. Changing canvas orientation is an explicit scene operation with controlled layout conversion.
+Portrait and Landscape are the only supported LIVE output orientations in the initial release. The active LIVE output setting is the single source of truth for orientation and canvas aspect ratio; the Scene Editor must follow it and must not expose independent per-scene aspect-ratio, arbitrary preset, or custom width/height controls. Use logical reference dimensions of 1080×1920 for Portrait and 1920×1080 for Landscape; encoder output may scale these reference dimensions to a supported stream resolution without changing their aspect ratio. Changing LIVE orientation is allowed only while LIVE is stopped. It must update every scene in the active project through a deterministic, non-distorting layout conversion, preserve relative placement/size as far as possible, clamp only when necessary, and be undoable/recoverable. Editor viewport rotation, zoom, and pan must never mutate scene geometry. Share Screen remains an ordinary source element that users add explicitly to a scene.
 
-The editor should closely follow PixelLab's interaction model and workflow without copying its proprietary code, assets, or branding. Required capabilities include drag, resize, rotate, crop, layer ordering, duplicate, lock, delete, grouping, grid/snap, safe areas, undo/redo, and contextual tools.
+The Scene Editor is a mandatory PixelLab functional-parity requirement: reproduce PixelLab's editing workflow, screen organization, tool placement, contextual behavior, and complete user-facing feature set as closely as practical. This is not merely a visual inspiration or a reduced canvas editor. The agreed baseline includes a dominant canvas; compact tool rail/shelf; direct object selection, drag, corner resize, rotation handles, crop; text and media editing; contextual typography/style/opacity/shadow/outline/position/size controls where applicable; layer ordering, visibility, lock, duplicate, group, delete; alignment, grid, snapping, guides and safe areas; undo/redo; autosave/recovery; and touch-first, one-handed operation. This list is a minimum baseline, not permission to omit other PixelLab capabilities. The mandatory feature-by-feature acceptance inventory is [PixelLab Feature Parity Matrix](15-PIXELLAB-FEATURE-PARITY.md). Every row must be implemented or receive explicit user-approved deviation before declaring the editor complete. Implement original OSS code and assets and retain OSS branding; do not copy PixelLab proprietary code, assets, or branding.
+
+Every user-addable scene element/source type is delivered as an installable extension, including Text, Image, Shape, Sticker, Emoji, Drawing, GIF, Video, Template, Share Screen, and future camera/source types. These are not permanently bundled as production-installed elements in Core. Core contains the editor interaction tools, extension contracts/registry, scene model, compositor, and runtime interfaces needed to host elements. Element extensions are downloaded only when the user chooses an element that is not installed, and the user is asked before the download begins. Beta/testing builds may bundle the specific element extensions needed for the test so that testers do not have to download them separately.
 
 ## Streaming
 - Multiple RTMP/RTMPS destinations are required.

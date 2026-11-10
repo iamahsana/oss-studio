@@ -51,11 +51,15 @@ These are logical boundaries, not a requirement to create every Gradle module im
 ## Persistence
 - Room is the candidate for projects, scenes, elements, destinations metadata, and extension registry.
 - DataStore is the candidate for app preferences.
+- Persist the selected LIVE output orientation as part of the active LIVE output configuration. It is the authoritative source for scene canvas orientation and output aspect ratio; scene records must not independently select arbitrary ratios or dimensions.
+- On orientation change while LIVE is stopped, migrate all scenes in the active project atomically using the documented geometry conversion. Preserve a recoverable prior snapshot and make the operation undoable. Reject or defer orientation changes during an active LIVE session.
 - Credentials and stream keys must use Android-protected storage; never store them in plain project exports or logs.
 - Database schema changes require explicit migrations.
 - Autosave and crash recovery are required.
 
 ## Rendering and media
+- The compositor receives a scene snapshot whose canvas orientation is synchronized with the active LIVE output setting. The encoder must derive its aspect ratio from that same setting (or its synchronized canonical scene canvas), never from editor viewport measurements.
+- Canonical logical canvas reference sizes are 1080×1920 Portrait and 1920×1080 Landscape. Encoder resolution may scale to supported stream limits while preserving the selected aspect ratio. Arbitrary aspect ratios and custom canvas dimensions are not supported in the initial release.
 - Android MediaCodec is the primary hardware codec interface where compatible.
 - Compositor implementation is selected after a prototype and device benchmark.
 - Decoding and asset loading are off the UI thread.
@@ -72,6 +76,10 @@ Hide the chosen RTMP library behind an adapter. The selection must follow mainte
 
 ## Extension system
 Start with declarative manifests, resources, templates, and configuration-driven modules. Validate signature/provenance, compatibility, permissions, and assets. Do not execute arbitrary community code in Core. Extension failures must be isolated from LIVE-critical processing.
+
+Every user-addable scene element/source type is an extension package, including Text, Image, Shape, Sticker, Emoji, Drawing, GIF, Video, Template, Share Screen, and future camera/source adapters. Core provides the editor manipulation engine, scene graph, extension contracts/registry, compositor interfaces, and lifecycle/security boundaries; it does not ship all element implementations as permanently installed production elements. Each extension declares its element/source type, configuration schema, required capabilities, assets, compatibility, and permission needs. Scene elements persist stable extension identifiers and compatible version requirements. If a required extension is absent or incompatible, preserve the scene data and geometry and show an unavailable-element placeholder; never silently delete or rewrite the element.
+
+Install/download is demand-driven: when a user selects an uninstalled element, explain the package and request confirmation before downloading/installing it. Do not bulk-download or silently preinstall the full element catalog in production. Beta/testing builds may bundle the exact extension packages required by their test scenarios; bundled test packages must still pass through the same manifest/compatibility checks and must be clearly separated from production packaging.
 
 ## Observability
 Diagnostics collect operational metadata and signal levels only by default. No audio/video recording. Never log stream keys, passwords, tokens, or private credentials.

@@ -12,24 +12,27 @@ Studio is the central LIVE operations page. It contains destination setup/status
 Each destination displays its own state and error. The primary action changes from Go Live to End Live when the session is active. Ending one destination must not imply ending all destinations unless the user chooses that action.
 
 ## Scene Editor
-The editor should closely reproduce the usability and interaction conventions of PixelLab while retaining OSS identity and original implementation/assets.
+The Scene Editor must achieve PixelLab functional and workflow parity, not merely borrow its general style. Reproduce the editor's screen organization, tool placement, object manipulation, contextual controls, and complete user-facing feature set as closely as practical, while retaining OSS branding and original code/assets. The [PixelLab Feature Parity Matrix](15-PIXELLAB-FEATURE-PARITY.md) is a release acceptance requirement; the checklist below is a minimum, not an exhaustive cap.
 
 - Canvas is the dominant work area and scales to the available editor space.
-- Canvas logical aspect ratio is independent from phone display orientation.
+- Canvas logical aspect ratio follows the selected LIVE output orientation, not the phone's physical display orientation.
 - Initial canvas is empty.
-- Portrait and Landscape canvas modes only.
-- Canvas dimensions/ratio controls live in a dedicated canvas settings menu.
-- Bottom tool rail presents installed elements/modules; selecting an element opens contextual tools in the same tool area.
-- Contextual tools include transform, crop, opacity, style, arrangement, and source-specific settings.
-- Include layer list, undo/redo, duplicate, lock, delete, group, grid/snap, safe-area guides, and asset manager.
-- Touch interactions must support direct drag/resize/rotate with clear selection handles.
-- Editor UI orientation follows the selected editor orientation; it must not distort scene geometry.
+- Portrait (9:16) and Landscape (16:9) are the only initial canvas modes.
+- LIVE settings provide the orientation selector. The Scene Editor displays the resulting canvas and does not provide independent ratio presets, custom width/height fields, or per-scene aspect-ratio settings.
+- The editor canvas remains a composition surface for LIVE output. Share Screen is inserted as a source/element from the element shelf and can be transformed like other supported sources.
+- Orientation changes are made while LIVE is stopped; the app explains that all scenes in the active project will be converted. The conversion preserves composition proportionally where possible and is undoable/recoverable.
+- Bottom tool rail presents the element catalog and installed elements; choosing an uninstalled element starts an on-demand install flow with a clear confirmation before download. Do not download the full catalog automatically.
+- Selecting an object exposes contextual tools in the same tool area, following PixelLab's editing flow rather than sending users through unrelated settings pages.
+- Contextual tools include transform, crop, opacity, style, arrangement, and source-specific settings; text controls include the agreed font, color, size, weight/style, alignment, outline, shadow, and related typography controls.
+- Include layer list with reorder, visibility, lock, duplicate, group, delete; undo/redo; alignment; grid/snap; guides; safe areas; and asset management.
+- Touch interactions must support direct selection, drag, corner resize, rotation handles, and one-handed operation with clear selection handles. Preserve the full PixelLab feature-parity target; do not treat this minimum list as exhaustive.
+- Editor UI may rotate to suit the selected LIVE orientation where supported; viewport rotation/zoom/pan must not alter logical scene geometry.
 
 ## Audio Mixer
 Dedicated page with visible meters and individual channel strips. Each source exposes only controls it supports: gain/volume, mute, balance, routing, and source status. LIVE and MONITOR buses are explicit. Do not silently replace unavailable sources.
 
 ## Extension Center
-Show extension name, author/provenance, version, compatibility, size, permissions, license, update state, and install/remove controls. Explain permission requests before enabling.
+Show extension name, author/provenance, version, compatibility, size, permissions, license, update state, and install/remove controls. Explain permission requests before enabling. Every user-addable scene element type (including Text, Image, Shape, Sticker, Emoji, Drawing, GIF, Video, Template, and Share Screen) is represented by an extension. Download only when the user requests an uninstalled element, and ask before downloading. Beta builds may bundle the exact test extensions required.
 
 ## Settings
 All global preferences belong here: account, language, appearance, accent/theme customization, full-screen/system-bar behavior, storage/cache, backups, global streaming defaults, module permissions/update policy, and diagnostics.

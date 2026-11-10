@@ -8,7 +8,7 @@ Open Stream Software (OSS) is a lightweight, modular Android live-streaming stud
 - Android first; iOS is postponed.
 - Performance-first, LIVE-first architecture.
 - Scene composition is the actual LIVE output. A separate live preview renderer is not part of the initial release.
-- Modular Core + Extension Center.
+- Modular Core + Extension Center; every user-addable scene element/source is an extension, downloaded only on demand after confirmation.
 - Multi-destination RTMP/RTMPS.
 - Dedicated scene editor and audio mixer.
 - Phone-first build and test workflow through GitHub Actions.
@@ -25,7 +25,13 @@ Open Stream Software (OSS) is a lightweight, modular Android live-streaming stud
 8. [Build Toolchain](docs/08-BUILD-TOOLCHAIN.md)
 9. [Third-Party Component Audit](docs/09-THIRD-PARTY-COMPONENT-AUDIT.md)
 10. [Logging and Diagnostics](docs/10-LOGGING-DIAGNOSTICS.md)
-11. [Update and Release Delivery](docs/11-UPDATE-DELIVERY.md)
+11a. [Audio Mixer Architecture](docs/11-AUDIO-MIXER-ARCHITECTURE.md)
+11b. [Update and Release Delivery](docs/11-UPDATE-DELIVERY.md)
+12a. [OSSPACK Extension Package Format](docs/12-OSSPACK-FORMAT.md)
+12b. [Product Decision Register](docs/12-PRODUCT-DECISION-REGISTER.md)
+13. [Development and Pull Request Gates](docs/13-DEVELOPMENT-AND-PR-GATES.md)
+14. [Current Implementation Baseline Audit](docs/14-IMPLEMENTATION-BASELINE-AUDIT.md)
+15. [PixelLab Feature Parity Matrix](docs/15-PIXELLAB-FEATURE-PARITY.md)
 
 ## Repository boundaries
 The previous `oss-mobile` repository is retained as an archived/reference project. This repository is the clean restart; existing code will only be reused after compatibility, license, security, and architecture review.
