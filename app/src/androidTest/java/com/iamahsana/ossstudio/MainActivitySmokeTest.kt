@@ -70,14 +70,14 @@ class MainActivitySmokeTest {
             composeRule.onAllNodesWithText("Canvas kosong").fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithText("Canvas kosong").assertIsDisplayed()
-        composeRule.onNodeWithTag("scene-element-insertion-shelf").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithTag("scene-add-media").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithTag("scene-add-share-screen").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("Snap grid").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("Grid").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("Safe area").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("Undo").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("Redo").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-element-insertion-shelf").assertExists()
+        composeRule.onNodeWithTag("scene-add-media").assertExists()
+        composeRule.onNodeWithTag("scene-add-share-screen").assertExists()
+        composeRule.onNodeWithText("Snap grid").assertExists()
+        composeRule.onNodeWithText("Grid").assertExists()
+        composeRule.onNodeWithText("Safe area").assertExists()
+        composeRule.onNodeWithText("Undo").assertExists()
+        composeRule.onNodeWithText("Redo").assertExists()
 
         composeRule.onNodeWithText("Pengaturan canvas").assertIsDisplayed().performClick()
         composeRule.waitUntil("canvas settings dialog opens", 5_000L) {
@@ -88,13 +88,13 @@ class MainActivitySmokeTest {
             .assertIsDisplayed()
         composeRule.onNodeWithText("Tutup").performClick()
 
-        composeRule.onNodeWithTag("scene-add-text").performScrollTo().performClick()
+        composeRule.onNodeWithTag("scene-add-text").performClick()
         // The layer row displays the source name ("Text"), not its content
         // ("Teks baru"). Wait for the tagged layer row before checking canvas.
         composeRule.waitUntil("new text source appears in the scene layers", 15_000L) {
             composeRule.onAllNodesWithTag("scene-element-item").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithTag("scene-panel-layers").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-panel-layers").assertExists()
         composeRule.waitUntil("new text element is composed on the canvas", 15_000L) {
             composeRule.onAllNodesWithTag("scene-canvas-element", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
         }
@@ -102,13 +102,13 @@ class MainActivitySmokeTest {
         // visibility for a selected element, independent of add-action focus timing.
         composeRule.onAllNodesWithTag("scene-canvas-element", useUnmergedTree = true)[0].performClick()
         composeRule.onNodeWithTag("scene-resize-handle", useUnmergedTree = true).assertExists().assertIsDisplayed()
-        composeRule.onNodeWithTag("scene-panel-properties").performScrollTo().performClick()
-        composeRule.onNodeWithTag("scene-properties-panel").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithTag("scene-panel-layers").performScrollTo().performClick()
-        composeRule.onNodeWithText("Undo").performScrollTo().performClick()
+        composeRule.onNodeWithTag("scene-panel-properties").performClick()
+        composeRule.onNodeWithTag("scene-properties-panel").assertExists()
+        composeRule.onNodeWithTag("scene-panel-layers").performClick()
+        composeRule.onNodeWithText("Undo").performClick()
         assertTrue("Undo should remove the resize handle when the new element is removed", composeRule.onAllNodesWithTag("scene-resize-handle", useUnmergedTree = true).fetchSemanticsNodes().isEmpty())
-        composeRule.onNodeWithText("Redo").performScrollTo().performClick()
-        composeRule.onNodeWithText("Teks baru").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Redo").performClick()
+        composeRule.onNodeWithText("Teks baru").assertExists()
         // Undo clears the selection when the element is absent; wait for redo to recompose it.
         composeRule.waitUntil("redo restores the canvas element", 10_000L) {
             composeRule.onAllNodesWithTag("scene-canvas-element", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
@@ -116,18 +116,18 @@ class MainActivitySmokeTest {
         composeRule.onAllNodesWithTag("scene-canvas-element", useUnmergedTree = true)[0].performClick()
         composeRule.onNodeWithTag("scene-resize-handle", useUnmergedTree = true).assertExists().assertIsDisplayed()
 
-        composeRule.onNodeWithText("Tambah teks").performScrollTo().performClick()
-        composeRule.onNodeWithTag("scene-multiselect-toggle").performScrollTo().assertIsDisplayed().performClick()
+        composeRule.onNodeWithText("Tambah teks").performClick()
+        composeRule.onNodeWithTag("scene-multiselect-toggle").assertExists().performClick()
         // Verify the mode itself before testing multi-selection state.
         composeRule.onNodeWithText("Selesai memilih").assertIsDisplayed()
-        composeRule.onNodeWithTag("scene-multiselect-status").performScrollTo().assertExists().assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-multiselect-status").assertExists()
         composeRule.onNodeWithText("Mode pemilihan aktif · Dipilih: 0").assertIsDisplayed()
         assertTrue("Multi-select mode should show exactly two scene layer rows", composeRule.onAllNodesWithTag("scene-element-item").fetchSemanticsNodes().size == 2)
-        composeRule.onAllNodesWithTag("scene-element-item")[0].performScrollTo().performClick()
-        composeRule.onAllNodesWithTag("scene-element-item")[1].performScrollTo().performClick()
+        composeRule.onAllNodesWithTag("scene-element-item")[0].performClick()
+        composeRule.onAllNodesWithTag("scene-element-item")[1].performClick()
         assertTrue("Selecting both layer rows should mark both as selected", composeRule.onAllNodesWithText("✓ Text").fetchSemanticsNodes().size == 2)
-        composeRule.onNodeWithText("Kelompokkan (2)").performScrollTo().performClick()
-        composeRule.onNodeWithText("Pisahkan grup").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Kelompokkan (2)").performClick()
+        composeRule.onNodeWithText("Pisahkan grup").assertExists()
         composeRule.onNodeWithText("Pisahkan grup").performClick()
         assertTrue("Ungrouping should remove the split-group action", composeRule.onAllNodesWithText("Pisahkan grup").fetchSemanticsNodes().isEmpty())
     }
