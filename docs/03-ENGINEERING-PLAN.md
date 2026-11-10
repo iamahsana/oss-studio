@@ -20,7 +20,7 @@
 - Scene/source registry and project persistence.
 - Canvas orientation follows the LIVE output setting and supports Portrait (9:16) or Landscape (16:9) only; all scenes in the active project remain synchronized. No custom dimensions or extra aspect-ratio presets. Add layers, transforms, crop, grid/snap, and safe areas.
 - Implement the PixelLab-parity Scene Editor interaction framework and build a traceable feature-by-feature parity matrix; do not mark the editor complete while any agreed PixelLab feature is missing.
-- Implement the extension host/registry contracts required for all user-addable scene elements. Text, image, shape, GIF, video, Share Screen, and future source types are delivered as extensions, not permanently installed production Core elements.
+- Implement the extension host/registry contracts required for all user-addable scene elements. Text, image, shape, sticker, emoji, drawing, GIF, video, templates, Share Screen, and future source types are delivered as extensions, not permanently installed production Core elements.
 - Asset manager, undo/redo, autosave/recovery.
 - Share Screen as an optional source added to a scene; it is never the canvas itself.
 - Bounded decoding/cache and lifecycle cleanup.
