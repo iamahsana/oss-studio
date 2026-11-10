@@ -35,7 +35,7 @@ Status: normative product baseline. This register records decisions that future 
 | S-007 | Editor zoom and pan affect only the editor viewport, never scene coordinates or LIVE output geometry. | Approved |
 | S-008 | Orientation changes are performed while LIVE is stopped and convert all scenes in the active project predictably, without stretching content. The operation must be recoverable and undoable. | Approved behavior; conversion algorithm requires tests |
 | S-009 | The canvas should dominate the editor workspace. The bottom tool shelf contains installed elements/modules; selecting an element exposes contextual controls in that same tool area. | Approved |
-| S-010 | Required editor baseline includes direct drag, corner resize, rotate, crop, layer order/reorder, visibility, duplicate, lock, delete, grouping, alignment, grid/snap, guides, safe areas, contextual typography/style controls, undo/redo, autosave/recovery, and touch-first one-handed workflow. This is a minimum list; full PixelLab feature parity is the acceptance target. | Approved scope; individual capabilities still require implementation/acceptance |
+| S-010 | Required editor baseline includes direct drag, corner resize, rotate, crop, layer order/reorder, visibility, duplicate, lock, delete, grouping, alignment, grid/snap, guides, safe areas, contextual typography/style controls, undo/redo, autosave/recovery, and touch-first one-handed workflow. Full PixelLab parity is the acceptance target, tracked in [docs/15-PIXELLAB-FEATURE-PARITY.md](15-PIXELLAB-FEATURE-PARITY.md). | Approved scope; individual capabilities still require implementation/acceptance |
 
 ## Audio
 
