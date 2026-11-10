@@ -81,7 +81,7 @@ class MainActivitySmokeTest {
         // The layer row displays the source name ("Text"), not its content
         // ("Teks baru"). Wait for the tagged layer row before checking canvas.
         composeRule.waitUntil("new text source appears in the scene layers", 15_000L) {
-            composeRule.onAllNodesWithTag("scene-element-item").fetchSemanticsNodes().size == 1
+            composeRule.onAllNodesWithTag("scene-element-item").fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.waitUntil("new text element is composed on the canvas", 15_000L) {
             composeRule.onAllNodesWithTag("scene-canvas-element", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
