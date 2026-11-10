@@ -68,8 +68,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.PointerEventPass
-import androidx.compose.ui.input.pointer.calculatePan
-import androidx.compose.ui.input.pointer.calculateZoom
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
@@ -329,8 +327,26 @@ fun SceneEditorScreen(
                                 val event = awaitPointerEvent(PointerEventPass.Initial)
                                 val pressedCount = event.changes.count { it.pressed }
                                 if (pressedCount >= 2) {
-                                    val zoomChange = event.calculateZoom()
-                                    val pan = event.calculatePan()
+                                    val pointers = event.changes.filter { it.pressed }.take(2)
+                                    if (pointers.size < 2) return@awaitEachGesture
+                                    val first = pointers[0]
+                                    val second = pointers[1]
+                                    val previousCenter = Offset(
+                                        (first.previousPosition.x + second.previousPosition.x) / 2f,
+                                        (first.previousPosition.y + second.previousPosition.y) / 2f
+                                    )
+                                    val currentCenter = Offset(
+                                        (first.position.x + second.position.x) / 2f,
+                                        (first.position.y + second.position.y) / 2f
+                                    )
+                                    val previousDx = first.previousPosition.x - second.previousPosition.x
+                                    val previousDy = first.previousPosition.y - second.previousPosition.y
+                                    val currentDx = first.position.x - second.position.x
+                                    val currentDy = first.position.y - second.position.y
+                                    val previousDistance = kotlin.math.sqrt(previousDx * previousDx + previousDy * previousDy)
+                                    val currentDistance = kotlin.math.sqrt(currentDx * currentDx + currentDy * currentDy)
+                                    val zoomChange = if (previousDistance > 0.001f) currentDistance / previousDistance else 1f
+                                    val pan = currentCenter - previousCenter
                                     val nextZoom = (viewportZoom * zoomChange).coerceIn(1f, 4f)
                                     viewportZoom = nextZoom
                                     if (nextZoom <= 1f) {
