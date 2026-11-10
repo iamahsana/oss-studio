@@ -90,6 +90,9 @@ class MainActivitySmokeTest {
         // visibility for a selected element, independent of add-action focus timing.
         composeRule.onAllNodesWithTag("scene-canvas-element", useUnmergedTree = true)[0].performClick()
         composeRule.onNodeWithTag("scene-resize-handle", useUnmergedTree = true).assertExists().assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-panel-properties").performScrollTo().performClick()
+        composeRule.onNodeWithTag("scene-properties-panel").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-panel-layers").performScrollTo().performClick()
         composeRule.onNodeWithText("Undo").performScrollTo().performClick()
         assertTrue("Undo should remove the resize handle when the new element is removed", composeRule.onAllNodesWithTag("scene-resize-handle", useUnmergedTree = true).fetchSemanticsNodes().isEmpty())
         composeRule.onNodeWithText("Redo").performScrollTo().performClick()
@@ -258,11 +261,3 @@ class MainActivitySmokeTest {
             val database = SceneProjectStoreProvider.database(context)
             database.listRecent().filter { it.name == "OSS UI Smoke" }.forEach { summary ->
                 database.get(summary.id)?.assets?.forEach { asset ->
-                    runCatching { SceneAssetStorage.deleteAsset(context, asset) }
-                }
-                database.delete(summary.id)
-            }
-        }
-    }
-
-}
