@@ -961,6 +961,69 @@ fun SceneEditorScreen(
                                     onCheckedChange = { updateTextSetting("italic", it.toString()) }
                                 )
                             }
+                            Text("Jenis huruf", style = MaterialTheme.typography.labelLarge)
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                listOf("sans-serif" to "Sans", "serif" to "Serif", "monospace" to "Mono").forEach { (family, label) ->
+                                    OutlinedButton(onClick = { updateTextSetting("fontFamily", family) }, modifier = Modifier.weight(1f)) {
+                                        Text(label)
+                                    }
+                                }
+                            }
+                            Text("Outline: " + (selectedSource.settings["outlineWidth"]?.toFloatOrNull() ?: 0f).toInt() + " px")
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                OutlinedButton(onClick = { updateTextSetting("outlineColor", "#FF000000") }) { Text("Hitam") }
+                                OutlinedButton(onClick = { updateTextSetting("outlineColor", "#FF7C4DFF") }) { Text("Ungu") }
+                                OutlinedButton(onClick = { updateTextSetting("outlineColor", "#FFFFFFFF") }) { Text("Putih") }
+                            }
+                            Slider(
+                                value = (selectedSource.settings["outlineWidth"]?.toFloatOrNull() ?: 0f).coerceIn(0f, 12f),
+                                onValueChange = { updateTextSetting("outlineWidth", it.toString()) },
+                                valueRange = 0f..12f,
+                                steps = 23,
+                                modifier = Modifier.testTag("text-outline-width")
+                            )
+                            Text("Bayangan: " + (selectedSource.settings["shadowRadius"]?.toFloatOrNull() ?: 0f).toInt() + " px")
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                OutlinedButton(onClick = {
+                                    updateTextSetting("shadowColor", "#FF000000")
+                                    updateTextSetting("shadowRadius", "6")
+                                }) { Text("Bayangan hitam") }
+                                OutlinedButton(onClick = {
+                                    updateTextSetting("shadowColor", "#FF7C4DFF")
+                                    updateTextSetting("shadowRadius", "6")
+                                }) { Text("Bayangan ungu") }
+                                OutlinedButton(onClick = { updateTextSetting("shadowRadius", "0") }) { Text("Matikan") }
+                            }
+                            Text("Jarak huruf")
+                            Slider(
+                                value = (selectedSource.settings["letterSpacing"]?.toFloatOrNull() ?: 0f).coerceIn(-0.1f, 0.5f),
+                                onValueChange = { updateTextSetting("letterSpacing", it.toString()) },
+                                valueRange = -0.1f..0.5f,
+                                steps = 11,
+                                modifier = Modifier.testTag("text-letter-spacing")
+                            )
+                            Text("Jarak baris")
+                            Slider(
+                                value = (selectedSource.settings["lineSpacing"]?.toFloatOrNull() ?: 1.15f).coerceIn(1f, 2f),
+                                onValueChange = { updateTextSetting("lineSpacing", it.toString()) },
+                                valueRange = 1f..2f,
+                                steps = 9,
+                                modifier = Modifier.testTag("text-line-spacing")
+                            )
+                            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                                Text("Garis bawah", modifier = Modifier.weight(1f))
+                                Switch(
+                                    checked = selectedSource.settings["underline"] == "true",
+                                    onCheckedChange = { updateTextSetting("underline", it.toString()) }
+                                )
+                            }
+                            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                                Text("Coret", modifier = Modifier.weight(1f))
+                                Switch(
+                                    checked = selectedSource.settings["strikethrough"] == "true",
+                                    onCheckedChange = { updateTextSetting("strikethrough", it.toString()) }
+                                )
+                            }
                         }
                         val orderedElements = scene.elements.sortedBy { it.zIndex }
                         val layerIndex = orderedElements.indexOfFirst { it.id == selectedElement.id }
