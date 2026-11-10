@@ -5,11 +5,11 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * JSON persistence codec. Schema v1 remains readable; all subsequent writes
- * use v2 so old projects are upgraded only after a successful decode.
+ * JSON persistence codec. Schemas v1 and v2 remain readable; writes use v3
+ * to persist stable extension source identifiers without losing legacy projects.
  */
 object SceneProjectJsonCodec {
-    private const val CURRENT_SCHEMA_VERSION = 2
+    private const val CURRENT_SCHEMA_VERSION = 3
     private const val MIN_SUPPORTED_SCHEMA_VERSION = 1
 
     fun encode(p: SceneProject): String = JSONObject().apply {
@@ -61,12 +61,15 @@ object SceneProjectJsonCodec {
         put("id",s.id);put("type",s.type.name);put("name",s.displayName);put("enabled",s.enabled)
         put("asset",s.assetId ?: JSONObject.NULL);put("text",s.text ?: JSONObject.NULL)
         put("settings",JSONObject().apply { s.settings.forEach { (k,v)->put(k,v) } })
+        s.extensionId?.let { put("extensionId", it) }
+        s.typeId?.let { put("typeId", it) }
     }
     private fun sourceFromJson(o: JSONObject): SceneSource {
         val settings=o.getJSONObject("settings")
         return SceneSource(o.getString("id"),SceneSourceType.valueOf(o.getString("type")),o.getString("name"),
             o.getBoolean("enabled"),o.opt("asset").nullableString(),o.opt("text").nullableString(),
-            buildMap { settings.keys().forEach { put(it,settings.getString(it)) } })
+            buildMap { settings.keys().forEach { put(it,settings.getString(it)) } },
+            o.opt("extensionId").nullableString(), o.opt("typeId").nullableString())
     }
     private fun assetToJson(a: SceneAsset)=JSONObject().apply {
         put("id",a.id);put("path",a.relativePath);put("mime",a.mimeType);put("size",a.byteSize);put("sha",a.sha256)
