@@ -36,7 +36,10 @@ import java.util.Date
 @Composable
 fun ProjectHomeScreen(
     context: Context,
-    onOpenProject: (SceneProject) -> Unit
+    activeProjectId: String?,
+    canDeleteActiveProject: () -> Boolean,
+    onOpenProject: (SceneProject) -> Unit,
+    onProjectDeleted: (String) -> Unit
 ) {
     val repository = remember(context) {
         SceneProjectRepository(SceneProjectStoreProvider.database(context))
@@ -110,7 +113,13 @@ fun ProjectHomeScreen(
                         Text("Diperbarui ${DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(project.updatedAtEpochMillis))}", style = MaterialTheme.typography.bodySmall)
                     }
                 }
-                TextButton(enabled = !working, onClick = { projectPendingDelete = project }) { Text("Hapus") }
+                TextButton(enabled = !working, onClick = {
+                    if (project.id == activeProjectId && !canDeleteActiveProject()) {
+                        errorMessage = "Hentikan atau selesaikan cleanup LIVE sebelum menghapus project aktif."
+                    } else {
+                        projectPendingDelete = project
+                    }
+                }) { Text("Hapus") }
             }
         }
         if (working) Text("Membuka project…")
@@ -125,6 +134,12 @@ fun ProjectHomeScreen(
             text = { Text("Project ${target.name}, seluruh scene, dan file medianya akan dihapus dari perangkat ini.") },
             confirmButton = {
                 TextButton(enabled = !working, onClick = {
+                    if (target.id == activeProjectId && !canDeleteActiveProject()) {
+                        working = false
+                        projectPendingDelete = null
+                        errorMessage = "Hentikan atau selesaikan cleanup LIVE sebelum menghapus project aktif."
+                        return@TextButton
+                    }
                     working = true
                     repository.load(target.id) { loadResult ->
                         val project = loadResult.getOrNull()
@@ -147,8 +162,10 @@ fun ProjectHomeScreen(
                                 working = false
                                 deleteResult.fold(
                                     onSuccess = { deleted ->
-                                        if (deleted) projects.removeAll { it.id == target.id }
-                                        else errorMessage = "Project tidak ditemukan."
+                                        if (deleted) {
+                                            projects.removeAll { it.id == target.id }
+                                            onProjectDeleted(target.id)
+                                        } else errorMessage = "Project tidak ditemukan."
                                         projectPendingDelete = null
                                     },
                                     onFailure = { errorMessage = it.message ?: "Gagal menghapus project" }
