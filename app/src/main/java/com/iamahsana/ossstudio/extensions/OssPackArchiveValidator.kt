@@ -39,6 +39,36 @@ object OssPackArchiveValidator {
     private val supportedElementKinds = setOf("text", "image", "sticker", "shape", "background", "font", "gif", "video")
     private val forbiddenExtensions = setOf("apk", "dex", "jar", "so", "class", "js", "mjs", "cjs", "html", "htm", "wasm", "sh", "bat", "ps1", "py")
 
+    fun readInstalledManifest(directory: File): OssPackManifest {
+        require(directory.isDirectory) { "Direktori ekstensi tidak ditemukan" }
+        val root = directory.canonicalFile
+        val manifestFile = File(root, MANIFEST_NAME).canonicalFile
+        require(manifestFile.parentFile == root && manifestFile.isFile) { "Manifest ekstensi tidak ditemukan" }
+        require(manifestFile.length() in 1..MAX_MANIFEST_BYTES) { "Ukuran manifest ekstensi tidak valid" }
+        val manifest = parseManifest(manifestFile.readBytes())
+        require(manifest.id == directory.name) { "ID manifest tidak cocok dengan direktori ekstensi" }
+        manifest.files.forEach { item ->
+            val file = File(root, item.path).canonicalFile
+            require(file.path.startsWith(root.path + File.separator) && file.isFile) {
+                "Resource ekstensi tidak ditemukan: ${item.path}"
+            }
+            require(file.length() == item.byteSize) { "Ukuran resource ekstensi berubah: ${item.path}" }
+            val digest = MessageDigest.getInstance("SHA-256")
+            FileInputStream(file).use { input ->
+                val buffer = ByteArray(16 * 1024)
+                while (true) {
+                    val read = input.read(buffer)
+                    if (read < 0) break
+                    digest.update(buffer, 0, read)
+                }
+            }
+            require(digest.digest().toHex().equals(item.sha256, ignoreCase = true)) {
+                "Checksum resource ekstensi berubah: ${item.path}"
+            }
+        }
+        return manifest
+    }
+
     fun validate(archive: File): OssPackValidationResult {
         require(archive.isFile) { "Paket OSS tidak ditemukan" }
         require(archive.name.lowercase(Locale.ROOT).endsWith(".osspack")) { "Ekstensi paket harus .osspack" }
