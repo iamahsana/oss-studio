@@ -103,3 +103,13 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
           disable-animations: true
           script: adb wait-for-device && n=0; until adb shell cmd package list packages >/dev/null 2>&1; do n=$((n+1)); if [ "$n" -ge 60 ]; then echo "Package Manager did not become ready"; exit 1; fi; sleep 2; done; adb shell cmd package list packages >/dev/null && gradle connectedDebugAndroidTest
+      - name: Upload emulator test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-test-reports-api-${{ matrix.api-level }}
+          path: |
+            app/build/outputs/androidTest-results/connected/debug/**
+            app/build/reports/androidTests/connected/debug/**
+          if-no-files-found: warn
+          retention-days: 14

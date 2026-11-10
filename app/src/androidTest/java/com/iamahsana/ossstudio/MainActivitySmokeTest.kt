@@ -82,7 +82,7 @@ class MainActivitySmokeTest {
         composeRule.onAllNodesWithTag("scene-canvas-element", useUnmergedTree = true)[0].performClick()
         composeRule.onNodeWithTag("scene-resize-handle", useUnmergedTree = true).assertExists().assertIsDisplayed()
         composeRule.onNodeWithText("Undo").performScrollTo().performClick()
-        assertTrue(composeRule.onAllNodesWithTag("scene-resize-handle", useUnmergedTree = true).fetchSemanticsNodes().isEmpty())
+        assertTrue("Undo should remove the resize handle when the new element is removed", composeRule.onAllNodesWithTag("scene-resize-handle", useUnmergedTree = true).fetchSemanticsNodes().isEmpty())
         composeRule.onNodeWithText("Redo").performScrollTo().performClick()
         composeRule.onNodeWithText("Teks baru").performScrollTo().assertIsDisplayed()
         // Undo clears the selection when the element is absent; reselect it after redo.
@@ -95,14 +95,14 @@ class MainActivitySmokeTest {
         composeRule.onNodeWithText("Selesai memilih").assertIsDisplayed()
         composeRule.onNodeWithTag("scene-multiselect-status").performScrollTo().assertExists().assertIsDisplayed()
         composeRule.onNodeWithText("Mode pemilihan aktif · Dipilih: 0").assertIsDisplayed()
-        assertTrue(composeRule.onAllNodesWithTag("scene-element-item").fetchSemanticsNodes().size == 2)
+        assertTrue("Multi-select mode should show exactly two scene layer rows", composeRule.onAllNodesWithTag("scene-element-item").fetchSemanticsNodes().size == 2)
         composeRule.onAllNodesWithTag("scene-element-item")[0].performScrollTo().performClick()
         composeRule.onAllNodesWithTag("scene-element-item")[1].performScrollTo().performClick()
-        assertTrue(composeRule.onAllNodesWithText("✓ Text").fetchSemanticsNodes().size == 2)
+        assertTrue("Selecting both layer rows should mark both as selected", composeRule.onAllNodesWithText("✓ Text").fetchSemanticsNodes().size == 2)
         composeRule.onNodeWithText("Kelompokkan (2)").performScrollTo().performClick()
         composeRule.onNodeWithText("Pisahkan grup").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Pisahkan grup").performClick()
-        assertTrue(composeRule.onAllNodesWithText("Pisahkan grup").fetchSemanticsNodes().isEmpty())
+        assertTrue("Ungrouping should remove the split-group action", composeRule.onAllNodesWithText("Pisahkan grup").fetchSemanticsNodes().isEmpty())
     }
 
     @Test
