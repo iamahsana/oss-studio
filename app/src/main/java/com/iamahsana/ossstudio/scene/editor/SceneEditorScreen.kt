@@ -741,7 +741,7 @@ fun SceneEditorScreen(
                     val enteringMultiSelect = !multiSelectMode
                     multiSelectMode = enteringMultiSelect
                     selectedElementIds = if (enteringMultiSelect) {
-                        selectedElementId?.let(::setOf) ?: emptySet()
+                        emptySet()
                     } else {
                         selectedElementIds
                     }
