@@ -106,6 +106,32 @@ class OssPackArchiveValidatorTest {
         }
     }
 
+    @Test fun installedElementCatalogListsAndResolvesOnlyVerifiedPackageResources() {
+        val payload = byteArrayOf(4, 3, 2, 1)
+        val manifest = """{"format":"oss-extension","formatVersion":1,"payloadType":"declarative","id":"com.example.catalog","name":"Catalog","version":"1.0.0","minOssVersion":"0.1.0","capabilities":["scene-overlay"],"files":[{"path":"assets/badge.png","sha256":"${sha256(payload)}","byteSize":4}],"elements":[{"typeId":"com.example.catalog.badge","name":"Badge","kind":"sticker","resourcePath":"assets/badge.png","defaults":{"opacity":0.9}},{"typeId":"com.example.catalog.title","name":"Title","kind":"text","defaults":{"text":"LIVE"}}]}"""
+        val archive = createRawPackage(manifest, "assets/badge.png" to payload)
+        val root = File(context.cacheDir, "extensions-element-catalog-" + System.nanoTime())
+        try {
+            OssPackInstaller.install(archive, root)
+            val elements = OssInstalledElementCatalog.listInstalled(root)
+            assertEquals(2, elements.size)
+            val badge = OssInstalledElementCatalog.find(root, "com.example.catalog", "com.example.catalog.badge")
+            assertNotNull(badge)
+            assertEquals("sticker", badge?.kind)
+            assertEquals("0.9", badge?.defaults?.get("opacity"))
+            assertArrayEquals(payload, badge?.resolveResource()?.readBytes())
+            val title = OssInstalledElementCatalog.find(root, "com.example.catalog", "com.example.catalog.title")
+            assertNotNull(title)
+            assertEquals(null, title?.resolveResource())
+
+            File(root, "com.example.catalog/assets/badge.png").writeBytes(byteArrayOf(9, 9, 9))
+            assertTrue(OssInstalledElementCatalog.listInstalled(root).isEmpty())
+        } finally {
+            archive.delete()
+            root.deleteRecursively()
+        }
+    }
+
     @Test fun installerUsesUniqueStagingDirectoryForEachExtension() {
         val firstArchive = createPackage(byteArrayOf(1, 3, 5), id = "com.example.first")
         val secondArchive = createPackage(byteArrayOf(2, 4, 6), id = "com.example.second")
