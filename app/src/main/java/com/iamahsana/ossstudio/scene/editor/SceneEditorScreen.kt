@@ -322,7 +322,7 @@ fun SceneEditorScreen(
                     .background(Color(0xFF17191D))
                     .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
                     .clipToBounds()
-                    .pointerInput(scene.id, viewportZoom) {
+                    .pointerInput(scene.id) {
                         awaitEachGesture {
                             awaitFirstDown(requireUnconsumed = false)
                             do {
