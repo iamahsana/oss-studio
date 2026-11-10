@@ -360,6 +360,7 @@ fun SceneEditorScreen(
                             )
                             .background(if (element.id == selectedElementId) Color(0x553B82F6) else Color(0x33222222))
                             .clickable { selectedElementId = element.id }
+                            .testTag("scene-canvas-element")
                             .then(
                                 if (element.locked) Modifier else Modifier.pointerInput(element.id, scale, snapEnabled) {
                                     var dragX = transform.x
