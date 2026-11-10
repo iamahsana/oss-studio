@@ -78,11 +78,10 @@ class MainActivitySmokeTest {
         composeRule.onNodeWithText("Landscape · 16:9 · 1920 × 1080").performClick()
 
         composeRule.onNodeWithText("Tambah teks").performScrollTo().performClick()
-        // First wait for the new source to appear in the layer list. On API 29,
-        // the canvas subtree can recompose one frame later than the surrounding
-        // editor controls, so checking its semantics immediately is racy.
+        // The layer row displays the source name ("Text"), not its content
+        // ("Teks baru"). Wait for the tagged layer row before checking canvas.
         composeRule.waitUntil("new text source appears in the scene layers", 15_000L) {
-            composeRule.onAllNodesWithText("Teks baru").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodesWithTag("scene-element-item").fetchSemanticsNodes().size == 1
         }
         composeRule.waitUntil("new text element is composed on the canvas", 15_000L) {
             composeRule.onAllNodesWithTag("scene-canvas-element", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
