@@ -6,6 +6,7 @@ import android.util.Log
 import com.iamahsana.ossstudio.BuildConfig
 import org.json.JSONObject
 import java.io.File
+import java.io.OutputStream
 import java.io.PrintWriter
 import java.io.StringWriter
 import java.time.Instant
@@ -126,6 +127,30 @@ object OssLogger {
         }
     }
 
+    fun writeDiagnosticsTo(output: OutputStream): Boolean {
+        val writer = executor ?: return false
+        if (writer.isShutdown) return false
+        try {
+            writer.submit(Runnable {}).get(5, TimeUnit.SECONDS)
+        } catch (error: InterruptedException) {
+            Thread.currentThread().interrupt()
+            return false
+        } catch (_: Exception) {
+            return false
+        }
+        val current = logFile ?: return false
+        return runCatching {
+            synchronized(this) {
+                DiagnosticLogSnapshot.copy(
+                    previous = File(current.parentFile, "$LOG_FILE_NAME.1"),
+                    current = current,
+                    output = output
+                )
+            }
+        }.getOrDefault(false)
+    }
+
+    @Synchronized
     private fun appendRecord(record: String) {
         val file = logFile ?: return
         try {
@@ -164,5 +189,17 @@ internal object OssLogRedactor {
         return sensitiveAssignment.replace(withoutAuthorization) {
             it.groupValues[1] + it.groupValues[2] + "[REDACTED]"
         }
+    }
+}
+
+
+internal object DiagnosticLogSnapshot {
+    fun copy(previous: File?, current: File?, output: OutputStream): Boolean {
+        val files = listOfNotNull(previous, current).filter { it.isFile }
+        if (files.isEmpty()) return false
+        files.forEach { file ->
+            file.inputStream().buffered().use { input -> input.copyTo(output) }
+        }
+        return true
     }
 }

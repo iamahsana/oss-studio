@@ -106,6 +106,15 @@ class MainActivitySmokeTest {
     }
 
     @Test
+    fun settingsPageShowsAppearanceStorageAndDiagnosticExport() {
+        composeRule.onNodeWithTag("nav-settings").performClick()
+        composeRule.onNodeWithText("Tema aplikasi").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Warna aksen").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Penyimpanan aplikasi").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Ekspor log diagnostik").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
     fun mixerPageShowsIndependentCoreChannelsAndBuses() {
         composeRule.onNodeWithText("Mixer").performClick()
         scrollUntilVisible("Mixer utama")
