@@ -299,4 +299,43 @@ class SceneProjectEditorTest {
         assertEquals(2, original.scenes.single().elements.size)
     }
 
+
+    @Test
+    fun canvasSupportsCustomPortraitLandscapeAndSquareDimensions() {
+        assertEquals(
+            CanvasSize(720, 1280, CanvasOrientation.PORTRAIT),
+            CanvasSize(720, 1280, CanvasOrientation.PORTRAIT)
+        )
+        assertEquals(
+            CanvasSize(2560, 1440, CanvasOrientation.LANDSCAPE),
+            CanvasSize(2560, 1440, CanvasOrientation.LANDSCAPE)
+        )
+        assertEquals(
+            CanvasSize(1080, 1080, CanvasOrientation.PORTRAIT),
+            CanvasSize.SQUARE
+        )
+    }
+
+    @Test
+    fun canvasRejectsDimensionsOutsideSupportedRangeAndMismatchedOrientation() {
+        assertThrows(IllegalArgumentException::class.java) {
+            CanvasSize(63, 720, CanvasOrientation.PORTRAIT)
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            CanvasSize(4097, 1080, CanvasOrientation.LANDSCAPE)
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            CanvasSize(720, 1280, CanvasOrientation.LANDSCAPE)
+        }
+    }
+
+    @Test
+    fun customCanvasDimensionsRemainOnTheSceneAfterProjectMutation() {
+        val original = project()
+        val custom = CanvasSize(720, 1280, CanvasOrientation.PORTRAIT)
+        val updated = SceneProjectEditor.updateSceneCanvas(original, "scene", custom, 30L)
+        assertEquals(custom, updated.scenes.single().canvas)
+        assertEquals(CanvasSize.DEFAULT_PORTRAIT, original.scenes.single().canvas)
+    }
+
 }
