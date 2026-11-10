@@ -204,6 +204,7 @@ fun SceneEditorScreen(
     val selectedSource = currentProject.sources.firstOrNull { it.id == selectedElement?.sourceId }
     var editingText by remember(selectedElementId) { mutableStateOf(selectedSource?.text.orEmpty()) }
     var confirmRemoveSource by remember(selectedElementId) { mutableStateOf(false) }
+    var editorPanel by remember(project.id) { mutableStateOf("layers") }
 
     fun updateTextSetting(key: String, value: String) {
         val source = selectedSource ?: return
@@ -587,7 +588,28 @@ fun SceneEditorScreen(
                 OutlinedButton(onClick = { mediaPicker.launch(arrayOf("image/*", "video/*")) }) { Text("Tambah media") }
                 OutlinedButton(onClick = { addSource(SceneSourceType.SHARE_SCREEN) }) { Text("Share Screen") }
             }
-            if (selectedElement != null && selectedSource != null) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        modifier = Modifier.testTag("scene-panel-layers"),
+                        onClick = { editorPanel = "layers" }
+                    ) { Text("Lapisan") }
+                    OutlinedButton(
+                        modifier = Modifier.testTag("scene-panel-properties"),
+                        enabled = selectedElement != null && selectedSource != null,
+                        onClick = { editorPanel = "properties" }
+                    ) { Text("Properti") }
+                    OutlinedButton(onClick = { showCanvasSettings = true }) { Text("Canvas") }
+                }
+            }
+            if (editorPanel == "properties" && selectedElement != null && selectedSource != null) {
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
@@ -813,6 +835,7 @@ fun SceneEditorScreen(
                     }
                 }
             }
+            if (editorPanel == "layers") {
             Text("Elemen scene", style = MaterialTheme.typography.titleMedium)
             // Keep the mode toggle outside the horizontal action scroller.
             // A horizontally scrollable parent was preventing reliable taps in
@@ -891,6 +914,7 @@ fun SceneEditorScreen(
                         Text((if (chosen && multiSelectMode) "✓ " else "") + (source?.displayName ?: "Element"))
                     }
                 }
+            }
             }
         }
     }
@@ -998,69 +1022,3 @@ private fun decodeEditorBitmap(path: String): Bitmap? {
     val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
     BitmapFactory.decodeFile(path, bounds)
     if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
-    var sampleSize = 1
-    while (bounds.outWidth / sampleSize > 2048 || bounds.outHeight / sampleSize > 2048) {
-        sampleSize *= 2
-    }
-    return BitmapFactory.decodeFile(path, BitmapFactory.Options().apply {
-        inSampleSize = sampleSize
-        inPreferredConfig = Bitmap.Config.ARGB_8888
-    })
-}
-
-private fun decodeVideoPreview(path: String): Bitmap? {
-    val retriever = MediaMetadataRetriever()
-    return try {
-        retriever.setDataSource(path)
-        retriever.getScaledFrameAtTime(
-            0L,
-            MediaMetadataRetriever.OPTION_CLOSEST_SYNC,
-            1280,
-            1280
-        )
-    } catch (_: Exception) {
-        null
-    } finally {
-        retriever.release()
-    }
-}
-
-@Composable
-private fun SceneAnimatedGif(filePath: String, contentDescription: String, crop: CropRect) {
-    val context = LocalContext.current
-    val drawable = produceState<Drawable?>(initialValue = null, key1 = filePath) {
-        value = withContext(Dispatchers.IO) {
-            runCatching {
-                ImageDecoder.decodeDrawable(ImageDecoder.createSource(File(filePath)))
-            }.getOrNull()
-        }
-    }.value
-    if (drawable is AnimatedImageDrawable) {
-        DisposableEffect(drawable) {
-            drawable.start()
-            onDispose { drawable.stop() }
-        }
-    }
-    if (drawable != null) {
-        AndroidView(
-            factory = {
-                ImageView(it).apply {
-                    scaleType = ImageView.ScaleType.CENTER_CROP
-                    this.contentDescription = contentDescription
-                    setImageDrawable(drawable)
-                }
-            },
-            update = { it.setImageDrawable(drawable) },
-            modifier = Modifier.fillMaxSize().graphicsLayer {
-                val cropWidth = (crop.right - crop.left).coerceAtLeast(0.001f)
-                val cropHeight = (crop.bottom - crop.top).coerceAtLeast(0.001f)
-                scaleX = 1f / cropWidth
-                scaleY = 1f / cropHeight
-                translationX = ((0.5f - (crop.left + crop.right) / 2f) / cropWidth) * size.width
-                translationY = ((0.5f - (crop.top + crop.bottom) / 2f) / cropHeight) * size.height
-            }
-        )
-    } else {
-        Text("GIF tidak dapat dimuat", color = Color.White, textAlign = TextAlign.Center)
-    }
-}
