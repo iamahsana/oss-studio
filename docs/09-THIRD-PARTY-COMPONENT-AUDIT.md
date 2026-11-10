@@ -191,3 +191,21 @@ A closer read of the tagged MultiStream.stopStream(type, index) implementation i
 - The implementation is explicitly marked experimental. This source-level concern reinforces that OSS must not adopt it as-is or describe it as production-ready.
 
 Required disposable test before any adoption: start one RTMP destination, stop that final destination, and assert that StreamBase.isStreaming becomes false and GL/source/encoder resources stop; repeat with two destinations, stopping one and then the last. Also verify restart after stop. If the single-destination stop fails as predicted, record the exact upstream issue/version and prefer the stable single-destination RtmpStream adapter or a narrowly scoped OSS lifecycle wrapper; do not patch/fork upstream until a runtime reproduction confirms the defect.
+
+## Current application-source reconciliation (2026-11-10)
+
+This section supersedes earlier chronological prototype-status notes where the current application source has since advanced. Earlier entries are retained as historical audit records and must not be read as the current implementation state.
+
+**Verified in the current `main` source tree:**
+
+- `AndroidLiveRuntimeFactory` owns the LIVE runtime and prepares the RootEncoder stream/session.
+- The runtime obtains the stream's shared GL interface and manages scene canvas layers through `SceneCanvasLayerController`.
+- The runtime references `ShareScreenSessionService` for the authorized projection and `ShareScreenLayerController` to attach Share Screen as a composited scene element.
+- Share Screen is positioned relative to its scene z-index, with scene layers attached below and above it as required by ordering.
+- The current encoder output size is still derived from `scene.canvas` through `sceneOutputResolution(scene.canvas)`. This is a known product-specification deviation and is tracked in [Current Implementation Baseline Audit](14-IMPLEMENTATION-BASELINE-AUDIT.md).
+- The runtime contains both single-destination and multi-destination session paths. Source-level presence is not proof of production-ready multi-destination behavior.
+
+**Validation boundary:**
+
+Source inspection confirms that the Share Screen-to-shared-GL integration is wired into the app runtime. It does not establish that the final composited output is stable on a physical device across Android versions/OEMs, nor does it establish production-level performance, frame pacing, or long-session reliability. Those remain device-level acceptance gates. Do not repeat the obsolete statement that the controller is not wired to the LIVE runtime; equally, do not overstate source integration as verified device behavior.
+
