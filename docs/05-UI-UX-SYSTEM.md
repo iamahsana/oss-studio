@@ -12,7 +12,7 @@ Studio is the central LIVE operations page. It contains destination setup/status
 Each destination displays its own state and error. The primary action changes from Go Live to End Live when the session is active. Ending one destination must not imply ending all destinations unless the user chooses that action.
 
 ## Scene Editor
-The Scene Editor must achieve PixelLab functional and workflow parity, not merely borrow its general style. Reproduce the editor's screen organization, tool placement, object manipulation, contextual controls, and complete user-facing feature set as closely as practical, while retaining OSS branding and original code/assets. A feature-by-feature parity matrix based on PixelLab's available feature inventory and the user's references is a release acceptance requirement; the checklist below is a minimum, not an exhaustive cap.
+The Scene Editor must achieve PixelLab functional and workflow parity, not merely borrow its general style. Reproduce the editor's screen organization, tool placement, object manipulation, contextual controls, and complete user-facing feature set as closely as practical, while retaining OSS branding and original code/assets. The [PixelLab Feature Parity Matrix](15-PIXELLAB-FEATURE-PARITY.md) is a release acceptance requirement; the checklist below is a minimum, not an exhaustive cap.
 
 - Canvas is the dominant work area and scales to the available editor space.
 - Canvas logical aspect ratio follows the selected LIVE output orientation, not the phone's physical display orientation.
