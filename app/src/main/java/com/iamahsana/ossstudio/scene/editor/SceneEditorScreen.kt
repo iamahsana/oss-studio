@@ -19,7 +19,10 @@ import androidx.compose.foundation.clickable
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -66,6 +69,7 @@ import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
@@ -319,18 +323,28 @@ fun SceneEditorScreen(
                     .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
                     .clipToBounds()
                     .pointerInput(scene.id, viewportZoom) {
-                        detectTransformGestures { _, pan, zoomChange, _ ->
-                            val nextZoom = (viewportZoom * zoomChange).coerceIn(1f, 4f)
-                            viewportZoom = nextZoom
-                            if (nextZoom <= 1f) {
-                                viewportPanX = 0f
-                                viewportPanY = 0f
-                            } else {
-                                val maxX = size.width * (nextZoom - 1f) / 2f
-                                val maxY = size.height * (nextZoom - 1f) / 2f
-                                viewportPanX = (viewportPanX + pan.x).coerceIn(-maxX, maxX)
-                                viewportPanY = (viewportPanY + pan.y).coerceIn(-maxY, maxY)
-                            }
+                        awaitEachGesture {
+                            awaitFirstDown(requireUnconsumed = false)
+                            do {
+                                val event = awaitPointerEvent(PointerEventPass.Initial)
+                                val pressedCount = event.changes.count { it.pressed }
+                                if (pressedCount >= 2) {
+                                    val zoomChange = event.calculateZoom()
+                                    val pan = event.calculatePan()
+                                    val nextZoom = (viewportZoom * zoomChange).coerceIn(1f, 4f)
+                                    viewportZoom = nextZoom
+                                    if (nextZoom <= 1f) {
+                                        viewportPanX = 0f
+                                        viewportPanY = 0f
+                                    } else {
+                                        val maxX = size.width * (nextZoom - 1f) / 2f
+                                        val maxY = size.height * (nextZoom - 1f) / 2f
+                                        viewportPanX = (viewportPanX + pan.x).coerceIn(-maxX, maxX)
+                                        viewportPanY = (viewportPanY + pan.y).coerceIn(-maxY, maxY)
+                                    }
+                                    event.changes.forEach { it.consume() }
+                                }
+                            } while (event.changes.any { it.pressed })
                         }
                     }
                     .graphicsLayer {
