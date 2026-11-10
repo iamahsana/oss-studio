@@ -38,6 +38,15 @@ class SceneProjectJsonCodecMigrationTest {
     }
 
     @Test
+    fun schemaV1InfersLandscapeFromActiveScene() {
+        val decoded = SceneProjectJsonCodec.decodeWithMetadata(legacyLandscapeProject())
+
+        assertTrue(decoded.migrated)
+        assertEquals(CanvasOrientation.LANDSCAPE, decoded.project.liveOrientation)
+        assertEquals(CanvasSize.DEFAULT_LANDSCAPE, decoded.project.scenes.single().canvas)
+    }
+
+    @Test
     fun migratedProjectEncodesAsSchemaV2AndDoesNotMigrateAgain() {
         val migrated = SceneProjectJsonCodec.decode(legacyPortraitProject())
         val encoded = SceneProjectJsonCodec.encode(migrated)
@@ -119,6 +128,32 @@ class SceneProjectJsonCodecMigrationTest {
               "settings": {}
             }
           ],
+          "assets": []
+        }
+    """.trimIndent()
+
+    private fun legacyLandscapeProject(): String = """
+        {
+          "schemaVersion": 1,
+          "id": "landscape-project",
+          "name": "Legacy landscape project",
+          "createdAt": 1,
+          "updatedAt": 2,
+          "activeSceneId": "landscape",
+          "version": 1,
+          "scenes": [
+            {
+              "id": "landscape",
+              "projectId": "landscape-project",
+              "name": "Landscape",
+              "w": 1440,
+              "h": 1080,
+              "orientation": "LANDSCAPE",
+              "background": -16777216,
+              "elements": []
+            }
+          ],
+          "sources": [],
           "assets": []
         }
     """.trimIndent()
