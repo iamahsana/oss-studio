@@ -18,6 +18,7 @@ import androidx.activity.compose.setContent
 import com.iamahsana.ossstudio.logging.OssLogger
 import com.iamahsana.ossstudio.logging.OssLogLevel
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -31,6 +32,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -129,24 +131,26 @@ private fun OssApp() {
     MaterialTheme(colorScheme = ossColorScheme(darkTheme, appSettings.accent)) {
         Scaffold(
             bottomBar = {
-                NavigationBar {
-                    AppPage.entries.forEach { item ->
-                        NavigationBarItem(
-                            modifier = if (item == AppPage.SETTINGS) Modifier.testTag("nav-settings") else Modifier,
-                            selected = page == item,
-                            onClick = {
-                                OssLogger.log(
-                                    level = OssLogLevel.INFO,
-                                    subsystem = "OSS/Navigation",
-                                    component = "BottomNavigation",
-                                    event = "page_changed",
-                                    message = "Navigation changed from $selectedPage to ${item.name}"
-                                )
-                                selectedPage = item.name
-                            },
-                            icon = { Text(item.symbol) },
-                            label = { Text(item.label) }
-                        )
+                if (page != AppPage.EDITOR) {
+                    NavigationBar {
+                        AppPage.entries.forEach { item ->
+                            NavigationBarItem(
+                                modifier = if (item == AppPage.SETTINGS) Modifier.testTag("nav-settings") else Modifier,
+                                selected = page == item,
+                                onClick = {
+                                    OssLogger.log(
+                                        level = OssLogLevel.INFO,
+                                        subsystem = "OSS/Navigation",
+                                        component = "BottomNavigation",
+                                        event = "page_changed",
+                                        message = "Navigation changed from $selectedPage to ${item.name}"
+                                    )
+                                    selectedPage = item.name
+                                },
+                                icon = { Text(item.symbol) },
+                                label = { Text(item.label) }
+                            )
+                        }
                     }
                 }
             }
@@ -173,6 +177,7 @@ private fun OssApp() {
                         selectedPage = AppPage.EDITOR.name
                     },
                     onProjectChange = { activeProject = it },
+                    onExitEditor = { selectedPage = AppPage.HOME.name },
                     onProjectDeleted = { deletedId ->
                         if (activeProjectId == deletedId || activeProject?.id == deletedId) {
                             activeProject = null
@@ -187,7 +192,39 @@ private fun OssApp() {
 }
 
 @Composable
-private fun PageContent(page: AppPage, context: Context, activeProject: SceneProject?, activeProjectId: String?, canDeleteActiveProject: () -> Boolean, settingsRepository: AppSettingsRepository, onOpenProject: (SceneProject) -> Unit, onProjectChange: (SceneProject) -> Unit, onProjectDeleted: (String) -> Unit) {
+private fun PageContent(page: AppPage, context: Context, activeProject: SceneProject?, activeProjectId: String?, canDeleteActiveProject: () -> Boolean, settingsRepository: AppSettingsRepository, onOpenProject: (SceneProject) -> Unit, onProjectChange: (SceneProject) -> Unit, onExitEditor: () -> Unit, onProjectDeleted: (String) -> Unit) {
+    if (page == AppPage.EDITOR) {
+        Column(modifier = Modifier.fillMaxSize().testTag("editor-workspace")) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+            ) {
+                TextButton(onClick = onExitEditor) { Text("← Home") }
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                    Text("Scene Editor", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        activeProject?.name ?: "Belum ada project aktif",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            if (activeProject == null) {
+                Box(modifier = Modifier.fillMaxSize().padding(20.dp), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                    Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+                        Text("Pilih atau buat project dari Home terlebih dahulu.")
+                        Text(pageDescription(page), style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            } else {
+                Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                    SceneEditorScreen(context, activeProject, onProjectChange)
+                }
+            }
+        }
+        return
+    }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp).testTag("page-content"),
         verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -219,16 +256,6 @@ private fun PageContent(page: AppPage, context: Context, activeProject: ScenePro
                     Text(pageDescription(page), style = MaterialTheme.typography.bodyMedium)
                 }
             }
-        }
-        if (page == AppPage.EDITOR) {
-            item {
-                if (activeProject == null) {
-                    Text("Pilih atau buat project dari Home terlebih dahulu.")
-                } else {
-                    SceneEditorScreen(context, activeProject, onProjectChange)
-                }
-            }
-            if (activeProject != null) item { ShareScreenPermissionPanel(context) }
         }
         if (page == AppPage.STUDIO) {
             item { RtmpDestinationProfilesScreen(context) }

@@ -41,6 +41,8 @@ class MainActivitySmokeTest {
     fun bottomNavigationOpensEditorPage() {
         composeRule.onNodeWithText("Editor").performClick()
         composeRule.onNodeWithText("Scene Editor").assertIsDisplayed()
+        composeRule.onNodeWithText("← Home").assertIsDisplayed()
+        composeRule.onNodeWithTag("editor-workspace").assertIsDisplayed()
         composeRule.onNodeWithText("Build the scene that will be sent directly to LIVE.")
             .assertIsDisplayed()
     }
@@ -63,7 +65,7 @@ class MainActivitySmokeTest {
         composeRule.waitUntil(15_000) {
             composeRule.onAllNodesWithText("OSS UI Smoke").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithText("OSS UI Smoke").assertIsDisplayed()
+        composeRule.onAllNodesWithText("OSS UI Smoke").assertCountEquals(2)
         composeRule.waitUntil(15_000) {
             composeRule.onAllNodesWithText("Canvas kosong").fetchSemanticsNodes().isNotEmpty()
         }
@@ -217,7 +219,7 @@ class MainActivitySmokeTest {
         }
         composeRule.onNodeWithText("Scene Editor").assertIsDisplayed()
 
-        composeRule.onNodeWithText("Home").performClick()
+        composeRule.onNodeWithText("← Home").performClick()
         composeRule.waitUntil("saved project appears after returning Home", 15_000L) {
             composeRule.onAllNodesWithText("OSS UI Smoke").fetchSemanticsNodes().isNotEmpty()
         }
@@ -278,6 +280,8 @@ class MainActivitySmokeTest {
             composeRule.onAllNodesWithText("Canvas kosong").fetchSemanticsNodes().isNotEmpty()
         }
 
+        // Scene Editor is a dedicated workspace; return Home before using bottom navigation.
+        composeRule.onNodeWithText("← Home").performClick()
         composeRule.onNodeWithText("Studio").performClick()
         scrollUntilVisible("LIVE control")
         composeRule.onNodeWithText("Landscape 16:9").performScrollTo().performClick()
