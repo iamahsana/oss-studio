@@ -21,6 +21,9 @@ import org.junit.Assert.assertTrue
 import org.junit.After
 import org.junit.Rule
 import org.junit.Test
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 
 class MainActivitySmokeTest {
     private var smokeProfileName: String? = null
