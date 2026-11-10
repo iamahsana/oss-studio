@@ -736,8 +736,9 @@ fun SceneEditorScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 OutlinedButton(onClick = {
-                    multiSelectMode = !multiSelectMode
-                    selectedElementIds = if (multiSelectMode) {
+                    val enteringMultiSelect = !multiSelectMode
+                    multiSelectMode = enteringMultiSelect
+                    selectedElementIds = if (enteringMultiSelect) {
                         selectedElementId?.let(::setOf) ?: emptySet()
                     } else {
                         selectedElementIds
