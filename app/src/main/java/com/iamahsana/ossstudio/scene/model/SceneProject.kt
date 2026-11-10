@@ -5,7 +5,7 @@ import java.util.UUID
 enum class CanvasOrientation { PORTRAIT, LANDSCAPE }
 
 enum class SceneSourceType {
-    TEXT, IMAGE, GIF, VIDEO, SHARE_SCREEN, CAMERA, USB_VIDEO
+    TEXT, IMAGE, GIF, VIDEO, SHARE_SCREEN, CAMERA, USB_VIDEO, EXTENSION
 }
 
 data class CanvasSize(
@@ -163,14 +163,30 @@ data class SceneSource(
     val enabled: Boolean = true,
     val assetId: String? = null,
     val text: String? = null,
-    val settings: Map<String, String> = emptyMap()
+    val settings: Map<String, String> = emptyMap(),
+    /** Stable package identifier; null for built-in Core source types. */
+    val extensionId: String? = null,
+    /** Stable namespaced element/source type identifier owned by the extension contract. */
+    val typeId: String? = null
 ) {
     init {
         require(id.isNotBlank())
         require(displayName.isNotBlank())
         require(assetId == null || assetId.isNotBlank())
         require(text == null || type == SceneSourceType.TEXT)
-        require(assetId != null || type in setOf(SceneSourceType.TEXT, SceneSourceType.SHARE_SCREEN, SceneSourceType.CAMERA, SceneSourceType.USB_VIDEO))
+        require(assetId != null || type in setOf(SceneSourceType.TEXT, SceneSourceType.SHARE_SCREEN, SceneSourceType.CAMERA, SceneSourceType.USB_VIDEO, SceneSourceType.EXTENSION))
+        if (type == SceneSourceType.EXTENSION) {
+            require(extensionId != null && NAMESPACED_EXTENSION_ID.matches(extensionId)) {
+                "Extension sources require a valid namespaced extensionId"
+            }
+            require(typeId != null && NAMESPACED_TYPE_ID.matches(typeId)) {
+                "Extension sources require a valid namespaced typeId"
+            }
+        } else {
+            require(extensionId == null && typeId == null) {
+                "Built-in source types cannot carry extension identifiers"
+            }
+        }
     }
 }
 
@@ -200,3 +216,6 @@ private fun isSafeRelativeAssetPath(path: String): Boolean {
     val segments = path.split('/')
     return segments.all { it.isNotBlank() && it != "." && it != ".." }
 }
+
+private val NAMESPACED_EXTENSION_ID = Regex("^[a-z][a-z0-9]*(?:[.-][a-z0-9]+){1,5}$")
+private val NAMESPACED_TYPE_ID = Regex("^[a-z][a-z0-9]*(?:[.-][a-z0-9]+){1,7}$")
