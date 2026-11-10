@@ -611,7 +611,7 @@ fun SceneEditorScreen(
             }
             if (editorPanel == "properties" && selectedElement != null && selectedSource != null) {
                 Surface(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().testTag("scene-properties-panel"),
                     shape = RoundedCornerShape(16.dp),
                     color = MaterialTheme.colorScheme.surfaceVariant
                 ) {
@@ -998,27 +998,3 @@ private fun SceneAssetImage(
         value = withContext(Dispatchers.IO) {
             if (isVideo) decodeVideoPreview(filePath) else decodeEditorBitmap(filePath)
         }
-    }.value
-    if (bitmap != null) {
-        Image(
-            bitmap = bitmap.asImageBitmap(),
-            contentDescription = contentDescription,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize().graphicsLayer {
-                val cropWidth = (crop.right - crop.left).coerceAtLeast(0.001f)
-                val cropHeight = (crop.bottom - crop.top).coerceAtLeast(0.001f)
-                scaleX = 1f / cropWidth
-                scaleY = 1f / cropHeight
-                translationX = ((0.5f - (crop.left + crop.right) / 2f) / cropWidth) * size.width
-                translationY = ((0.5f - (crop.top + crop.bottom) / 2f) / cropHeight) * size.height
-            }
-        )
-    } else {
-        Text("Memuat media…", color = Color.White, textAlign = TextAlign.Center)
-    }
-}
-
-private fun decodeEditorBitmap(path: String): Bitmap? {
-    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-    BitmapFactory.decodeFile(path, bounds)
-    if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
