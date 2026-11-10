@@ -99,9 +99,12 @@ class MainActivitySmokeTest {
         composeRule.waitUntil("saved project appears after returning Home", 15_000L) {
             composeRule.onAllNodesWithText("OSS UI Smoke").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onAllNodesWithText("Hapus")[0].performClick()
+        val smokeContext = ApplicationProvider.getApplicationContext<Context>()
+        val smokeProjectId = SceneProjectStoreProvider.database(smokeContext)
+            .listRecent().first { it.name == "OSS UI Smoke" }.id
+        composeRule.onNodeWithTag("delete-project-$smokeProjectId").performClick()
         composeRule.onNodeWithText("Hapus project?").assertIsDisplayed()
-        composeRule.onNodeWithText("Ya, hapus").performClick()
+        composeRule.onNodeWithTag("confirm-delete-project").performClick()
         composeRule.waitUntil("deleted project disappears from Home list", 15_000L) {
             composeRule.onAllNodesWithText("OSS UI Smoke").fetchSemanticsNodes().isEmpty()
         }
