@@ -1,7 +1,7 @@
 # OSS — Project Data Model
 
 ## Core entities
-- **Project:** stable ID, name, created/updated timestamps, active scene ID, project version. Canvas orientation is not an independent per-project preference when LIVE output settings are global.
+- **Project:** stable ID, name, created/updated timestamps, active scene ID, project version. Canvas orientation is not an independent per-project preference; it is derived from the selected LIVE output configuration.
 - **Scene:** stable ID, project ID, name, canonical logical width/height derived from the selected LIVE orientation, background, ordered element references.
 - **SceneElement:** stable ID, source ID, transform, crop, opacity, visibility, lock state, z-order, grouping metadata.
 - **Source:** stable ID, source type, configuration, asset reference, enabled state, lifecycle state.
