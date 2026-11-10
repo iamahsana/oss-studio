@@ -231,8 +231,8 @@ fun SceneEditorScreen(
     }
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(bottom = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 6.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -314,7 +314,7 @@ fun SceneEditorScreen(
                 TextButton(onClick = { viewportZoom = 1f; viewportPanX = 0f; viewportPanY = 0f }) { Text("Reset") }
             }
             BoxWithConstraints(
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.weight(1f).fillMaxWidth()
                     .aspectRatio(scene.canvas.width.toFloat() / scene.canvas.height.toFloat())
                     .clip(RoundedCornerShape(12.dp))
                     .background(Color(0xFF17191D))
