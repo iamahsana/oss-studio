@@ -93,7 +93,7 @@ class MainActivitySmokeTest {
         composeRule.onNodeWithTag("scene-multiselect-toggle").performScrollTo().assertIsDisplayed().performClick()
         // Verify the mode itself before testing multi-selection state.
         composeRule.onNodeWithText("Selesai memilih").assertIsDisplayed()
-        composeRule.onNodeWithTag("scene-multiselect-status").assertExists().assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-multiselect-status").performScrollTo().assertExists().assertIsDisplayed()
         composeRule.onNodeWithText("Mode pemilihan aktif · Dipilih: 0").assertIsDisplayed()
         assertTrue(composeRule.onAllNodesWithTag("scene-element-item").fetchSemanticsNodes().size == 2)
         composeRule.onAllNodesWithTag("scene-element-item")[0].performScrollTo().performClick()
