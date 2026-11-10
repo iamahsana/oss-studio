@@ -6,6 +6,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.json.JSONObject
 
 @RunWith(AndroidJUnit4::class)
 class SceneProjectJsonCodecTest {
@@ -17,11 +18,28 @@ class SceneProjectJsonCodecTest {
         val p=SceneProject("project","Round trip",100,200,"main",listOf(scene),listOf(source),listOf(asset))
         assertEquals(p,SceneProjectJsonCodec.decode(SceneProjectJsonCodec.encode(p)))
     }
-    @Test fun rejectsUnsupportedDocumentSchemaBeforeDecoding() {
+
+    @Test fun readsLegacySchemaV1AndWritesCurrentSchemaV2() {
+        val project=SceneProject(id="legacy",name="Legacy",createdAtEpochMillis=1,updatedAtEpochMillis=2)
+        val legacy=JSONObject(SceneProjectJsonCodec.encode(project))
+            .put("schemaVersion",1)
+            .toString()
+
+        val decoded=SceneProjectJsonCodec.decode(legacy)
+        val rewritten=JSONObject(SceneProjectJsonCodec.encode(decoded))
+
+        assertEquals(project.id,decoded.id)
+        assertEquals(project.name,decoded.name)
+        assertEquals(2,rewritten.getInt("schemaVersion"))
+    }
+
+    @Test fun rejectsUnsupportedFutureDocumentSchemaBeforeDecoding() {
         val project=SceneProject(id="schema",name="Schema",createdAtEpochMillis=1,updatedAtEpochMillis=1)
-        val encoded=SceneProjectJsonCodec.encode(project).replace("\"schemaVersion\":1","\"schemaVersion\":99")
+        val future=JSONObject(SceneProjectJsonCodec.encode(project))
+            .put("schemaVersion",99)
+            .toString()
         assertThrows(IllegalArgumentException::class.java) {
-            SceneProjectJsonCodec.decode(encoded)
+            SceneProjectJsonCodec.decode(future)
         }
     }
 
@@ -43,5 +61,4 @@ class SceneProjectJsonCodecTest {
             )
         }
     }
-
 }
