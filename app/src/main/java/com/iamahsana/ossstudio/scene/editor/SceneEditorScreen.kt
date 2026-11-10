@@ -298,6 +298,7 @@ fun SceneEditorScreen(
                     .clip(RoundedCornerShape(12.dp))
                     .background(Color(0xFF17191D))
                     .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
+                    .testTag("scene-canvas")
             ) {
                 val scale = constraints.maxWidth.toFloat() / scene.canvas.width.toFloat()
                 val density = LocalDensity.current
