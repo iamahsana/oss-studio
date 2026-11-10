@@ -4,7 +4,9 @@ import android.content.ContentValues
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
+import com.iamahsana.ossstudio.scene.model.CanvasOrientation
 import com.iamahsana.ossstudio.scene.model.SceneProject
+import com.iamahsana.ossstudio.scene.model.SceneProjectOrientationConverter
 
 class SceneProjectDatabase(
     context: Context,
@@ -55,6 +57,49 @@ class SceneProjectDatabase(
             db.endTransaction()
         }
     }
+
+    /**
+     * Atomically converts every scene and stores the previous document as the
+     * recovery snapshot. A failed encode/write rolls the entire transaction back.
+     */
+    fun convertProjectOrientation(projectId: String, orientation: CanvasOrientation): SceneProject {
+        val db = writableDatabase
+        db.beginTransaction()
+        try {
+            val oldDocument = db.query(
+                "projects", arrayOf("document", "updated_at"), "id=?",
+                arrayOf(projectId), null, null, null, "1"
+            ).use { cursor ->
+                check(cursor.moveToFirst()) { "Scene project not found: $projectId" }
+                cursor.getString(0) to cursor.getLong(1)
+            }
+            val original = SceneProjectJsonCodec.decode(oldDocument.first)
+            val convertedGeometry = SceneProjectOrientationConverter.convert(original, orientation)
+            val now = maxOf(System.currentTimeMillis(), original.createdAtEpochMillis)
+            val converted = convertedGeometry.copy(updatedAtEpochMillis = now)
+            val recovery = ContentValues().apply {
+                put("project_id", projectId)
+                put("saved_at", oldDocument.second)
+                put("document", oldDocument.first)
+            }
+            check(db.insertWithOnConflict("project_recovery", null, recovery, SQLiteDatabase.CONFLICT_REPLACE) != -1L) {
+                "Unable to create project recovery snapshot"
+            }
+            val updated = ContentValues().apply {
+                put("name", converted.name)
+                put("updated_at", converted.updatedAtEpochMillis)
+                put("document", SceneProjectJsonCodec.encode(converted))
+            }
+            check(db.update("projects", updated, "id=?", arrayOf(projectId)) == 1) {
+                "Unable to persist converted project"
+            }
+            db.setTransactionSuccessful()
+            return converted
+        } finally {
+            db.endTransaction()
+        }
+    }
+
     fun get(id: String): SceneProject? = readableDatabase.query("projects",arrayOf("document"),"id=?",arrayOf(id),null,null,null,"1").use {
         if (it.moveToFirst()) SceneProjectJsonCodec.decode(it.getString(0)) else null
     }
