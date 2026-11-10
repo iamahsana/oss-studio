@@ -101,7 +101,7 @@ class MainActivitySmokeTest {
         }
         composeRule.onAllNodesWithText("Hapus")[0].performClick()
         composeRule.onNodeWithText("Hapus project?").assertIsDisplayed()
-        composeRule.onAllNodesWithText("Hapus")[1].performClick()
+        composeRule.onNodeWithText("Ya, hapus").performClick()
         composeRule.waitUntil("deleted project disappears from Home list", 15_000L) {
             composeRule.onAllNodesWithText("OSS UI Smoke").fetchSemanticsNodes().isEmpty()
         }
