@@ -77,7 +77,7 @@ class MainActivitySmokeTest {
         composeRule.onNodeWithText("Portrait · 9:16 · 1080 × 1920").assertIsDisplayed()
         composeRule.onNodeWithText("Landscape · 16:9 · 1920 × 1080").performClick()
 
-        composeRule.onNodeWithText("Tambah teks").performScrollTo().performClick()
+        composeRule.onNodeWithTag("scene-add-text").performScrollTo().performClick()
         // The layer row displays the source name ("Text"), not its content
         // ("Teks baru"). Wait for the tagged layer row before checking canvas.
         composeRule.waitUntil("new text source appears in the scene layers", 15_000L) {
