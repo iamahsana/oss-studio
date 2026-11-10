@@ -12,6 +12,7 @@
 - Compose design system: typography, spacing, shapes, components, light/dark themes, configurable accent colors.
 - Navigation and six main areas: Home, Studio, Scene Editor, Audio Mixer, Extension Center, Settings.
 - Room/DataStore persistence, project model, autosave, recovery.
+- Persist the LIVE output orientation preference/configuration so the Scene Editor and encoder can use one authoritative setting.
 - Guest/debug account architecture; no repeated login during debug testing.
 - UI must be usable and coherent, not placeholder-only.
 
