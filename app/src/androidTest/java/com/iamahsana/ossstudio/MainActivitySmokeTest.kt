@@ -75,11 +75,37 @@ class MainActivitySmokeTest {
         composeRule.onNodeWithText("Landscape · 16:9 · 1920 × 1080").performClick()
 
         composeRule.onNodeWithText("Tambah teks").performScrollTo().performClick()
-        composeRule.onNodeWithTag("scene-resize-handle").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-resize-handle", useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithText("Undo").performScrollTo().performClick()
-        assertTrue(composeRule.onAllNodesWithTag("scene-resize-handle").fetchSemanticsNodes().isEmpty())
+        assertTrue(composeRule.onAllNodesWithTag("scene-resize-handle", useUnmergedTree = true).fetchSemanticsNodes().isEmpty())
         composeRule.onNodeWithText("Redo").performScrollTo().performClick()
         composeRule.onNodeWithText("Teks baru").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun deletingActiveProjectDoesNotLeaveStaleEditorProject() {
+        createdSmokeProject = true
+        composeRule.onNodeWithText("Project baru").performClick()
+        composeRule.onNodeWithText("Nama project").performTextInput("OSS UI Smoke")
+        composeRule.onNodeWithText("Buat").performClick()
+        composeRule.waitUntil(15_000) {
+            composeRule.onAllNodesWithText("Canvas kosong").fetchSemanticsNodes().isNotEmpty()
+        }
+
+        composeRule.onNodeWithText("Home").performClick()
+        composeRule.waitUntil(15_000) {
+            composeRule.onAllNodesWithText("OSS UI Smoke").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onAllNodesWithText("Hapus")[0].performClick()
+        composeRule.onNodeWithText("Hapus project?").assertIsDisplayed()
+        composeRule.onAllNodesWithText("Hapus")[1].performClick()
+        composeRule.waitUntil(15_000) {
+            composeRule.onAllNodesWithText("Belum ada project. Buat project pertama untuk mulai menyusun scene.")
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+
+        composeRule.onNodeWithText("Editor").performClick()
+        composeRule.onNodeWithText("Pilih atau buat project dari Home terlebih dahulu.").assertIsDisplayed()
     }
 
     @Test
