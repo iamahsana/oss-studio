@@ -10,6 +10,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 
 @RunWith(AndroidJUnit4::class)
 class SceneProjectDatabaseTest {
@@ -58,6 +59,48 @@ class SceneProjectDatabaseTest {
         } finally {
             db.close()
             context.deleteDatabase("oss_projects_migration_test.db")
+        }
+    }
+
+    @Test fun autosaveReportsPersistenceFailures() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val databaseName = "oss_projects_autosave_failure_test.db"
+        val databasePath = context.getDatabasePath(databaseName)
+        if (databasePath.exists()) databasePath.deleteRecursively()
+        databasePath.parentFile?.mkdirs()
+        assertTrue("test path must be created as a directory", databasePath.mkdir())
+
+        val database = SceneProjectDatabase(context, databaseName)
+        val repository = SceneProjectRepository(database)
+        val errorCount = AtomicInteger()
+        val debouncedFailure = CountDownLatch(1)
+        val closeFailure = CountDownLatch(1)
+        val autosave = SceneProjectAutosave(
+            repository = repository,
+            debounceMillis = 50L,
+            onError = {
+                if (errorCount.incrementAndGet() == 1) debouncedFailure.countDown()
+                else closeFailure.countDown()
+            }
+        )
+        try {
+            autosave.schedule(
+                SceneProject(
+                    id = "autosave-failure-test",
+                    name = "Must report failed save",
+                    createdAtEpochMillis = 1L,
+                    updatedAtEpochMillis = 1L
+                )
+            )
+            assertTrue("debounced persistence failure must reach onError", debouncedFailure.await(5, TimeUnit.SECONDS))
+            autosave.close()
+            assertTrue("close-time flush failure must also reach onError", closeFailure.await(5, TimeUnit.SECONDS))
+        } finally {
+            autosave.close()
+            repository.close()
+            database.close()
+            databasePath.deleteRecursively()
+            context.deleteDatabase(databaseName)
         }
     }
 
