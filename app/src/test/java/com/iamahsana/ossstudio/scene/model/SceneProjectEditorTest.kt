@@ -243,6 +243,39 @@ class SceneProjectEditorTest {
     }
 
     @Test
+    fun groupingRejectsAGroupIdAlreadyUsedByAnotherGroup() {
+        val original = project()
+        val withThird = SceneProjectEditor.addElement(original, "scene", "a", 20L)
+        val withFourth = SceneProjectEditor.addElement(withThird, "scene", "b", 30L)
+        val grouped = SceneProjectEditor.groupElements(
+            withFourth, "scene", setOf("first", "second"), 40L, groupId = "pair"
+        )
+        val remainingIds = grouped.scenes.single().elements
+            .filter { it.id != "first" && it.id != "second" }
+            .map { it.id }
+            .toSet()
+        assertThrows(IllegalArgumentException::class.java) {
+            SceneProjectEditor.groupElements(grouped, "scene", remainingIds, 50L, groupId = "pair")
+        }
+    }
+
+    @Test
+    fun translatingGroupSafelyNoOpsWhenAnElementCannotFitCanvas() {
+        val original = project()
+        val oversizedFirst = SceneProjectEditor.updateTransform(
+            original, "scene", "first", ElementTransform(width = 2_000f, height = 100f), 20L
+        )
+        val oversizedBoth = SceneProjectEditor.updateTransform(
+            oversizedFirst, "scene", "second", ElementTransform(width = 2_000f, height = 100f), 30L
+        )
+        val grouped = SceneProjectEditor.groupElements(
+            oversizedBoth, "scene", setOf("first", "second"), 40L, groupId = "oversized"
+        )
+        val moved = SceneProjectEditor.translateGroup(grouped, "scene", "oversized", 20f, 20f, 50L)
+        assertEquals(grouped, moved)
+    }
+
+    @Test
     fun ungroupingClearsOnlyTheRequestedGroup() {
         val original = project()
         val grouped = SceneProjectEditor.groupElements(
