@@ -222,6 +222,7 @@ fun SceneEditorScreen(
             displayName = when (type) {
                 SceneSourceType.TEXT -> "Text"
                 SceneSourceType.SHARE_SCREEN -> "Share Screen"
+                SceneSourceType.EXTENSION -> "Extension element"
                 else -> type.name
             },
             text = text
@@ -509,6 +510,7 @@ fun SceneEditorScreen(
                             SceneSourceType.VIDEO -> "Video"
                             SceneSourceType.CAMERA -> "Camera"
                             SceneSourceType.USB_VIDEO -> "USB Video"
+                            SceneSourceType.EXTENSION -> source.displayName
                         }
                         if (source.type == SceneSourceType.IMAGE || source.type == SceneSourceType.GIF || source.type == SceneSourceType.VIDEO) {
                             val asset = currentProject.assets.firstOrNull { it.id == source.assetId }

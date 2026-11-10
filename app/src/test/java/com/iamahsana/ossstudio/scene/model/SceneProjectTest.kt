@@ -135,6 +135,43 @@ class SceneProjectTest {
     }
 
     @Test
+    fun extensionSourcesRequireStableNamespacedIdentifiers() {
+        val source = SceneSource(
+            type = SceneSourceType.EXTENSION,
+            displayName = "Community Badge",
+            extensionId = "com.community.badges",
+            typeId = "com.community.badges.animated-badge",
+            settings = mapOf("preset" to "silver")
+        )
+        assertEquals("com.community.badges", source.extensionId)
+        assertEquals("com.community.badges.animated-badge", source.typeId)
+
+        assertThrows(IllegalArgumentException::class.java) {
+            SceneSource(
+                type = SceneSourceType.EXTENSION,
+                displayName = "Missing identity",
+                extensionId = "com.community.badges"
+            )
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            SceneSource(
+                type = SceneSourceType.EXTENSION,
+                displayName = "Invalid identity",
+                extensionId = "../bad",
+                typeId = "community.badge"
+            )
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            SceneSource(
+                type = SceneSourceType.TEXT,
+                displayName = "Built-in with extension identity",
+                extensionId = "com.community.badges",
+                typeId = "com.community.badges.badge"
+            )
+        }
+    }
+
+    @Test
     fun assetPathsRejectTraversalAndPlatformSpecificAbsolutePaths() {
         val invalidPaths = listOf("../outside.png", "media/../outside.png", "/absolute.png", "C:/outside.png", "media\\photo.png", "media//photo.png", "media/./photo.png")
         invalidPaths.forEach { path ->
