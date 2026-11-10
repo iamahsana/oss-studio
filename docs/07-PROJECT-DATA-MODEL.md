@@ -1,8 +1,8 @@
 # OSS — Project Data Model
 
 ## Core entities
-- **Project:** stable ID, name, created/updated timestamps, active scene ID, canvas defaults, project version.
-- **Scene:** stable ID, project ID, name, logical width/height, background, ordered element references.
+- **Project:** stable ID, name, created/updated timestamps, active scene ID, project version. Canvas orientation is not an independent per-project preference when LIVE output settings are global.
+- **Scene:** stable ID, project ID, name, canonical logical width/height derived from the selected LIVE orientation, background, ordered element references.
 - **SceneElement:** stable ID, source ID, transform, crop, opacity, visibility, lock state, z-order, grouping metadata.
 - **Source:** stable ID, source type, configuration, asset reference, enabled state, lifecycle state.
 - **Asset:** stable ID, local URI/path, MIME type, size, checksum, dimensions/duration where applicable, provenance/license metadata.
@@ -10,7 +10,7 @@
 - **ExtensionRecord:** extension ID, version, source/provenance, license, declared capabilities, permissions, compatibility, enabled state.
 
 ## Geometry
-Persist scene geometry in logical canvas coordinates, not screen pixels. Transform operations must remain stable when the editor rotates or resizes. Portrait and Landscape are explicit canvas modes. Any orientation conversion is an explicit operation that updates geometry predictably and can be undone.
+Persist scene geometry in logical canvas coordinates, not screen pixels. Transform operations must remain stable when the editor rotates, zooms, pans, or resizes. The selected LIVE output orientation is authoritative for all scene canvases: Portrait = 1080×1920 logical reference size; Landscape = 1920×1080. Do not persist arbitrary aspect ratios or user-defined canvas dimensions in the initial release. An orientation change is an explicit project-wide operation performed only while LIVE is stopped; convert element positions and sizes proportionally without distortion, preserve layer order/crop/rotation/group relationships, clamp only when required by bounds, and provide undo plus last-known-good recovery. All scenes must be synchronized atomically.
 
 ## Persistence strategy
 Current implementation: SQLiteOpenHelper stores versioned project documents and indexed project summaries in `oss_projects.db`; writes are transactional and version 2 migrates the recovery table for databases created by version 1. The repository serializes database work on a single I/O executor. DataStore remains a candidate for global preferences. Store media assets as managed files with references from the database. Use explicit transactions and forward-only migrations for structural schema changes.
