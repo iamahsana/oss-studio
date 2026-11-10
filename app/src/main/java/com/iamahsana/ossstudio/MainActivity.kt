@@ -159,7 +159,7 @@ private fun OssApp() {
                     },
                     onProjectChange = { activeProject = it },
                     onProjectDeleted = { deletedId ->
-                        if (activeProject?.id == deletedId) {
+                        if (activeProjectId == deletedId || activeProject?.id == deletedId) {
                             activeProject = null
                             activeProjectId = null
                             selectedPage = AppPage.HOME.name
