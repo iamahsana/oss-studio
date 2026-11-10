@@ -90,19 +90,19 @@ class MainActivitySmokeTest {
         composeRule.onNodeWithText("Buat").performClick()
         // ProjectHomeScreen invokes onOpenProject only after the database save succeeds.
         // Wait for the asynchronous repository callback, then assert the destination page.
-        composeRule.waitUntil(15_000, "newly created project opens Scene Editor") {
+        composeRule.waitUntil("newly created project opens Scene Editor", 15_000L) {
             composeRule.onAllNodesWithText("Scene Editor").fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithText("Scene Editor").assertIsDisplayed()
 
         composeRule.onNodeWithText("Home").performClick()
-        composeRule.waitUntil(15_000, "saved project appears after returning Home") {
+        composeRule.waitUntil("saved project appears after returning Home", 15_000L) {
             composeRule.onAllNodesWithText("OSS UI Smoke").fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onAllNodesWithText("Hapus")[0].performClick()
         composeRule.onNodeWithText("Hapus project?").assertIsDisplayed()
         composeRule.onAllNodesWithText("Hapus")[1].performClick()
-        composeRule.waitUntil(15_000, "deleted project disappears from Home list") {
+        composeRule.waitUntil("deleted project disappears from Home list", 15_000L) {
             composeRule.onAllNodesWithText("OSS UI Smoke").fetchSemanticsNodes().isEmpty()
         }
 
