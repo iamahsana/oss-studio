@@ -15,6 +15,7 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.iamahsana.ossstudio.stream.rtmp.RtmpDestinationProfileStore
 import com.iamahsana.ossstudio.scene.persistence.SceneProjectStoreProvider
+import com.iamahsana.ossstudio.scene.persistence.SceneProjectRepository
 import com.iamahsana.ossstudio.scene.persistence.SceneAssetStorage
 import org.junit.Assert.assertTrue
 import org.junit.After
@@ -177,15 +178,30 @@ class MainActivitySmokeTest {
     fun removeOnlySmokeProject() {
         if (!createdSmokeProject) return
         val context = ApplicationProvider.getApplicationContext<Context>()
-        runCatching {
-            val database = SceneProjectStoreProvider.database(context)
-            database.listRecent().filter { it.name == "OSS UI Smoke" }.forEach { summary ->
-                database.get(summary.id)?.assets?.forEach { asset ->
-                    runCatching { SceneAssetStorage.deleteAsset(context, asset) }
+        // Leave the editor first so its close-time autosave is enqueued before cleanup.
+        runCatching { composeRule.onNodeWithText("Home").performClick() }
+        val repository = SceneProjectRepository(SceneProjectStoreProvider.database(context))
+        val finished = CountDownLatch(1)
+        repository.recent { result ->
+            val targets = result.getOrNull().orEmpty().filter { it.name == "OSS UI Smoke" }
+            if (targets.isEmpty()) {
+                finished.countDown()
+            } else {
+                val remaining = AtomicInteger(targets.size)
+                targets.forEach { summary ->
+                    repository.load(summary.id) { loaded ->
+                        loaded.getOrNull()?.assets?.forEach { asset ->
+                            runCatching { SceneAssetStorage.deleteAsset(context, asset) }
+                        }
+                        repository.delete(summary.id) {
+                            if (remaining.decrementAndGet() == 0) finished.countDown()
+                        }
+                    }
                 }
-                database.delete(summary.id)
             }
         }
+        assertTrue("smoke project cleanup must finish after pending autosave", finished.await(10, TimeUnit.SECONDS))
+        repository.close()
     }
 
 }
