@@ -28,6 +28,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.testTag
 import com.iamahsana.ossstudio.scene.model.SceneProject
 import com.iamahsana.ossstudio.scene.model.SceneProjectFactory
 import java.text.DateFormat
@@ -113,7 +114,7 @@ fun ProjectHomeScreen(
                         Text("Diperbarui ${DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(project.updatedAtEpochMillis))}", style = MaterialTheme.typography.bodySmall)
                     }
                 }
-                TextButton(enabled = !working, onClick = {
+                TextButton(modifier = Modifier.testTag("delete-project-${project.id}"), enabled = !working, onClick = {
                     if (project.id == activeProjectId && !canDeleteActiveProject()) {
                         errorMessage = "Hentikan atau selesaikan cleanup LIVE sebelum menghapus project aktif."
                     } else {
@@ -133,7 +134,7 @@ fun ProjectHomeScreen(
             title = { Text("Hapus project?") },
             text = { Text("Project ${target.name}, seluruh scene, dan file medianya akan dihapus dari perangkat ini.") },
             confirmButton = {
-                TextButton(enabled = !working, onClick = {
+                TextButton(modifier = Modifier.testTag("confirm-delete-project"), enabled = !working, onClick = {
                     if (target.id == activeProjectId && !canDeleteActiveProject()) {
                         working = false
                         projectPendingDelete = null
