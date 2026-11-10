@@ -78,14 +78,14 @@ class MainActivitySmokeTest {
         // Select from the layer list explicitly so the test validates resize-handle
         // visibility for a selected element, independent of add-action focus timing.
         composeRule.onAllNodesWithTag("scene-element-item")[0].performScrollTo().performClick()
-        composeRule.onNodeWithTag("scene-resize-handle").assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-resize-handle", useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithText("Undo").performScrollTo().performClick()
-        assertTrue(composeRule.onAllNodesWithTag("scene-resize-handle").fetchSemanticsNodes().isEmpty())
+        assertTrue(composeRule.onAllNodesWithTag("scene-resize-handle", useUnmergedTree = true).fetchSemanticsNodes().isEmpty())
         composeRule.onNodeWithText("Redo").performScrollTo().performClick()
         composeRule.onNodeWithText("Teks baru").performScrollTo().assertIsDisplayed()
         // Undo clears the selection when the element is absent; reselect it after redo.
         composeRule.onAllNodesWithTag("scene-element-item")[0].performScrollTo().performClick()
-        composeRule.onNodeWithTag("scene-resize-handle").assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-resize-handle", useUnmergedTree = true).assertIsDisplayed()
 
         composeRule.onNodeWithText("Tambah teks").performScrollTo().performClick()
         composeRule.onNodeWithText("Pilih beberapa").performScrollTo().performClick()
