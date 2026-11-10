@@ -575,18 +575,34 @@ fun SceneEditorScreen(
                 style = MaterialTheme.typography.bodySmall
             )
             mediaStatus?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
-            // Keep the primary add-text action outside the horizontal scroller.
-            // This makes it reliably reachable by touch and accessibility services.
-            Button(
-                modifier = Modifier.fillMaxWidth().testTag("scene-add-text"),
-                onClick = { addSource(SceneSourceType.TEXT, "Teks baru") }
-            ) { Text("Tambah teks") }
-            Row(
-                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            Surface(
+                modifier = Modifier.fillMaxWidth().testTag("scene-element-insertion-shelf"),
+                shape = RoundedCornerShape(14.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant
             ) {
-                OutlinedButton(onClick = { mediaPicker.launch(arrayOf("image/*", "video/*")) }) { Text("Tambah media") }
-                OutlinedButton(onClick = { addSource(SceneSourceType.SHARE_SCREEN) }) { Text("Share Screen") }
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text("Tambah elemen", style = MaterialTheme.typography.titleSmall)
+                    Button(
+                        modifier = Modifier.fillMaxWidth().testTag("scene-add-text"),
+                        onClick = { addSource(SceneSourceType.TEXT, "Teks baru") }
+                    ) { Text("Tambah teks") }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            modifier = Modifier.weight(1f).testTag("scene-add-media"),
+                            onClick = { mediaPicker.launch(arrayOf("image/*", "video/*")) }
+                        ) { Text("Media") }
+                        OutlinedButton(
+                            modifier = Modifier.weight(1f).testTag("scene-add-share-screen"),
+                            onClick = { addSource(SceneSourceType.SHARE_SCREEN) }
+                        ) { Text("Share Screen") }
+                    }
+                }
             }
             Surface(
                 modifier = Modifier.fillMaxWidth(),
