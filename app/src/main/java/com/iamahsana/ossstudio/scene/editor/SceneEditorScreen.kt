@@ -314,7 +314,7 @@ fun SceneEditorScreen(
                 TextButton(onClick = { viewportZoom = 1f; viewportPanX = 0f; viewportPanY = 0f }) { Text("Reset") }
             }
             BoxWithConstraints(
-                modifier = Modifier.weight(1f).fillMaxWidth()
+                modifier = Modifier.fillMaxWidth()
                     .aspectRatio(scene.canvas.width.toFloat() / scene.canvas.height.toFloat())
                     .clip(RoundedCornerShape(12.dp))
                     .background(Color(0xFF17191D))
