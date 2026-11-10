@@ -257,16 +257,6 @@ private fun PageContent(page: AppPage, context: Context, activeProject: ScenePro
                 }
             }
         }
-        if (page == AppPage.EDITOR) {
-            item {
-                if (activeProject == null) {
-                    Text("Pilih atau buat project dari Home terlebih dahulu.")
-                } else {
-                    SceneEditorScreen(context, activeProject, onProjectChange)
-                }
-            }
-            if (activeProject != null) item { ShareScreenPermissionPanel(context) }
-        }
         if (page == AppPage.STUDIO) {
             item { RtmpDestinationProfilesScreen(context) }
             item { ShareScreenPermissionPanel(context) }
