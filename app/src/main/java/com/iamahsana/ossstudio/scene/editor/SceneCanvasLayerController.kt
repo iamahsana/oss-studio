@@ -378,33 +378,33 @@ class SceneCanvasLayerController(
         opacity: Float,
         scaleY: Float
     ) {
-        val style = SceneTextStyle.fromSettings(source.settings)
-        val size = style.fontSize * scaleY
+        val textStyle = SceneTextStyle.fromSettings(source.settings)
+        val size = textStyle.fontSize * scaleY
         val typefaceStyle = when {
-            style.bold && style.italic -> Typeface.BOLD_ITALIC
-            style.bold -> Typeface.BOLD
-            style.italic -> Typeface.ITALIC
+            textStyle.bold && textStyle.italic -> Typeface.BOLD_ITALIC
+            textStyle.bold -> Typeface.BOLD
+            textStyle.italic -> Typeface.ITALIC
             else -> Typeface.NORMAL
         }
-        val alignment = when (style.align) {
+        val alignment = when (textStyle.align) {
             SceneTextStyle.Alignment.LEFT -> Paint.Align.LEFT
             SceneTextStyle.Alignment.RIGHT -> Paint.Align.RIGHT
             SceneTextStyle.Alignment.CENTER -> Paint.Align.CENTER
         }
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = runCatching { Color.parseColor(style.color) }.getOrDefault(Color.WHITE)
+            color = runCatching { Color.parseColor(textStyle.color) }.getOrDefault(Color.WHITE)
             textSize = size.coerceIn(8f, 512f)
-            typeface = Typeface.create(style.fontFamily, typefaceStyle)
+            typeface = Typeface.create(textStyle.fontFamily, typefaceStyle)
             textAlign = alignment
             alpha = (opacity * 255f).toInt().coerceIn(0, 255)
-            letterSpacing = style.letterSpacing
-            isUnderlineText = style.underline
-            isStrikeThruText = style.strikethrough
+            letterSpacing = textStyle.letterSpacing
+            isUnderlineText = textStyle.underline
+            isStrikeThruText = textStyle.strikethrough
         }
         val text = source.text.orEmpty()
         val lines = wrapText(text, paint, bounds.width().coerceAtLeast(1f))
         val metrics = paint.fontMetrics
-        val lineHeight = (metrics.descent - metrics.ascent) * style.lineSpacing
+        val lineHeight = (metrics.descent - metrics.ascent) * textStyle.lineSpacing
         val totalHeight = lineHeight * lines.size
         var baseline = (bounds.height() - totalHeight) / 2f - metrics.ascent
         val x = when (alignment) {
@@ -413,24 +413,24 @@ class SceneCanvasLayerController(
             else -> bounds.width() / 2f
         }
         lines.forEach { line ->
-            if (style.shadowColor != null && style.shadowRadius > 0f) {
+            if (textStyle.shadowColor != null && textStyle.shadowRadius > 0f) {
                 val shadow = Paint(paint).apply {
-                    color = runCatching { Color.parseColor(style.shadowColor) }.getOrDefault(Color.BLACK)
+                    color = runCatching { Color.parseColor(textStyle.shadowColor) }.getOrDefault(Color.BLACK)
                     setShadowLayer(
-                        style.shadowRadius * scaleY,
-                        style.shadowDx * scaleY,
-                        style.shadowDy * scaleY,
+                        textStyle.shadowRadius * scaleY,
+                        textStyle.shadowDx * scaleY,
+                        textStyle.shadowDy * scaleY,
                         color
                     )
                 }
                 canvas.drawText(line, x, baseline, shadow)
             }
-            if (style.outlineColor != null && style.outlineWidth > 0f) {
+            if (textStyle.outlineColor != null && textStyle.outlineWidth > 0f) {
                 val outline = Paint(paint).apply {
-                    color = runCatching { Color.parseColor(style.outlineColor) }.getOrDefault(Color.BLACK)
+                    color = runCatching { Color.parseColor(textStyle.outlineColor) }.getOrDefault(Color.BLACK)
                     style = Paint.Style.STROKE
                     strokeJoin = Paint.Join.ROUND
-                    strokeWidth = (style.outlineWidth * scaleY).coerceAtMost(24f)
+                    strokeWidth = (textStyle.outlineWidth * scaleY).coerceAtMost(24f)
                 }
                 canvas.drawText(line, x, baseline, outline)
             }
