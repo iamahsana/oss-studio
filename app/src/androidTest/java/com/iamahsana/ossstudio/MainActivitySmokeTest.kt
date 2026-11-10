@@ -89,7 +89,10 @@ class MainActivitySmokeTest {
         composeRule.onNodeWithText("Nama project").performTextInput("OSS UI Smoke")
         composeRule.onNodeWithText("Buat").performClick()
         // ProjectHomeScreen invokes onOpenProject only after the database save succeeds.
-        // Assert navigation rather than waiting for an off-screen canvas node in the LazyColumn.
+        // Wait for the asynchronous repository callback, then assert the destination page.
+        composeRule.waitUntil(15_000) {
+            composeRule.onAllNodesWithText("Scene Editor").fetchSemanticsNodes().isNotEmpty()
+        }
         composeRule.onNodeWithText("Scene Editor").assertIsDisplayed()
 
         composeRule.onNodeWithText("Home").performClick()
