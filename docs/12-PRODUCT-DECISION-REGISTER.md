@@ -11,6 +11,7 @@ Status: normative product baseline. This register records decisions that future 
 | P-003 | The normal development and testing workflow must be practical from an Android phone, using GitHub Actions for builds and artifacts. | Approved |
 | P-004 | OSS is intended to be free and open source. The exact project license must be selected only after compatibility and obligation review; do not assume a license without documenting the decision. | Direction approved; license selection pending |
 | P-005 | OSS is a lightweight, performance-first mobile streaming studio, not a desktop OBS clone. | Approved |
+| P-006 | Use `.osspack` exclusively for installable declarative extensions and `.ossproject` for editable project interchange archives; the two formats must never share an extension. | Approved engineering convention |
 
 ## LIVE and streaming behavior
 
