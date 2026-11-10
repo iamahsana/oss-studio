@@ -90,8 +90,9 @@ fun StudioLiveControlScreen(
         LiveSessionController.State.IDLE,
         LiveSessionController.State.STOPPED
     ) || orientationWorking
-    val canStart = project != null && activeScene != null && enabledProfiles.isNotEmpty() &&
-        profileError == null && projectionReady && !busy &&
+    val hasSingleCanonicalOrientation = portraitIsApplied || landscapeIsApplied
+    val canStart = project != null && activeScene != null && hasSingleCanonicalOrientation &&
+        enabledProfiles.isNotEmpty() && profileError == null && projectionReady && !busy &&
         sessionState in setOf(
             LiveSessionController.State.IDLE,
             LiveSessionController.State.STOPPED,
@@ -146,6 +147,13 @@ fun StudioLiveControlScreen(
             }
             orientationMessage?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
 
+            if (project != null && activeScene != null && !hasSingleCanonicalOrientation) {
+                Text(
+                    "Sebelum LIVE, pilih Portrait 9:16 atau Landscape 16:9. Semua scene harus memakai satu format output yang sama.",
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
             Text("Tujuan aktif: ${enabledProfiles.size}", style = MaterialTheme.typography.bodySmall)
             profileError?.let { Text("Vault RTMP: $it", color = MaterialTheme.colorScheme.error) }
             if (requiresProjection && !projectionReady) {
