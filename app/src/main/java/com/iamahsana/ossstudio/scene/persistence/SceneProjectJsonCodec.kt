@@ -4,9 +4,16 @@ import com.iamahsana.ossstudio.scene.model.*
 import org.json.JSONArray
 import org.json.JSONObject
 
+/**
+ * JSON persistence codec. Schema v1 remains readable; all subsequent writes
+ * use v2 so old projects are upgraded only after a successful decode.
+ */
 object SceneProjectJsonCodec {
+    private const val CURRENT_SCHEMA_VERSION = 2
+    private const val MIN_SUPPORTED_SCHEMA_VERSION = 1
+
     fun encode(p: SceneProject): String = JSONObject().apply {
-        put("schemaVersion", SceneProject.CURRENT_VERSION); put("id",p.id); put("name",p.name)
+        put("schemaVersion", CURRENT_SCHEMA_VERSION); put("id",p.id); put("name",p.name)
         put("createdAt",p.createdAtEpochMillis); put("updatedAt",p.updatedAtEpochMillis)
         put("activeSceneId",p.activeSceneId ?: JSONObject.NULL); put("version",p.version)
         put("scenes",JSONArray().apply { p.scenes.forEach { put(sceneToJson(it)) } })
@@ -16,7 +23,10 @@ object SceneProjectJsonCodec {
 
     fun decode(json: String): SceneProject {
         val o=JSONObject(json)
-        require(o.getInt("schemaVersion")==SceneProject.CURRENT_VERSION) { "Unsupported project schema" }
+        val schemaVersion = o.getInt("schemaVersion")
+        require(schemaVersion in MIN_SUPPORTED_SCHEMA_VERSION..CURRENT_SCHEMA_VERSION) {
+            "Unsupported project schema: $schemaVersion"
+        }
         val active=o.opt("activeSceneId").nullableString()
         return SceneProject(o.getString("id"),o.getString("name"),o.getLong("createdAt"),o.getLong("updatedAt"),
             active, o.getJSONArray("scenes").objects(::sceneFromJson),
