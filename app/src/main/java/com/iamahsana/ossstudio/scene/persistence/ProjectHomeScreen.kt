@@ -173,7 +173,7 @@ fun ProjectHomeScreen(
                             }
                         }
                     }
-                }) { Text("Hapus") }
+                }) { Text("Ya, hapus") }
             },
             dismissButton = {
                 TextButton(enabled = !working, onClick = { projectPendingDelete = null }) { Text("Batal") }
