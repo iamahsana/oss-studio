@@ -277,6 +277,33 @@ class MainActivitySmokeTest {
     }
 
     @Test
+    fun studioOrientationChangeConvertsProjectAndEditorCanvasTogether() {
+        createdSmokeProject = true
+        composeRule.onNodeWithText("Project baru").performClick()
+        composeRule.onNodeWithText("Nama project").performTextInput("OSS UI Smoke")
+        composeRule.onNodeWithText("Buat").performClick()
+        composeRule.waitUntil("new project opens editor", 15_000L) {
+            composeRule.onAllNodesWithText("Canvas kosong").fetchSemanticsNodes().isNotEmpty()
+        }
+
+        composeRule.onNodeWithText("Studio").performClick()
+        scrollUntilVisible("LIVE control")
+        composeRule.onNodeWithText("Landscape 16:9").performScrollTo().performClick()
+        composeRule.onNodeWithText("Ubah orientasi project?").assertIsDisplayed()
+        composeRule.onNodeWithText("Konversi project").performClick()
+        composeRule.waitUntil("orientation conversion completes", 15_000L) {
+            composeRule.onAllNodesWithText("Orientasi project berhasil diubah ke Landscape 16:9.")
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+
+        composeRule.onNodeWithText("Editor").performClick()
+        composeRule.waitUntil("editor receives converted project", 15_000L) {
+            composeRule.onAllNodesWithTag("scene-canvas-dimensions").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithTag("scene-canvas-dimensions").assert(hasText("1920 × 1080 px"))
+    }
+
+    @Test
     fun studioShowsLiveSessionControls() {
         composeRule.onNodeWithText("Studio").performClick()
         composeRule.onNodeWithText("LIVE control center").assertIsDisplayed()
