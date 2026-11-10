@@ -90,6 +90,12 @@ fun StudioLiveControlScreen(
         LiveSessionController.State.IDLE,
         LiveSessionController.State.STOPPED
     ) || orientationWorking
+    val portraitCanvas = CanvasSize.DEFAULT_PORTRAIT
+    val landscapeCanvas = CanvasSize.DEFAULT_LANDSCAPE
+    val portraitIsApplied = project?.scenes?.isNotEmpty() == true &&
+        project.scenes.all { it.canvas == portraitCanvas }
+    val landscapeIsApplied = project?.scenes?.isNotEmpty() == true &&
+        project.scenes.all { it.canvas == landscapeCanvas }
     val hasSingleCanonicalOrientation = portraitIsApplied || landscapeIsApplied
     val canStart = project != null && activeScene != null && hasSingleCanonicalOrientation &&
         enabledProfiles.isNotEmpty() && profileError == null && projectionReady && !busy &&
@@ -98,12 +104,6 @@ fun StudioLiveControlScreen(
             LiveSessionController.State.STOPPED,
             LiveSessionController.State.FAILED
         )
-    val portraitCanvas = CanvasSize.DEFAULT_PORTRAIT
-    val landscapeCanvas = CanvasSize.DEFAULT_LANDSCAPE
-    val portraitIsApplied = project?.scenes?.isNotEmpty() == true &&
-        project.scenes.all { it.canvas == portraitCanvas }
-    val landscapeIsApplied = project?.scenes?.isNotEmpty() == true &&
-        project.scenes.all { it.canvas == landscapeCanvas }
 
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
