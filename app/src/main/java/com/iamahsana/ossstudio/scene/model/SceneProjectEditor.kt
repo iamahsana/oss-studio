@@ -285,6 +285,9 @@ object SceneProjectEditor {
         val sceneIndex = project.scenes.indexOfFirst { it.id == sceneId }
         require(sceneIndex >= 0) { "Scene does not exist" }
         val scene = project.scenes[sceneIndex]
+        require(scene.elements.none { it.groupId == groupId }) {
+            "Group ID is already in use in this scene"
+        }
         require(scene.elements.count { it.id in elementIds } == elementIds.size) {
             "Every selected element must exist in the scene"
         }
@@ -323,6 +326,9 @@ object SceneProjectEditor {
         val maxDeltaX = movable.minOf { scene.canvas.width - it.transform.x - it.transform.width }
         val minDeltaY = movable.maxOf { -it.transform.y }
         val maxDeltaY = movable.minOf { scene.canvas.height - it.transform.y - it.transform.height }
+        // A scene may have been resized after its elements were positioned. If a
+        // member is larger than the canvas, no shared translation can fit the group.
+        if (minDeltaX > maxDeltaX || minDeltaY > maxDeltaY) return project
         val boundedX = deltaX.coerceIn(minDeltaX, maxDeltaX)
         val boundedY = deltaY.coerceIn(minDeltaY, maxDeltaY)
         val updatedScene = scene.copy(
