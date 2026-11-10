@@ -231,6 +231,10 @@ fun SceneEditorScreen(
         val withSource = SceneProjectEditor.addSource(currentProject, source, timestamp)
         val updated = SceneProjectEditor.addElement(withSource, activeScene.id, source.id, timestamp)
         selectedElementId = updated.scenes.first { it.id == activeScene.id }.elements.last().id
+        selectedElementIds = setOf(selectedElementId!!)
+        // Adding an element should always return the workspace to its layer
+        // list so the new object is immediately discoverable and editable.
+        editorPanel = "layers"
         editingText = text.orEmpty()
         applyProject(updated)
     }
