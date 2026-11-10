@@ -231,8 +231,8 @@ fun SceneEditorScreen(
     }
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(bottom = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 6.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
