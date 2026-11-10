@@ -574,11 +574,16 @@ fun SceneEditorScreen(
                 style = MaterialTheme.typography.bodySmall
             )
             mediaStatus?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+            // Keep the primary add-text action outside the horizontal scroller.
+            // This makes it reliably reachable by touch and accessibility services.
+            Button(
+                modifier = Modifier.fillMaxWidth().testTag("scene-add-text"),
+                onClick = { addSource(SceneSourceType.TEXT, "Teks baru") }
+            ) { Text("Tambah teks") }
             Row(
                 modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Button(onClick = { addSource(SceneSourceType.TEXT, "Teks baru") }) { Text("Tambah teks") }
                 OutlinedButton(onClick = { mediaPicker.launch(arrayOf("image/*", "video/*")) }) { Text("Tambah media") }
                 OutlinedButton(onClick = { addSource(SceneSourceType.SHARE_SCREEN) }) { Text("Share Screen") }
             }
