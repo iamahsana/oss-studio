@@ -765,7 +765,11 @@ fun SceneEditorScreen(
                     shape = RoundedCornerShape(16.dp),
                     color = MaterialTheme.colorScheme.surfaceVariant
                 ) {
-                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(
+                        Modifier.fillMaxWidth().heightIn(max = 320.dp)
+                            .verticalScroll(rememberScrollState()).padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
                         Text("Elemen dipilih: ${selectedSource.displayName}", style = MaterialTheme.typography.titleSmall)
                         val elementTransform = selectedElement.transform
                         Text("Posisi horizontal: ${elementTransform.x.toInt()} px")
@@ -1110,7 +1114,8 @@ fun SceneEditorScreen(
                 )
             }
             Column(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().heightIn(max = 280.dp)
+                    .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 scene.elements.sortedBy { it.zIndex }.forEach { element ->
