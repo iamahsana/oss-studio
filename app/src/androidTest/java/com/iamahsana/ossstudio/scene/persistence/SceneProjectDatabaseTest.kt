@@ -61,6 +61,42 @@ class SceneProjectDatabaseTest {
         }
     }
 
+    @Test fun autosaveReportsPersistenceFailures() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val databaseName = "oss_projects_autosave_failure_test.db"
+        val databasePath = context.getDatabasePath(databaseName)
+        if (databasePath.exists()) databasePath.deleteRecursively()
+        assertTrue("test path must be created as a directory", databasePath.mkdir())
+
+        val database = SceneProjectDatabase(context, databaseName)
+        val repository = SceneProjectRepository(database)
+        val errors = CountDownLatch(2)
+        val autosave = SceneProjectAutosave(
+            repository = repository,
+            debounceMillis = 50L,
+            onError = { errors.countDown() }
+        )
+        try {
+            autosave.schedule(
+                SceneProject(
+                    id = "autosave-failure-test",
+                    name = "Must report failed save",
+                    createdAtEpochMillis = 1L,
+                    updatedAtEpochMillis = 1L
+                )
+            )
+            assertTrue("debounced persistence failure must reach onError", errors.await(5, TimeUnit.SECONDS))
+            autosave.close()
+            assertTrue("close-time flush failure must also reach onError", errors.await(5, TimeUnit.SECONDS))
+        } finally {
+            autosave.close()
+            repository.close()
+            database.close()
+            databasePath.deleteRecursively()
+            context.deleteDatabase(databaseName)
+        }
+    }
+
     @Test fun closeFlushesNewestDebouncedSnapshot() {
         val context=ApplicationProvider.getApplicationContext<Context>()
         val id="autosave-close-test"
