@@ -36,13 +36,15 @@ Current implementation: SQLiteOpenHelper stores versioned project documents and 
 - Import enforces per-type byte limits, an allowlist of raster-image/video MIME types, matching file-signature checks, and SHA-256 integrity metadata. SVG, HTML, and unknown formats are rejected.
 - Image and GIF elements can be rendered as scene layers. Video import and poster-frame display are present, but continuous video playback in the LIVE compositor is not yet accepted as complete; it requires a Media3/RootEncoder integration spike and device-level frame-pacing/lifecycle tests. Do not advertise imported video as a playing LIVE source until those gates pass.
 
-## .osspack package
-A shareable project package is a ZIP container with:
-- versioned manifest
+## .ossproject package
+Editable project interchange uses the `.ossproject` format: a versioned ZIP container with:
+- versioned project manifest
 - project and scene data
 - referenced media assets
-- thumbnails/previews (static thumbnails only; not a runtime preview feature)
-- extension requirements
+- static thumbnails (not a runtime preview feature)
+- extension ID/version requirements
 - license and asset provenance notices
+
+The `.osspack` extension is reserved exclusively for declarative installable element/feature extensions as specified in [OSSPACK Extension Package](12-OSSPACK-FORMAT.md). Do not reuse the same file extension for project archives and extension packages.
 
 Import must validate manifest schema/version, archive paths, entry count, compressed/expanded size, MIME types, checksums, extension requirements, and name/ID conflicts before committing imported data. Never include stream credentials or account tokens in exports.
