@@ -90,7 +90,7 @@ class MainActivitySmokeTest {
         composeRule.onNodeWithTag("scene-resize-handle", useUnmergedTree = true).assertExists().assertIsDisplayed()
 
         composeRule.onNodeWithText("Tambah teks").performScrollTo().performClick()
-        composeRule.onNodeWithTag("scene-multiselect-toggle").performClick()
+        composeRule.onNodeWithTag("scene-multiselect-toggle").performScrollTo().assertIsDisplayed().performClick()
         // Verify the mode itself before testing multi-selection state.
         composeRule.onNodeWithText("Selesai memilih").assertIsDisplayed()
         composeRule.onNodeWithTag("scene-multiselect-status").assertExists().assertIsDisplayed()
