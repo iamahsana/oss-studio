@@ -327,6 +327,7 @@ class SceneCanvasLayerController(
                             drawCachedBitmap(canvas, source.id, element.crop, destination, element.opacity)
                         SceneSourceType.CAMERA -> drawPlaceholder(canvas, destination, "Camera", element.opacity)
                         SceneSourceType.USB_VIDEO -> drawPlaceholder(canvas, destination, "USB Video", element.opacity)
+                        SceneSourceType.EXTENSION -> drawPlaceholder(canvas, destination, "Extension unavailable: ${source.displayName}", element.opacity)
                         SceneSourceType.SHARE_SCREEN -> Unit
                     }
                     canvas.restoreToCount(save)
