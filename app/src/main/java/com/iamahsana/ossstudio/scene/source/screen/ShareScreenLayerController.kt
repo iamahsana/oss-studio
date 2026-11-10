@@ -1,6 +1,7 @@
 package com.iamahsana.ossstudio.scene.source.screen
 
 import android.hardware.display.DisplayManager
+import android.graphics.SurfaceTexture
 import android.hardware.display.VirtualDisplay
 import android.media.projection.MediaProjection
 import android.os.Handler
@@ -45,6 +46,8 @@ class ShareScreenLayerController(
     private val mainHandler = Handler(Looper.getMainLooper())
     private var projection: MediaProjection? = null
     private var virtualDisplay: VirtualDisplay? = null
+    private var captureSurfaceTexture: SurfaceTexture? = null
+    private var captureDensityDpi: Int = 0
     private var surfaceFilter: SurfaceFilterRender? = null
     private var projectionCallback: MediaProjection.Callback? = null
     private var projectionStopCompleted = false
@@ -90,10 +93,36 @@ class ShareScreenLayerController(
         operationId = UUID.randomUUID().toString()
         projection = mediaProjection
         projectionStopCompleted = false
+        captureDensityDpi = densityDpi
         state = State.WAITING_FOR_GL
         glWaitAttempts = 0
 
         val callback = object : MediaProjection.Callback() {
+            override fun onCapturedContentResize(width: Int, height: Int) {
+                if (width <= 0 || height <= 0 || projection !== mediaProjection) return
+                val display = virtualDisplay ?: return
+                val texture = captureSurfaceTexture ?: return
+                val surface = surfaceFilter?.surface ?: return
+                try {
+                    display.resize(width, height, captureDensityDpi)
+                    texture.setDefaultBufferSize(width, height)
+                    display.setSurface(surface)
+                    log(
+                        level = OssLogLevel.INFO,
+                        event = "capture_content_resized",
+                        message = "Share Screen capture resized to ${width}x${height}"
+                    )
+                } catch (error: Exception) {
+                    log(
+                        level = OssLogLevel.ERROR,
+                        event = "capture_resize_failed",
+                        errorCode = "SCREEN_CAPTURE_RESIZE_FAILED",
+                        message = error.message ?: "Unable to resize Share Screen capture"
+                    )
+                    releaseInternal(stopProjection = false, finalState = State.FAILED)
+                }
+            }
+
             override fun onStop() {
                 projectionStopCompleted = true
                 log(
@@ -162,6 +191,7 @@ class ShareScreenLayerController(
                 return@SurfaceFilterRender
             }
             try {
+                captureSurfaceTexture = surfaceTexture
                 surfaceTexture.setDefaultBufferSize(width, height)
                 val targetSurface: Surface = requireNotNull(surfaceFilter?.surface) {
                     "RootEncoder Share Screen surface was not initialized"
@@ -328,6 +358,10 @@ class ShareScreenLayerController(
             // retry only releases the remaining resources.
             projection = null
             projectionStopCompleted = false
+            if (virtualDisplay == null && surfaceFilter == null) {
+                captureSurfaceTexture = null
+                captureDensityDpi = 0
+            }
         }
 
         state = if (failed) State.FAILED else finalState
