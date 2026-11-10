@@ -2,6 +2,8 @@
 
 ## Stage 0 — Repository and engineering baseline
 - Establish product/architecture decisions and license policy.
+- Treat the Product Specification, Technical Architecture, UI/UX System, Project Data Model, Decision Register, and Development Gates as normative requirements. Reconcile conflicts before implementation; do not infer new product behavior from an isolated PR or code convenience.
+- Every implementation PR must identify the relevant requirement/decision IDs, explain deviations, and include acceptance tests. A PR that conflicts with the normative documents must update the documents first and receive explicit product approval.
 - Add Android project skeleton, version catalog, formatting/lint conventions, and CI.
 - Keep build reproducible from GitHub Actions.
 - Preserve a stable application ID and signing configuration strategy before distributing updateable APKs.
@@ -15,10 +17,10 @@
 
 ## Stage 2 — Scene and media engine
 - Scene/source registry and project persistence.
-- Canvas portrait/landscape, layers, transforms, crop, grid/snap, safe areas.
+- Canvas orientation follows the LIVE output setting and supports Portrait (9:16) or Landscape (16:9) only; all scenes in the active project remain synchronized. No custom dimensions or extra aspect-ratio presets. Add layers, transforms, crop, grid/snap, and safe areas.
 - Text, image, GIF, and video sources.
 - Asset manager, undo/redo, autosave/recovery.
-- Share Screen as an optional source added to a scene.
+- Share Screen as an optional source added to a scene; it is never the canvas itself.
 - Bounded decoding/cache and lifecycle cleanup.
 
 ## Stage 3 — Streaming engine
@@ -51,6 +53,7 @@
 
 ## Acceptance gates
 Every stage must pass:
+0. Requirements traceability: the implementation matches the current normative docs and approved decision register; no undocumented product behavior is introduced.
 1. Build succeeds in CI.
 2. App launches without crash on the target device.
 3. No regression to completed critical capabilities.
