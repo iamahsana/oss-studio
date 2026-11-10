@@ -236,8 +236,7 @@ fun SceneEditorScreen(
 
     Column(
         modifier = Modifier.fillMaxSize()
-            .padding(horizontal = 8.dp, vertical = 6.dp)
-            .verticalScroll(rememberScrollState()),
+            .padding(horizontal = 8.dp, vertical = 6.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Row(
@@ -248,19 +247,24 @@ fun SceneEditorScreen(
             Text(currentProject.name, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
             Text("Autosave", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(enabled = historyVersion >= 0 && history.canUndo, onClick = {
-                history.endGroup()
-                restoreHistory(history.undo())
-            }) { Text("Undo") }
-            OutlinedButton(enabled = historyVersion >= 0 && history.canRedo, onClick = {
-                history.endGroup()
-                restoreHistory(history.redo())
-            }) { Text("Redo") }
-        }
         if (scene == null) {
             Text("Project ini belum memiliki scene.")
         } else {
+            Column(
+                modifier = Modifier.fillMaxWidth().heightIn(max = 156.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(enabled = historyVersion >= 0 && history.canUndo, onClick = {
+                        history.endGroup()
+                        restoreHistory(history.undo())
+                    }) { Text("Undo") }
+                    OutlinedButton(enabled = historyVersion >= 0 && history.canRedo, onClick = {
+                        history.endGroup()
+                        restoreHistory(history.redo())
+                    }) { Text("Redo") }
+                }
             Row(
                 modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -331,6 +335,7 @@ fun SceneEditorScreen(
                 Text("${(viewportZoom * 100).roundToInt()}%", modifier = Modifier.weight(1f), textAlign = TextAlign.Center, style = MaterialTheme.typography.labelMedium)
                 OutlinedButton(onClick = { viewportZoom = (viewportZoom + 0.25f).coerceAtMost(4f) }, enabled = viewportZoom < 4f) { Text("＋") }
                 TextButton(onClick = { viewportZoom = 1f; viewportPanX = 0f; viewportPanY = 0f }) { Text("Reset") }
+            }
             }
             BoxWithConstraints(
                 modifier = Modifier.fillMaxWidth()
@@ -704,6 +709,11 @@ fun SceneEditorScreen(
                     Text("Canvas kosong", color = Color.White, modifier = Modifier.align(Alignment.Center))
                 }
             }
+            Column(
+                modifier = Modifier.weight(1f).fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
             Text(
                 "Geser elemen untuk mengatur posisi. Canvas ini adalah area komposisi scene, bukan preview LIVE terpisah.",
                 style = MaterialTheme.typography.bodySmall
@@ -1141,6 +1151,7 @@ fun SceneEditorScreen(
                         Text((if (chosen && multiSelectMode) "✓ " else "") + (source?.displayName ?: "Element"))
                     }
                 }
+            }
             }
             }
         }
