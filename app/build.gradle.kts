@@ -49,6 +49,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.lifecycle.runtime.compose)
+    implementation(libs.androidx.datastore.preferences)
 
     // Provisional dependency-resolution probe; no RootEncoder APIs are used yet.
     implementation(libs.rootencoder.library)

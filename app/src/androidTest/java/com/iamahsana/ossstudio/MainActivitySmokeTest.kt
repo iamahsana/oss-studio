@@ -1,6 +1,9 @@
 package com.iamahsana.ossstudio
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onAllNodesWithText
@@ -75,11 +78,41 @@ class MainActivitySmokeTest {
         composeRule.onNodeWithText("Landscape · 16:9 · 1920 × 1080").performClick()
 
         composeRule.onNodeWithText("Tambah teks").performScrollTo().performClick()
-        composeRule.onNodeWithTag("scene-resize-handle").performScrollTo().assertIsDisplayed()
+        // Select from the layer list explicitly so the test validates resize-handle
+        // visibility for a selected element, independent of add-action focus timing.
+        composeRule.onAllNodesWithTag("scene-canvas-element", useUnmergedTree = true)[0].performClick()
+        composeRule.onNodeWithTag("scene-resize-handle", useUnmergedTree = true).assertExists().assertIsDisplayed()
         composeRule.onNodeWithText("Undo").performScrollTo().performClick()
-        assertTrue(composeRule.onAllNodesWithTag("scene-resize-handle").fetchSemanticsNodes().isEmpty())
+        assertTrue("Undo should remove the resize handle when the new element is removed", composeRule.onAllNodesWithTag("scene-resize-handle", useUnmergedTree = true).fetchSemanticsNodes().isEmpty())
         composeRule.onNodeWithText("Redo").performScrollTo().performClick()
         composeRule.onNodeWithText("Teks baru").performScrollTo().assertIsDisplayed()
+        // Undo clears the selection when the element is absent; reselect it after redo.
+        composeRule.onAllNodesWithTag("scene-canvas-element", useUnmergedTree = true)[0].performClick()
+        composeRule.onNodeWithTag("scene-resize-handle", useUnmergedTree = true).assertExists().assertIsDisplayed()
+
+        composeRule.onNodeWithText("Tambah teks").performScrollTo().performClick()
+        composeRule.onNodeWithTag("scene-multiselect-toggle").performScrollTo().assertIsDisplayed().performClick()
+        // Verify the mode itself before testing multi-selection state.
+        composeRule.onNodeWithText("Selesai memilih").assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-multiselect-status").performScrollTo().assertExists().assertIsDisplayed()
+        composeRule.onNodeWithText("Mode pemilihan aktif · Dipilih: 0").assertIsDisplayed()
+        assertTrue("Multi-select mode should show exactly two scene layer rows", composeRule.onAllNodesWithTag("scene-element-item").fetchSemanticsNodes().size == 2)
+        composeRule.onAllNodesWithTag("scene-element-item")[0].performScrollTo().performClick()
+        composeRule.onAllNodesWithTag("scene-element-item")[1].performScrollTo().performClick()
+        assertTrue("Selecting both layer rows should mark both as selected", composeRule.onAllNodesWithText("✓ Text").fetchSemanticsNodes().size == 2)
+        composeRule.onNodeWithText("Kelompokkan (2)").performScrollTo().performClick()
+        composeRule.onNodeWithText("Pisahkan grup").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Pisahkan grup").performClick()
+        assertTrue("Ungrouping should remove the split-group action", composeRule.onAllNodesWithText("Pisahkan grup").fetchSemanticsNodes().isEmpty())
+    }
+
+    @Test
+    fun settingsPageShowsAppearanceStorageAndDiagnosticExport() {
+        composeRule.onNodeWithTag("nav-settings").performClick()
+        composeRule.onNodeWithText("Tema aplikasi").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Warna aksen").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Penyimpanan aplikasi").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Ekspor log diagnostik").performScrollTo().assertIsDisplayed()
     }
 
     @Test
@@ -109,6 +142,70 @@ class MainActivitySmokeTest {
         }
         composeRule.onNodeWithText(uniqueName).assertIsDisplayed()
         assertTrue(composeRule.onAllNodesWithText("private-smoke-key").fetchSemanticsNodes().isEmpty())
+    }
+
+
+    @Test
+    fun activeProjectIsRestoredAfterActivityRecreation() {
+        createdSmokeProject = true
+        composeRule.onNodeWithText("Project baru").performClick()
+        composeRule.onNodeWithText("Nama project").performTextInput("OSS UI Smoke")
+        composeRule.onNodeWithText("Buat").performClick()
+        composeRule.waitUntil("new project opens its editor", 15_000L) {
+            composeRule.onAllNodesWithText("Canvas kosong").fetchSemanticsNodes().isNotEmpty()
+        }
+
+        composeRule.activityRule.scenario.recreate()
+
+        composeRule.waitUntil("saved active project reloads after Activity recreation", 15_000L) {
+            composeRule.onAllNodesWithText("Canvas kosong").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("Scene Editor").assertIsDisplayed()
+        composeRule.onNodeWithText("Canvas kosong").performScrollTo().assertIsDisplayed()
+    }
+
+
+    @Test
+    fun deletingActiveProjectDoesNotLeaveStaleEditorProject() {
+        createdSmokeProject = true
+        composeRule.onNodeWithText("Project baru").performClick()
+        composeRule.onNodeWithText("Nama project").performTextInput("OSS UI Smoke")
+        composeRule.onNodeWithText("Buat").performClick()
+        // ProjectHomeScreen invokes onOpenProject only after the database save succeeds.
+        // Wait for the asynchronous repository callback, then assert the destination page.
+        composeRule.waitUntil("newly created project opens Scene Editor", 15_000L) {
+            composeRule.onAllNodesWithText("Scene Editor").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("Scene Editor").assertIsDisplayed()
+
+        composeRule.onNodeWithText("Home").performClick()
+        composeRule.waitUntil("saved project appears after returning Home", 15_000L) {
+            composeRule.onAllNodesWithText("OSS UI Smoke").fetchSemanticsNodes().isNotEmpty()
+        }
+        val smokeContext = ApplicationProvider.getApplicationContext<Context>()
+        val smokeProjectId = SceneProjectStoreProvider.database(smokeContext)
+            .listRecent().first { it.name == "OSS UI Smoke" }.id
+        composeRule.onNodeWithTag("delete-project-$smokeProjectId").performClick()
+        composeRule.onNodeWithText("Hapus project?").assertIsDisplayed()
+        composeRule.onNodeWithTag("confirm-delete-project").performClick()
+        composeRule.waitUntil("delete dialog closes or reports a deletion error", 15_000L) {
+            composeRule.onAllNodesWithText("Hapus project?").fetchSemanticsNodes().isEmpty() ||
+                composeRule.onAllNodesWithText("Project tidak ditemukan.").fetchSemanticsNodes().isNotEmpty() ||
+                composeRule.onAllNodesWithText("Project tidak dapat dibaca; file media tidak dihapus.").fetchSemanticsNodes().isNotEmpty() ||
+                composeRule.onAllNodesWithText("Gagal menghapus project").fetchSemanticsNodes().isNotEmpty() ||
+                composeRule.onAllNodesWithText("Hentikan atau selesaikan cleanup LIVE sebelum menghapus project aktif.").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onAllNodesWithText("Project tidak ditemukan.").assertCountEquals(0)
+        composeRule.onAllNodesWithText("Gagal menghapus project").assertCountEquals(0)
+        composeRule.waitUntil("target project is deleted from persistent storage", 15_000L) {
+            SceneProjectStoreProvider.database(smokeContext).get(smokeProjectId) == null
+        }
+        composeRule.waitUntil("deleted project row disappears from Home", 15_000L) {
+            composeRule.onAllNodesWithTag("delete-project-$smokeProjectId").fetchSemanticsNodes().isEmpty()
+        }
+
+        composeRule.onNodeWithText("Editor").performClick()
+        composeRule.onNodeWithText("Pilih atau buat project dari Home terlebih dahulu.").assertIsDisplayed()
     }
 
 

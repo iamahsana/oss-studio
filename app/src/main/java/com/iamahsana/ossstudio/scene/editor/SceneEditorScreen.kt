@@ -59,6 +59,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.geometry.Offset
@@ -98,6 +99,8 @@ fun SceneEditorScreen(
 ) {
     var currentProject by remember(project.id) { mutableStateOf(project) }
     var selectedElementId by remember(project.id) { mutableStateOf<String?>(null) }
+    var multiSelectMode by remember(project.id) { mutableStateOf(false) }
+    var selectedElementIds by remember(project.id) { mutableStateOf<Set<String>>(emptySet()) }
     val history = remember(project.id) { SceneProjectHistory(project) }
     var historyVersion by remember(project.id) { mutableStateOf(0) }
     var showCanvasSettings by remember(project.id) { mutableStateOf(false) }
@@ -296,6 +299,7 @@ fun SceneEditorScreen(
                     .clip(RoundedCornerShape(12.dp))
                     .background(Color(0xFF17191D))
                     .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
+                    .testTag("scene-canvas")
             ) {
                 val scale = constraints.maxWidth.toFloat() / scene.canvas.width.toFloat()
                 val density = LocalDensity.current
@@ -350,6 +354,7 @@ fun SceneEditorScreen(
                                 with(density) { (transform.width * scale).toDp() },
                                 with(density) { (transform.height * scale).toDp() }
                             )
+                            .clipToBounds()
                             .graphicsLayer { rotationZ = transform.rotationDegrees }
                             .then(
                                 if (element.id == selectedElementId) Modifier.border(2.dp, MaterialTheme.colorScheme.primary)
@@ -357,6 +362,7 @@ fun SceneEditorScreen(
                             )
                             .background(if (element.id == selectedElementId) Color(0x553B82F6) else Color(0x33222222))
                             .clickable { selectedElementId = element.id }
+                            .testTag("scene-canvas-element")
                             .then(
                                 if (element.locked) Modifier else Modifier.pointerInput(element.id, scale, snapEnabled) {
                                     var dragX = transform.x
@@ -379,20 +385,32 @@ fun SceneEditorScreen(
                                                 scene.canvas.height.toFloat(),
                                                 transform.height
                                             )
-                                            val updated = SceneProjectEditor.updateTransform(
-                                                latestProject.value,
-                                                scene.id,
-                                                element.id,
-                                                transform.copy(x = dragX, y = dragY),
-                                                System.currentTimeMillis()
-                                            )
-                                            applyProject(updated, "move:${element.id}")
+                                            val latest = latestProject.value
+                                            val latestTransform = latest.scenes
+                                                .firstOrNull { it.id == scene.id }
+                                                ?.elements?.firstOrNull { it.id == element.id }?.transform
+                                                ?: transform
+                                            val updated = if (element.groupId != null) {
+                                                SceneProjectEditor.translateGroup(
+                                                    latest, scene.id, element.groupId,
+                                                    dragX - latestTransform.x, dragY - latestTransform.y,
+                                                    System.currentTimeMillis()
+                                                )
+                                            } else {
+                                                SceneProjectEditor.updateTransform(
+                                                    latest, scene.id, element.id,
+                                                    transform.copy(x = dragX, y = dragY),
+                                                    System.currentTimeMillis()
+                                                )
+                                            }
+                                            applyProject(updated, "move:" + (element.groupId ?: element.id))
                                         }
                                     )
                                 }
                             ),
                         contentAlignment = Alignment.Center
                     ) {
+                        Box(Modifier.fillMaxSize().graphicsLayer { alpha = element.opacity }, contentAlignment = Alignment.Center) {
                         val label = when (source.type) {
                             SceneSourceType.TEXT -> source.text.orEmpty()
                             SceneSourceType.SHARE_SCREEN -> "Share Screen"
@@ -409,7 +427,8 @@ fun SceneEditorScreen(
                                     filePath = File(context.filesDir, asset.relativePath).absolutePath,
                                     contentDescription = source.displayName,
                                     isVideo = source.type == SceneSourceType.VIDEO,
-                                    isGif = source.type == SceneSourceType.GIF
+                                    isGif = source.type == SceneSourceType.GIF,
+                                    crop = element.crop
                                 )
                             } else {
                                 Text(label, color = Color.White, textAlign = TextAlign.Center)
@@ -439,6 +458,7 @@ fun SceneEditorScreen(
                                 textAlign = TextAlign.Center,
                                 style = MaterialTheme.typography.bodySmall
                             )
+                        }
                         }
                         if (element.id == selectedElementId && !element.locked) {
                             Box(
@@ -718,16 +738,82 @@ fun SceneEditorScreen(
                 }
             }
             Text("Elemen scene", style = MaterialTheme.typography.titleMedium)
-            Row(
-                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            // Keep the mode toggle outside the horizontal action scroller.
+            // A horizontally scrollable parent was preventing reliable taps in
+            // the emulator accessibility test and is also harder to use on phones.
+            OutlinedButton(
+                modifier = Modifier.testTag("scene-multiselect-toggle"),
+                onClick = {
+                    val enteringMultiSelect = !multiSelectMode
+                    multiSelectMode = enteringMultiSelect
+                    selectedElementIds = if (enteringMultiSelect) emptySet() else selectedElementIds
+                }
+            ) { Text(if (multiSelectMode) "Selesai memilih" else "Pilih beberapa") }
+            val selectedGroupIds = scene.elements
+                .filter { it.id in selectedElementIds }
+                .mapNotNull { it.groupId }
+                .distinct()
+            val canGroup = selectedElementIds.size >= 2 &&
+                scene.elements.filter { it.id in selectedElementIds }.all { it.groupId == null }
+            if (canGroup || selectedGroupIds.size == 1) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    if (canGroup) {
+                        OutlinedButton(onClick = {
+                            val updated = SceneProjectEditor.groupElements(
+                                currentProject, scene.id, selectedElementIds, System.currentTimeMillis()
+                            )
+                            applyProject(updated)
+                            multiSelectMode = false
+                            selectedElementId = selectedElementIds.firstOrNull()
+                            selectedElementIds = selectedElementId?.let(::setOf) ?: emptySet()
+                        }) { Text("Kelompokkan (" + selectedElementIds.size + ")") }
+                    }
+                    if (selectedGroupIds.size == 1) {
+                        OutlinedButton(onClick = {
+                            applyProject(SceneProjectEditor.ungroupElements(
+                                currentProject, scene.id, selectedGroupIds.single(), System.currentTimeMillis()
+                            ))
+                            multiSelectMode = false
+                            selectedElementIds = selectedElementId?.let(::setOf) ?: emptySet()
+                        }) { Text("Pisahkan grup") }
+                    }
+                }
+            }
+            if (multiSelectMode) {
+                Text(
+                    "Mode pemilihan aktif · Dipilih: ${selectedElementIds.size}",
+                    modifier = Modifier.testTag("scene-multiselect-status")
+                )
+            }
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 scene.elements.sortedBy { it.zIndex }.forEach { element ->
                     val source = currentProject.sources.firstOrNull { it.id == element.sourceId }
-                    OutlinedButton(onClick = {
-                        selectedElementId = element.id
-                        editingText = source?.text.orEmpty()
-                    }) { Text(source?.displayName ?: "Element") }
+                    val chosen = element.id in selectedElementIds
+                    OutlinedButton(
+                        modifier = Modifier.fillMaxWidth().testTag("scene-element-item"),
+                        onClick = {
+                            if (multiSelectMode) {
+                                selectedElementIds = if (chosen) {
+                                    selectedElementIds - element.id
+                                } else {
+                                    selectedElementIds + element.id
+                                }
+                                selectedElementId = element.id
+                            } else {
+                                selectedElementId = element.id
+                                selectedElementIds = setOf(element.id)
+                            }
+                            editingText = source?.text.orEmpty()
+                        }
+                    ) {
+                        Text((if (chosen && multiSelectMode) "✓ " else "") + (source?.displayName ?: "Element"))
+                    }
                 }
             }
         }
@@ -801,10 +887,11 @@ private fun SceneAssetImage(
     filePath: String,
     contentDescription: String,
     isVideo: Boolean = false,
-    isGif: Boolean = false
+    isGif: Boolean = false,
+    crop: CropRect = CropRect()
 ) {
     if (isGif) {
-        SceneAnimatedGif(filePath, contentDescription)
+        SceneAnimatedGif(filePath, contentDescription, crop)
         return
     }
     val bitmap = produceState<Bitmap?>(initialValue = null, key1 = filePath) {
@@ -817,7 +904,14 @@ private fun SceneAssetImage(
             bitmap = bitmap.asImageBitmap(),
             contentDescription = contentDescription,
             contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize().graphicsLayer {
+                val cropWidth = (crop.right - crop.left).coerceAtLeast(0.001f)
+                val cropHeight = (crop.bottom - crop.top).coerceAtLeast(0.001f)
+                scaleX = 1f / cropWidth
+                scaleY = 1f / cropHeight
+                translationX = ((0.5f - (crop.left + crop.right) / 2f) / cropWidth) * size.width
+                translationY = ((0.5f - (crop.top + crop.bottom) / 2f) / cropHeight) * size.height
+            }
         )
     } else {
         Text("Memuat media…", color = Color.White, textAlign = TextAlign.Center)
@@ -856,7 +950,7 @@ private fun decodeVideoPreview(path: String): Bitmap? {
 }
 
 @Composable
-private fun SceneAnimatedGif(filePath: String, contentDescription: String) {
+private fun SceneAnimatedGif(filePath: String, contentDescription: String, crop: CropRect) {
     val context = LocalContext.current
     val drawable = produceState<Drawable?>(initialValue = null, key1 = filePath) {
         value = withContext(Dispatchers.IO) {
@@ -881,7 +975,14 @@ private fun SceneAnimatedGif(filePath: String, contentDescription: String) {
                 }
             },
             update = { it.setImageDrawable(drawable) },
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize().graphicsLayer {
+                val cropWidth = (crop.right - crop.left).coerceAtLeast(0.001f)
+                val cropHeight = (crop.bottom - crop.top).coerceAtLeast(0.001f)
+                scaleX = 1f / cropWidth
+                scaleY = 1f / cropHeight
+                translationX = ((0.5f - (crop.left + crop.right) / 2f) / cropWidth) * size.width
+                translationY = ((0.5f - (crop.top + crop.bottom) / 2f) / cropHeight) * size.height
+            }
         )
     } else {
         Text("GIF tidak dapat dimuat", color = Color.White, textAlign = TextAlign.Center)

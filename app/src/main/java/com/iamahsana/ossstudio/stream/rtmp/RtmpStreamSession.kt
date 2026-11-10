@@ -98,6 +98,15 @@ class RtmpStreamSession(
                 config.fps
             )
             if (!videoReady) {
+                runCatching { stream.release() }.onFailure {
+                    log(
+                        OssLogLevel.ERROR,
+                        "video_prepare_release_failed",
+                        "RootEncoder resources could not be released after video preparation failed",
+                        "RTMP_VIDEO_PREPARE_RELEASE_FAILED",
+                        it
+                    )
+                }
                 fail("RTMP_VIDEO_ENCODER_PREPARE_FAILED", "Video encoder preparation failed")
                 return false
             }

@@ -31,8 +31,9 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -55,8 +56,15 @@ import com.iamahsana.ossstudio.audio.AudioMixerScreen
 import com.iamahsana.ossstudio.stream.rtmp.RtmpDestinationProfilesScreen
 import com.iamahsana.ossstudio.stream.android.ProjectionServiceRegistry
 import com.iamahsana.ossstudio.stream.android.ActiveSceneProjectRegistry
+import com.iamahsana.ossstudio.stream.android.LiveSessionControllerRegistry
+import com.iamahsana.ossstudio.stream.LiveSessionController
 import com.iamahsana.ossstudio.stream.android.StudioLiveControlScreen
 import com.iamahsana.ossstudio.extensions.OssExtensionCenterScreen
+import com.iamahsana.ossstudio.settings.AppSettings
+import com.iamahsana.ossstudio.settings.AppSettingsRepository
+import com.iamahsana.ossstudio.settings.OssThemeMode
+import com.iamahsana.ossstudio.settings.ossColorScheme
+import com.iamahsana.ossstudio.settings.SettingsScreen
 
 private enum class AppPage(val label: String, val symbol: String) {
     HOME("Home", "⌂"),
@@ -89,6 +97,13 @@ private fun OssApp() {
     var activeProject by remember { mutableStateOf<SceneProject?>(null) }
     val page = AppPage.valueOf(selectedPage)
     val context = LocalContext.current
+    val settingsRepository = remember(context) { AppSettingsRepository(context.applicationContext) }
+    val appSettings by settingsRepository.settings.collectAsState(initial = AppSettings())
+    val darkTheme = when (appSettings.themeMode) {
+        OssThemeMode.SYSTEM -> isSystemInDarkTheme()
+        OssThemeMode.LIGHT -> false
+        OssThemeMode.DARK -> true
+    }
     SideEffect { ActiveSceneProjectRegistry.publish(activeProject) }
     val projectLoader = remember(context) {
         SceneProjectRepository(SceneProjectStoreProvider.database(context))
@@ -111,12 +126,13 @@ private fun OssApp() {
         }
     }
 
-    MaterialTheme(colorScheme = lightColorScheme()) {
+    MaterialTheme(colorScheme = ossColorScheme(darkTheme, appSettings.accent)) {
         Scaffold(
             bottomBar = {
                 NavigationBar {
                     AppPage.entries.forEach { item ->
                         NavigationBarItem(
+                            modifier = if (item == AppPage.SETTINGS) Modifier.testTag("nav-settings") else Modifier,
                             selected = page == item,
                             onClick = {
                                 OssLogger.log(
@@ -143,12 +159,27 @@ private fun OssApp() {
                     page = page,
                     context = context,
                     activeProject = activeProject,
+                    activeProjectId = activeProjectId,
+                    canDeleteActiveProject = {
+                        LiveSessionControllerRegistry.state in setOf(
+                            LiveSessionController.State.IDLE,
+                            LiveSessionController.State.STOPPED
+                        )
+                    },
+                    settingsRepository = settingsRepository,
                     onOpenProject = { project ->
                         activeProjectId = project.id
                         activeProject = project
                         selectedPage = AppPage.EDITOR.name
                     },
-                    onProjectChange = { activeProject = it }
+                    onProjectChange = { activeProject = it },
+                    onProjectDeleted = { deletedId ->
+                        if (activeProjectId == deletedId || activeProject?.id == deletedId) {
+                            activeProject = null
+                            activeProjectId = null
+                            selectedPage = AppPage.HOME.name
+                        }
+                    }
                 )
             }
         }
@@ -156,7 +187,7 @@ private fun OssApp() {
 }
 
 @Composable
-private fun PageContent(page: AppPage, context: Context, activeProject: SceneProject?, onOpenProject: (SceneProject) -> Unit, onProjectChange: (SceneProject) -> Unit) {
+private fun PageContent(page: AppPage, context: Context, activeProject: SceneProject?, activeProjectId: String?, canDeleteActiveProject: () -> Boolean, settingsRepository: AppSettingsRepository, onOpenProject: (SceneProject) -> Unit, onProjectChange: (SceneProject) -> Unit, onProjectDeleted: (String) -> Unit) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp).testTag("page-content"),
         verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -210,10 +241,21 @@ private fun PageContent(page: AppPage, context: Context, activeProject: ScenePro
             item { AudioMixerScreen(context) }
         }
         if (page == AppPage.HOME) {
-            item { ProjectHomeScreen(context, onOpenProject) }
+            item {
+                ProjectHomeScreen(
+                    context = context,
+                    activeProjectId = activeProjectId,
+                    canDeleteActiveProject = canDeleteActiveProject,
+                    onOpenProject = onOpenProject,
+                    onProjectDeleted = onProjectDeleted
+                )
+            }
         }
         if (page == AppPage.EXTENSIONS) {
             item { OssExtensionCenterScreen(context) }
+        }
+        if (page == AppPage.SETTINGS) {
+            item { SettingsScreen(context, settingsRepository) }
         }
     }
 }
