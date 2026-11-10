@@ -32,7 +32,48 @@ class SceneProjectJsonCodecTest {
 
         assertEquals(project.id,decoded.id)
         assertEquals(project.name,decoded.name)
-        assertEquals(2,rewritten.getInt("schemaVersion"))
+        assertEquals(3,rewritten.getInt("schemaVersion"))
+    }
+
+    @Test
+    fun roundTripsExtensionSourceIdentityAndOpaqueConfiguration() {
+        val source = SceneSource(
+            id = "extension-source",
+            type = SceneSourceType.EXTENSION,
+            displayName = "Community Badge",
+            settings = mapOf("layout" to "{\"anchor\":\"top-right\"}", "theme" to "silver"),
+            extensionId = "com.community.badges",
+            typeId = "com.community.badges.animated-badge"
+        )
+        val project = SceneProject(
+            id = "extension-project",
+            name = "Extension project",
+            createdAtEpochMillis = 1,
+            updatedAtEpochMillis = 2,
+            sources = listOf(source)
+        )
+
+        val encoded = JSONObject(SceneProjectJsonCodec.encode(project))
+        val decoded = SceneProjectJsonCodec.decode(encoded.toString())
+
+        assertEquals(3, encoded.getInt("schemaVersion"))
+        assertEquals(project, decoded)
+        assertEquals(source.extensionId, decoded.sources.single().extensionId)
+        assertEquals(source.typeId, decoded.sources.single().typeId)
+        assertEquals(source.settings, decoded.sources.single().settings)
+    }
+
+    @Test
+    fun readsSchemaV2SourcesWithoutExtensionFields() {
+        val project = SceneProject(id = "v2", name = "Schema v2", createdAtEpochMillis = 1, updatedAtEpochMillis = 2)
+        val schemaV2 = JSONObject(SceneProjectJsonCodec.encode(project))
+            .put("schemaVersion", 2)
+            .toString()
+
+        val decoded = SceneProjectJsonCodec.decode(schemaV2)
+
+        assertEquals(project, decoded)
+        assertEquals(null, decoded.sources.firstOrNull()?.extensionId)
     }
 
     @Test fun rejectsUnsupportedFutureDocumentSchemaBeforeDecoding() {
