@@ -65,7 +65,8 @@ Any change touching canvas, scene geometry, editor orientation, or encoder outpu
 
 Any Scene Editor or element-extension change must verify:
 
-- [ ] The implementation is checked against the PixelLab feature-by-feature parity matrix; the target is complete functional/workflow parity, not a reduced approximation.
+- [ ] The implementation is checked against [PixelLab Feature Parity Matrix](15-PIXELLAB-FEATURE-PARITY.md); the target is complete functional/workflow parity, not a reduced approximation.
+- [ ] The current installed PixelLab Android app and the user's reference screenshots have been inspected; newly discovered features are added to the matrix before completion.
 - [ ] Core contains editor manipulation tools and hosting contracts; every user-addable scene element/source type is packaged as an extension.
 - [ ] Text, Image, Shape, GIF, Video, Share Screen, and future source types are not silently treated as permanently installed production Core elements.
 - [ ] An uninstalled element triggers a clear on-demand install flow and asks the user before downloading.
