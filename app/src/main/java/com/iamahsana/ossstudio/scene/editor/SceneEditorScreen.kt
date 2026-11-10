@@ -641,6 +641,78 @@ fun SceneEditorScreen(
                 ) {
                     Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("Elemen dipilih: ${selectedSource.displayName}", style = MaterialTheme.typography.titleSmall)
+                        val elementTransform = selectedElement.transform
+                        Text("Posisi horizontal: ${elementTransform.x.toInt()} px")
+                        Slider(
+                            modifier = Modifier.testTag("scene-transform-x"),
+                            value = elementTransform.x.coerceIn(0f, (scene.canvas.width - elementTransform.width).coerceAtLeast(0f)),
+                            onValueChange = { value ->
+                                if (!selectedElement.locked) applyProject(SceneProjectEditor.updateTransform(
+                                    currentProject, scene.id, selectedElement.id,
+                                    elementTransform.copy(x = value), System.currentTimeMillis()
+                                ))
+                            },
+                            valueRange = 0f..(scene.canvas.width - elementTransform.width).coerceAtLeast(0f),
+                            enabled = !selectedElement.locked
+                        )
+                        Text("Posisi vertikal: ${elementTransform.y.toInt()} px")
+                        Slider(
+                            modifier = Modifier.testTag("scene-transform-y"),
+                            value = elementTransform.y.coerceIn(0f, (scene.canvas.height - elementTransform.height).coerceAtLeast(0f)),
+                            onValueChange = { value ->
+                                if (!selectedElement.locked) applyProject(SceneProjectEditor.updateTransform(
+                                    currentProject, scene.id, selectedElement.id,
+                                    elementTransform.copy(y = value), System.currentTimeMillis()
+                                ))
+                            },
+                            valueRange = 0f..(scene.canvas.height - elementTransform.height).coerceAtLeast(0f),
+                            enabled = !selectedElement.locked
+                        )
+                        Text("Lebar: ${elementTransform.width.toInt()} px")
+                        Slider(
+                            modifier = Modifier.testTag("scene-transform-width"),
+                            value = elementTransform.width.coerceIn(16f, scene.canvas.width.toFloat()),
+                            onValueChange = { value ->
+                                if (!selectedElement.locked) {
+                                    val x = elementTransform.x.coerceAtMost((scene.canvas.width - value).coerceAtLeast(0f))
+                                    applyProject(SceneProjectEditor.updateTransform(
+                                        currentProject, scene.id, selectedElement.id,
+                                        elementTransform.copy(x = x, width = value), System.currentTimeMillis()
+                                    ))
+                                }
+                            },
+                            valueRange = 16f..scene.canvas.width.toFloat(),
+                            enabled = !selectedElement.locked
+                        )
+                        Text("Tinggi: ${elementTransform.height.toInt()} px")
+                        Slider(
+                            modifier = Modifier.testTag("scene-transform-height"),
+                            value = elementTransform.height.coerceIn(16f, scene.canvas.height.toFloat()),
+                            onValueChange = { value ->
+                                if (!selectedElement.locked) {
+                                    val y = elementTransform.y.coerceAtMost((scene.canvas.height - value).coerceAtLeast(0f))
+                                    applyProject(SceneProjectEditor.updateTransform(
+                                        currentProject, scene.id, selectedElement.id,
+                                        elementTransform.copy(y = y, height = value), System.currentTimeMillis()
+                                    ))
+                                }
+                            },
+                            valueRange = 16f..scene.canvas.height.toFloat(),
+                            enabled = !selectedElement.locked
+                        )
+                        Text("Rotasi: ${elementTransform.rotationDegrees.toInt()}°")
+                        Slider(
+                            modifier = Modifier.testTag("scene-transform-rotation"),
+                            value = elementTransform.rotationDegrees.coerceIn(-180f, 180f),
+                            onValueChange = { value ->
+                                if (!selectedElement.locked) applyProject(SceneProjectEditor.updateTransform(
+                                    currentProject, scene.id, selectedElement.id,
+                                    elementTransform.copy(rotationDegrees = value), System.currentTimeMillis()
+                                ))
+                            },
+                            valueRange = -180f..180f,
+                            enabled = !selectedElement.locked
+                        )
                         Text("Opacity: ${(selectedElement.opacity * 100f).toInt()}%")
                         Slider(
                             value = selectedElement.opacity,
