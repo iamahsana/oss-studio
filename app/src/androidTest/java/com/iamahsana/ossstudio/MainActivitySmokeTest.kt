@@ -65,7 +65,7 @@ class MainActivitySmokeTest {
         composeRule.waitUntil(15_000) {
             composeRule.onAllNodesWithText("OSS UI Smoke").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithText("OSS UI Smoke").assertIsDisplayed()
+        composeRule.onAllNodesWithText("OSS UI Smoke").assertCountEquals(2)
         composeRule.waitUntil(15_000) {
             composeRule.onAllNodesWithText("Canvas kosong").fetchSemanticsNodes().isNotEmpty()
         }
@@ -280,6 +280,8 @@ class MainActivitySmokeTest {
             composeRule.onAllNodesWithText("Canvas kosong").fetchSemanticsNodes().isNotEmpty()
         }
 
+        // Scene Editor is a dedicated workspace; return Home before using bottom navigation.
+        composeRule.onNodeWithText("← Home").performClick()
         composeRule.onNodeWithText("Studio").performClick()
         scrollUntilVisible("LIVE control")
         composeRule.onNodeWithText("Landscape 16:9").performScrollTo().performClick()
