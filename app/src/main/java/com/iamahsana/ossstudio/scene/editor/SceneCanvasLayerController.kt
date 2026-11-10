@@ -20,6 +20,7 @@ import com.iamahsana.ossstudio.scene.model.Scene
 import com.iamahsana.ossstudio.scene.model.SceneProject
 import com.iamahsana.ossstudio.scene.model.SceneSource
 import com.iamahsana.ossstudio.scene.model.SceneSourceType
+import com.iamahsana.ossstudio.scene.model.SceneTextStyle
 import com.pedro.encoder.input.gl.render.filters.`object`.SurfaceFilterRender
 import com.pedro.library.view.GlStreamInterface
 import java.io.File
@@ -377,37 +378,33 @@ class SceneCanvasLayerController(
         opacity: Float,
         scaleY: Float
     ) {
-        val settings = source.settings
-        val size = (settings["fontSize"]?.toFloatOrNull() ?: 48f) * scaleY
-        val color = runCatching { Color.parseColor(settings["color"] ?: "#FFFFFFFF") }.getOrDefault(Color.WHITE)
-        val bold = settings["bold"] == "true"
-        val italic = settings["italic"] == "true"
+        val textStyle = SceneTextStyle.fromSettings(source.settings)
+        val size = textStyle.fontSize * scaleY
         val typefaceStyle = when {
-            bold && italic -> Typeface.BOLD_ITALIC
-            bold -> Typeface.BOLD
-            italic -> Typeface.ITALIC
+            textStyle.bold && textStyle.italic -> Typeface.BOLD_ITALIC
+            textStyle.bold -> Typeface.BOLD
+            textStyle.italic -> Typeface.ITALIC
             else -> Typeface.NORMAL
         }
-        val alignment = when (settings["align"]) {
-            "left" -> Paint.Align.LEFT
-            "right" -> Paint.Align.RIGHT
-            else -> Paint.Align.CENTER
+        val alignment = when (textStyle.align) {
+            SceneTextStyle.Alignment.LEFT -> Paint.Align.LEFT
+            SceneTextStyle.Alignment.RIGHT -> Paint.Align.RIGHT
+            SceneTextStyle.Alignment.CENTER -> Paint.Align.CENTER
         }
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            this.color = color
+            color = runCatching { Color.parseColor(textStyle.color) }.getOrDefault(Color.WHITE)
             textSize = size.coerceIn(8f, 512f)
-            this.typeface = Typeface.create(Typeface.DEFAULT, typefaceStyle)
+            typeface = Typeface.create(textStyle.fontFamily, typefaceStyle)
             textAlign = alignment
             alpha = (opacity * 255f).toInt().coerceIn(0, 255)
+            letterSpacing = textStyle.letterSpacing
+            isUnderlineText = textStyle.underline
+            isStrikeThruText = textStyle.strikethrough
         }
-        val outlineColor = settings["outlineColor"]?.let {
-            runCatching { Color.parseColor(it) }.getOrNull()
-        }
-        val outlineWidth = (settings["outlineWidth"]?.toFloatOrNull() ?: 0f) * scaleY
         val text = source.text.orEmpty()
         val lines = wrapText(text, paint, bounds.width().coerceAtLeast(1f))
         val metrics = paint.fontMetrics
-        val lineHeight = (metrics.descent - metrics.ascent) * 1.15f
+        val lineHeight = (metrics.descent - metrics.ascent) * textStyle.lineSpacing
         val totalHeight = lineHeight * lines.size
         var baseline = (bounds.height() - totalHeight) / 2f - metrics.ascent
         val x = when (alignment) {
@@ -416,11 +413,24 @@ class SceneCanvasLayerController(
             else -> bounds.width() / 2f
         }
         lines.forEach { line ->
-            if (outlineColor != null && outlineWidth > 0f) {
+            if (textStyle.shadowColor != null && textStyle.shadowRadius > 0f) {
+                val shadow = Paint(paint).apply {
+                    color = runCatching { Color.parseColor(textStyle.shadowColor) }.getOrDefault(Color.BLACK)
+                    setShadowLayer(
+                        textStyle.shadowRadius * scaleY,
+                        textStyle.shadowDx * scaleY,
+                        textStyle.shadowDy * scaleY,
+                        color
+                    )
+                }
+                canvas.drawText(line, x, baseline, shadow)
+            }
+            if (textStyle.outlineColor != null && textStyle.outlineWidth > 0f) {
                 val outline = Paint(paint).apply {
-                    this.color = outlineColor
+                    color = runCatching { Color.parseColor(textStyle.outlineColor) }.getOrDefault(Color.BLACK)
                     style = Paint.Style.STROKE
-                    strokeWidth = outlineWidth.coerceAtMost(24f)
+                    strokeJoin = Paint.Join.ROUND
+                    strokeWidth = (textStyle.outlineWidth * scaleY).coerceAtMost(24f)
                 }
                 canvas.drawText(line, x, baseline, outline)
             }
