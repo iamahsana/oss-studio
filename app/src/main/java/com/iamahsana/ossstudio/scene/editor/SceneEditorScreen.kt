@@ -334,6 +334,9 @@ fun SceneEditorScreen(
             }
             BoxWithConstraints(
                 modifier = Modifier.fillMaxWidth()
+                    // Keep the scene canvas inside a bounded editor viewport. The scene's
+                    // canonical dimensions remain unchanged; only its on-screen fit changes.
+                    .heightIn(max = 360.dp)
                     .aspectRatio(scene.canvas.width.toFloat() / scene.canvas.height.toFloat())
                     .clip(RoundedCornerShape(12.dp))
                     .background(Color(0xFF17191D))
