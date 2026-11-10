@@ -51,7 +51,7 @@ These are logical boundaries, not a requirement to create every Gradle module im
 ## Persistence
 - Room is the candidate for projects, scenes, elements, destinations metadata, and extension registry.
 - DataStore is the candidate for app preferences.
-- Persist the selected LIVE output orientation as a global/LIVE setting. It is the authoritative source for scene canvas orientation and output aspect ratio; scene records must not independently select arbitrary ratios or dimensions.
+- Persist the selected LIVE output orientation as part of the active LIVE output configuration. It is the authoritative source for scene canvas orientation and output aspect ratio; scene records must not independently select arbitrary ratios or dimensions.
 - On orientation change while LIVE is stopped, migrate all scenes in the active project atomically using the documented geometry conversion. Preserve a recoverable prior snapshot and make the operation undoable. Reject or defer orientation changes during an active LIVE session.
 - Credentials and stream keys must use Android-protected storage; never store them in plain project exports or logs.
 - Database schema changes require explicit migrations.
