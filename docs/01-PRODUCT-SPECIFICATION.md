@@ -16,11 +16,12 @@ Open Stream Software (OSS) is a lightweight, modular Android live-streaming stud
 - Kotlin and Jetpack Compose are the current implementation direction.
 - No desktop dependency for normal development/testing workflow.
 - Scene preview is explicitly out of the initial release scope. The editor canvas defines the composition sent to LIVE; no duplicate preview renderer is required.
+- LIVE output orientation is configured in LIVE settings and governs every scene canvas. Only Portrait (9:16) and Landscape (16:9) are supported initially; no square, 4:5, 3:4, 4:3, or arbitrary custom dimensions.
 
 ## Main application areas
 - **Home:** recent projects, activity, shortcuts, and module information. It is not the LIVE control page.
 - **Studio:** streaming destinations, quality, connection state, quick audio controls, LIVE status, and Go Live / End Live.
-- **Scene Editor:** canvas, elements, layers, asset management, transforms, undo/redo, and scene settings.
+- **Scene Editor:** canvas whose orientation follows LIVE output settings, elements, layers, asset management, transforms, undo/redo, and scene settings.
 - **Audio Mixer:** independent source channels, meters, mute, gain, balance, and LIVE/MONITOR routing.
 - **Extension Center:** discover, install, update, inspect, and remove extensions.
 - **Settings:** account, appearance, global preferences, storage, backups, module permissions, updates, and diagnostics.
@@ -28,7 +29,7 @@ Open Stream Software (OSS) is a lightweight, modular Android live-streaming stud
 ## Scene and source model
 A scene is an ordered composition of independently managed sources. The canvas starts empty. Text, image, GIF, video, Share Screen, and later camera/USB adapters are sources that users explicitly add. Share Screen is not the canvas and is never attached automatically.
 
-Portrait and Landscape are the only initial canvas orientations. Suggested logical dimensions are 1080×1920 and 1920×1080. Editor display rotation must not mutate logical scene geometry. Changing canvas orientation is an explicit scene operation with controlled layout conversion.
+Portrait and Landscape are the only supported LIVE output orientations in the initial release. The active LIVE output setting is the single source of truth for orientation and canvas aspect ratio; the Scene Editor must follow it and must not expose independent per-scene aspect-ratio, arbitrary preset, or custom width/height controls. Use logical reference dimensions of 1080×1920 for Portrait and 1920×1080 for Landscape; encoder output may scale these reference dimensions to a supported stream resolution without changing their aspect ratio. Changing LIVE orientation is allowed only while LIVE is stopped. It must update every scene in the active project through a deterministic, non-distorting layout conversion, preserve relative placement/size as far as possible, clamp only when necessary, and be undoable/recoverable. Editor viewport rotation, zoom, and pan must never mutate scene geometry. Share Screen remains an ordinary source element that users add explicitly to a scene.
 
 The editor should closely follow PixelLab's interaction model and workflow without copying its proprietary code, assets, or branding. Required capabilities include drag, resize, rotate, crop, layer ordering, duplicate, lock, delete, grouping, grid/snap, safe areas, undo/redo, and contextual tools.
 
