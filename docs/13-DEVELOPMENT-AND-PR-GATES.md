@@ -61,7 +61,18 @@ Any change touching canvas, scene geometry, editor orientation, or encoder outpu
 - [ ] Encoder output aspect ratio matches the selected LIVE orientation.
 - [ ] Orientation cannot change underneath an active LIVE encoder session.
 
-## 5. Audio specific checks
+## 5. Scene Editor and extension-specific checks
+
+Any Scene Editor or element-extension change must verify:
+
+- [ ] The implementation is checked against the PixelLab feature-by-feature parity matrix; the target is complete functional/workflow parity, not a reduced approximation.
+- [ ] Core contains editor manipulation tools and hosting contracts; every user-addable scene element/source type is packaged as an extension.
+- [ ] Text, Image, Shape, GIF, Video, Share Screen, and future source types are not silently treated as permanently installed production Core elements.
+- [ ] An uninstalled element triggers a clear on-demand install flow and asks the user before downloading.
+- [ ] Production builds do not bulk-download the element catalog; beta builds bundle only explicitly required test extensions.
+- [ ] Missing/incompatible extensions preserve scene data and render a recoverable placeholder rather than deleting or corrupting elements.
+
+## 6. Audio specific checks
 
 - [ ] Mic/internal/per-app sources remain separately identified where the platform supports it.
 - [ ] Unavailable capture paths are reported honestly; no silent source substitution.
@@ -69,7 +80,7 @@ Any change touching canvas, scene geometry, editor orientation, or encoder outpu
 - [ ] Audio failure cannot block or terminate video processing.
 - [ ] Tests are targeted to changed behavior; previously passed tests are not repeated without regression justification.
 
-## 6. Merge policy
+## 7. Merge policy
 
 - Keep feature PRs in draft until implementation and tests are ready.
 - Never merge with a failing or still-running required CI job.
@@ -78,7 +89,7 @@ Any change touching canvas, scene geometry, editor orientation, or encoder outpu
 - If code is found to conflict with the approved baseline, stop feature work and open a corrective PR.
 - Do not claim a feature is complete based solely on compilation or emulator startup.
 
-## 7. Definition of done
+## 8. Definition of done
 
 A feature is complete only when:
 1. Its behavior matches an approved requirement.
