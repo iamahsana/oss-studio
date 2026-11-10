@@ -80,16 +80,14 @@ class MainActivitySmokeTest {
         composeRule.onAllNodesWithTag("scene-element-item")[0].performScrollTo().performClick()
         // The layer list is below the canvas in a vertical page; bring the canvas
         // back into the viewport before asserting that its resize handle is visible.
-        composeRule.onNodeWithTag("scene-canvas").performScrollTo()
-        composeRule.onNodeWithTag("scene-resize-handle", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-resize-handle", useUnmergedTree = true).performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Undo").performScrollTo().performClick()
         assertTrue(composeRule.onAllNodesWithTag("scene-resize-handle", useUnmergedTree = true).fetchSemanticsNodes().isEmpty())
         composeRule.onNodeWithText("Redo").performScrollTo().performClick()
         composeRule.onNodeWithText("Teks baru").performScrollTo().assertIsDisplayed()
         // Undo clears the selection when the element is absent; reselect it after redo.
         composeRule.onAllNodesWithTag("scene-element-item")[0].performScrollTo().performClick()
-        composeRule.onNodeWithTag("scene-canvas").performScrollTo()
-        composeRule.onNodeWithTag("scene-resize-handle", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-resize-handle", useUnmergedTree = true).performScrollTo().assertIsDisplayed()
 
         composeRule.onNodeWithText("Tambah teks").performScrollTo().performClick()
         composeRule.onNodeWithText("Pilih beberapa").performScrollTo().performClick()
