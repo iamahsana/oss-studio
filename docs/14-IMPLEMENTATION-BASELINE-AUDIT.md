@@ -54,6 +54,10 @@ The Scene Editor target is PixelLab functional/workflow parity, including the co
 
 These requirements are normative and must be applied to subsequent corrective implementation planning. The existing source audit above remains a point-in-time record of the inspected code and does not claim these requirements are implemented.
 
+## Documentation consistency finding — package file extensions
+
+The original Project Data Model described editable project archives as `.osspack`, while the existing extension installer and extension package specification also use `.osspack` for declarative extensions. This is an ambiguous file-type collision. The documentation baseline now reserves `.osspack` for installable extensions and uses `.ossproject` for editable project interchange archives. Existing source currently implements only the extension `.osspack` validator/installer; project archive export/import remains a separate implementation task.
+
 ## PixelLab parity and extension implementation gap audit
 
 The feature acceptance inventory is now maintained in [PixelLab Feature Parity Matrix](15-PIXELLAB-FEATURE-PARITY.md). A second source inspection against the current `main` branch confirms that the existing editor is an early prototype, not a PixelLab-parity editor.
