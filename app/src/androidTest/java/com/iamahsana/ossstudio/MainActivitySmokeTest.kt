@@ -69,7 +69,7 @@ class MainActivitySmokeTest {
         composeRule.waitUntil(15_000) {
             composeRule.onAllNodesWithText("Canvas kosong").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithText("Canvas kosong").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Canvas kosong").assertIsDisplayed()
         composeRule.onNodeWithTag("scene-element-insertion-shelf").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithTag("scene-add-media").assertIsDisplayed()
         composeRule.onNodeWithTag("scene-add-share-screen").assertIsDisplayed()
@@ -79,7 +79,10 @@ class MainActivitySmokeTest {
         composeRule.onNodeWithText("Undo").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Redo").performScrollTo().assertIsDisplayed()
 
-        composeRule.onNodeWithText("Pengaturan canvas").performScrollTo().performClick()
+        composeRule.onNodeWithText("Pengaturan canvas").assertIsDisplayed().performClick()
+        composeRule.waitUntil("canvas settings dialog opens", 5_000L) {
+            composeRule.onAllNodesWithText("Format canvas").fetchSemanticsNodes().isNotEmpty()
+        }
         composeRule.onNodeWithText("Format canvas").assertIsDisplayed()
         composeRule.onNodeWithText("Rasio dan ukuran canvas mengikuti orientasi output LIVE project.")
             .assertIsDisplayed()
