@@ -998,3 +998,93 @@ private fun SceneAssetImage(
         value = withContext(Dispatchers.IO) {
             if (isVideo) decodeVideoPreview(filePath) else decodeEditorBitmap(filePath)
         }
+    }.value
+    if (bitmap != null) {
+        Image(
+            bitmap = bitmap.asImageBitmap(),
+            contentDescription = contentDescription,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize().graphicsLayer {
+                val cropWidth = (crop.right - crop.left).coerceAtLeast(0.001f)
+                val cropHeight = (crop.bottom - crop.top).coerceAtLeast(0.001f)
+                scaleX = 1f / cropWidth
+                scaleY = 1f / cropHeight
+                translationX = ((0.5f - (crop.left + crop.right) / 2f) / cropWidth) * size.width
+                translationY = ((0.5f - (crop.top + crop.bottom) / 2f) / cropHeight) * size.height
+            }
+        )
+    } else {
+        Text("Memuat media…", color = Color.White, textAlign = TextAlign.Center)
+    }
+}
+
+private fun decodeEditorBitmap(path: String): Bitmap? {
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    BitmapFactory.decodeFile(path, bounds)
+    if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+    var sampleSize = 1
+    while (bounds.outWidth / sampleSize > 2048 || bounds.outHeight / sampleSize > 2048) {
+        sampleSize *= 2
+    }
+    return BitmapFactory.decodeFile(path, BitmapFactory.Options().apply {
+        inSampleSize = sampleSize
+        inPreferredConfig = Bitmap.Config.ARGB_8888
+    })
+}
+
+private fun decodeVideoPreview(path: String): Bitmap? {
+    val retriever = MediaMetadataRetriever()
+    return try {
+        retriever.setDataSource(path)
+        retriever.getScaledFrameAtTime(
+            0L,
+            MediaMetadataRetriever.OPTION_CLOSEST_SYNC,
+            1280,
+            1280
+        )
+    } catch (_: Exception) {
+        null
+    } finally {
+        retriever.release()
+    }
+}
+
+@Composable
+private fun SceneAnimatedGif(filePath: String, contentDescription: String, crop: CropRect) {
+    val context = LocalContext.current
+    val drawable = produceState<Drawable?>(initialValue = null, key1 = filePath) {
+        value = withContext(Dispatchers.IO) {
+            runCatching {
+                ImageDecoder.decodeDrawable(ImageDecoder.createSource(File(filePath)))
+            }.getOrNull()
+        }
+    }.value
+    if (drawable is AnimatedImageDrawable) {
+        DisposableEffect(drawable) {
+            drawable.start()
+            onDispose { drawable.stop() }
+        }
+    }
+    if (drawable != null) {
+        AndroidView(
+            factory = {
+                ImageView(it).apply {
+                    scaleType = ImageView.ScaleType.CENTER_CROP
+                    this.contentDescription = contentDescription
+                    setImageDrawable(drawable)
+                }
+            },
+            update = { it.setImageDrawable(drawable) },
+            modifier = Modifier.fillMaxSize().graphicsLayer {
+                val cropWidth = (crop.right - crop.left).coerceAtLeast(0.001f)
+                val cropHeight = (crop.bottom - crop.top).coerceAtLeast(0.001f)
+                scaleX = 1f / cropWidth
+                scaleY = 1f / cropHeight
+                translationX = ((0.5f - (crop.left + crop.right) / 2f) / cropWidth) * size.width
+                translationY = ((0.5f - (crop.top + crop.bottom) / 2f) / cropHeight) * size.height
+            }
+        )
+    } else {
+        Text("GIF tidak dapat dimuat", color = Color.White, textAlign = TextAlign.Center)
+    }
+}
