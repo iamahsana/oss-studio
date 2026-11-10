@@ -51,11 +51,15 @@ These are logical boundaries, not a requirement to create every Gradle module im
 ## Persistence
 - Room is the candidate for projects, scenes, elements, destinations metadata, and extension registry.
 - DataStore is the candidate for app preferences.
+- Persist the selected LIVE output orientation as a global/LIVE setting. It is the authoritative source for scene canvas orientation and output aspect ratio; scene records must not independently select arbitrary ratios or dimensions.
+- On orientation change while LIVE is stopped, migrate all scenes in the active project atomically using the documented geometry conversion. Preserve a recoverable prior snapshot and make the operation undoable. Reject or defer orientation changes during an active LIVE session.
 - Credentials and stream keys must use Android-protected storage; never store them in plain project exports or logs.
 - Database schema changes require explicit migrations.
 - Autosave and crash recovery are required.
 
 ## Rendering and media
+- The compositor receives a scene snapshot whose canvas orientation is synchronized with the active LIVE output setting. The encoder must derive its aspect ratio from that same setting (or its synchronized canonical scene canvas), never from editor viewport measurements.
+- Canonical logical canvas reference sizes are 1080×1920 Portrait and 1920×1080 Landscape. Encoder resolution may scale to supported stream limits while preserving the selected aspect ratio. Arbitrary aspect ratios and custom canvas dimensions are not supported in the initial release.
 - Android MediaCodec is the primary hardware codec interface where compatible.
 - Compositor implementation is selected after a prototype and device benchmark.
 - Decoding and asset loading are off the UI thread.
