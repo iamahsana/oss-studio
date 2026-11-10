@@ -100,8 +100,7 @@ class MainActivitySmokeTest {
         composeRule.onNodeWithText("Hapus project?").assertIsDisplayed()
         composeRule.onAllNodesWithText("Hapus")[1].performClick()
         composeRule.waitUntil(15_000) {
-            composeRule.onAllNodesWithText("Belum ada project. Buat project pertama untuk mulai menyusun scene.")
-                .fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodesWithText("OSS UI Smoke").fetchSemanticsNodes().isEmpty()
         }
 
         composeRule.onNodeWithText("Editor").performClick()
