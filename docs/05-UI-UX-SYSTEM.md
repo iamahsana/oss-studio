@@ -32,7 +32,7 @@ The Scene Editor must achieve PixelLab functional and workflow parity, not merel
 Dedicated page with visible meters and individual channel strips. Each source exposes only controls it supports: gain/volume, mute, balance, routing, and source status. LIVE and MONITOR buses are explicit. Do not silently replace unavailable sources.
 
 ## Extension Center
-Show extension name, author/provenance, version, compatibility, size, permissions, license, update state, and install/remove controls. Explain permission requests before enabling. Every user-addable scene element type (including Text, Image, Shape, GIF, Video, and Share Screen) is represented by an extension. Download only when the user requests an uninstalled element, and ask before downloading. Beta builds may bundle the exact test extensions required.
+Show extension name, author/provenance, version, compatibility, size, permissions, license, update state, and install/remove controls. Explain permission requests before enabling. Every user-addable scene element type (including Text, Image, Shape, Sticker, Emoji, Drawing, GIF, Video, Template, and Share Screen) is represented by an extension. Download only when the user requests an uninstalled element, and ask before downloading. Beta builds may bundle the exact test extensions required.
 
 ## Settings
 All global preferences belong here: account, language, appearance, accent/theme customization, full-screen/system-bar behavior, storage/cache, backups, global streaming defaults, module permissions/update policy, and diagnostics.
