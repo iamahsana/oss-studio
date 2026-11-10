@@ -18,7 +18,7 @@ Status: normative acceptance specification. The target is PixelLab functional/wo
 The baseline inventory is derived from the official Google Play listing for PixelLab - Text on pictures (App Holdings, package `com.imaginstudio.imagetools.pixellab`):
 https://play.google.com/store/apps/details?id=com.imaginstudio.imagetools.pixellab
 
-The listing describes text and 3D text, text effects, gradients and image textures, 100+ fonts/custom fonts, stickers/emojis/shapes, image import, drawing, color/gradient/image backgrounds, project save/reopen, background removal, perspective editing, image effects, image export, meme presets, and quotes. The feature matrix below combines that public inventory with the user's previously agreed editor interactions. It is a minimum inventory, not permission to omit features found in the actual installed PixelLab app. Before final acceptance, compare the complete current Android app UI, menus, and tool panels on-device and extend this matrix wherever additional capabilities are found.
+The listing describes text and 3D text, text effects, gradients and image textures, 100+ fonts/custom fonts, stickers/emojis/shapes, image import, drawing, color/gradient/image backgrounds, project save/reopen, background removal, perspective editing, image effects, image export, meme presets, and quotes. The feature matrix below combines that public Android inventory with the user's previously agreed editor interactions. Features that appear only in other platform/version listings or third-party guides are marked for direct Android verification rather than assumed. This is a minimum inventory, not permission to omit features found in the actual installed PixelLab app. Before final acceptance, compare the complete current Android app UI, menus, and tool panels on-device and extend this matrix wherever additional capabilities are found.
 
 ### A. Workspace, document and project workflow
 
@@ -41,7 +41,7 @@ The listing describes text and 3D text, text effects, gradients and image textur
 | Multiple text objects | Add and edit multiple independent text layers | Text extension; independent layer IDs |
 | Plain text | Create, replace, and edit text with a touch-first editing flow | Required |
 | 3D text | Depth/extrusion-style text with editable parameters | Text extension; render and reopen test |
-| Curved / circular text | Text along a curve or circular path | Text extension; edit path after save/reopen |
+| Curved / circular text | If present in the current PixelLab Android build, support text along a curve or circular path | Verify directly in the current Android app; if present, required parity feature |
 | Font library | Broad font catalog comparable to PixelLab's published 100+ font selection | Font packs/extensions; not all fonts bundled |
 | Custom fonts | Import supported user font files and use them in text objects | Font ingestion extension/service; validate format and licensing |
 | Text alignment | Left, center, right and supported vertical alignment | Required |
@@ -56,7 +56,7 @@ The listing describes text and 3D text, text effects, gradients and image textur
 | Emboss | Editable emboss effect | Required |
 | Mask | Text mask/clipping effect where supported by PixelLab | Required |
 | Text transform | Move, resize, rotate, scale and position using direct handles and precise property controls | Required |
-| Text conversion | Convert text to editable vector/shape where PixelLab supports it; retain source editability when possible | Required capability; conversion must be reversible where feasible |
+| Text conversion | Inspect the current Android build for text-to-shape/vector conversion and reproduce it if present | Current Android availability must be verified before marking required; do not infer from another platform/version |
 
 ### C. Images, stickers, shapes and drawing
 
@@ -72,7 +72,7 @@ The listing describes text and 3D text, text effects, gradients and image textur
 | Image perspective / warp | Perspective transform for image content, with editable handles | Image-tool extension; required parity feature |
 | Image effects | Vignette, stripes, hue, saturation and the complete currently available PixelLab effect inventory | Effect packs/extensions; non-destructive parameters |
 | Image crop | Crop and reposition content independently of the element's outer transform | Required |
-| Image stroke / shadow | Editable outline and shadow where supported in current PixelLab | Required |
+| Image stroke / shadow | Inspect current PixelLab Android image tools and reproduce any available outline/shadow controls | Verify exact Android availability and parameters during hands-on comparison |
 
 ### D. Layer and object manipulation
 
