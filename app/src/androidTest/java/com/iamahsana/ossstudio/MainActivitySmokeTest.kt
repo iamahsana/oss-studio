@@ -96,7 +96,7 @@ class MainActivitySmokeTest {
         // Select from the layer list explicitly so the test validates resize-handle
         // visibility for a selected element, independent of add-action focus timing.
         composeRule.onAllNodesWithTag("scene-canvas-element", useUnmergedTree = true)[0].performClick()
-        composeRule.onNodeWithTag("scene-resize-handle", useUnmergedTree = true).assertExists().assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-resize-handle", useUnmergedTree = true).performScrollTo().assertExists().assertIsDisplayed()
         composeRule.onNodeWithTag("scene-panel-properties").performScrollTo().performClick()
         composeRule.onNodeWithTag("scene-properties-panel").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithTag("scene-panel-layers").performScrollTo().performClick()
