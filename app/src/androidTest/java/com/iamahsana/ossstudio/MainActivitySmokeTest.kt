@@ -109,8 +109,20 @@ class MainActivitySmokeTest {
         composeRule.onNodeWithTag("delete-project-$smokeProjectId").performClick()
         composeRule.onNodeWithText("Hapus project?").assertIsDisplayed()
         composeRule.onNodeWithTag("confirm-delete-project").performClick()
-        composeRule.waitUntil("deleted project disappears from Home list", 15_000L) {
-            composeRule.onAllNodesWithText("OSS UI Smoke").fetchSemanticsNodes().isEmpty()
+        composeRule.waitUntil("delete dialog closes or reports a deletion error", 15_000L) {
+            composeRule.onAllNodesWithText("Hapus project?").fetchSemanticsNodes().isEmpty() ||
+                composeRule.onAllNodesWithText("Project tidak ditemukan.").fetchSemanticsNodes().isNotEmpty() ||
+                composeRule.onAllNodesWithText("Project tidak dapat dibaca; file media tidak dihapus.").fetchSemanticsNodes().isNotEmpty() ||
+                composeRule.onAllNodesWithText("Gagal menghapus project").fetchSemanticsNodes().isNotEmpty() ||
+                composeRule.onAllNodesWithText("Hentikan atau selesaikan cleanup LIVE sebelum menghapus project aktif.").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onAllNodesWithText("Project tidak ditemukan.").assertCountEquals(0)
+        composeRule.onAllNodesWithText("Gagal menghapus project").assertCountEquals(0)
+        composeRule.waitUntil("target project is deleted from persistent storage", 15_000L) {
+            SceneProjectStoreProvider.database(smokeContext).get(smokeProjectId) == null
+        }
+        composeRule.waitUntil("deleted project row disappears from Home", 15_000L) {
+            composeRule.onAllNodesWithTag("delete-project-$smokeProjectId").fetchSemanticsNodes().isEmpty()
         }
 
         composeRule.onNodeWithText("Editor").performClick()
