@@ -323,6 +323,11 @@ fun SceneEditorScreen(
                 }
             }
             Text(scene.name, style = MaterialTheme.typography.titleMedium)
+            Text(
+                "${scene.canvas.width} × ${scene.canvas.height} px",
+                modifier = Modifier.testTag("scene-canvas-dimensions"),
+                style = MaterialTheme.typography.labelSmall
+            )
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
