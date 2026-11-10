@@ -30,6 +30,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -337,12 +338,15 @@ fun SceneEditorScreen(
                 TextButton(onClick = { viewportZoom = 1f; viewportPanX = 0f; viewportPanY = 0f }) { Text("Reset") }
             }
             }
+            val canvasAspectRatio = scene.canvas.width.toFloat() / scene.canvas.height.toFloat()
             BoxWithConstraints(
-                modifier = Modifier.fillMaxWidth()
-                    // Keep the scene canvas inside a bounded editor viewport. The scene's
-                    // canonical dimensions remain unchanged; only its on-screen fit changes.
+                modifier = Modifier
+                    // Cap the long edge at 360dp while preserving the exact LIVE aspect ratio.
+                    // A portrait canvas must become narrower, not be forced into a square.
+                    .widthIn(max = 360.dp * canvasAspectRatio)
                     .heightIn(max = 360.dp)
-                    .aspectRatio(scene.canvas.width.toFloat() / scene.canvas.height.toFloat())
+                    .aspectRatio(canvasAspectRatio)
+                    .align(Alignment.CenterHorizontally)
                     .clip(RoundedCornerShape(12.dp))
                     .background(Color(0xFF17191D))
                     .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
