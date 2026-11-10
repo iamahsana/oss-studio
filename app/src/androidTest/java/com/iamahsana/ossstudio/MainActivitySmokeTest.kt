@@ -1,7 +1,6 @@
 package com.iamahsana.ossstudio
 
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.hasText
@@ -184,8 +183,7 @@ class MainActivitySmokeTest {
         composeRule.onNodeWithTag("scene-canvas-width").performTextReplacement("720")
         composeRule.onNodeWithTag("scene-canvas-height").performTextReplacement("1280")
         composeRule.onNodeWithTag("scene-canvas-apply").performClick()
-        composeRule.onNodeWithTag("scene-canvas-dimensions").assertExists()
-            .assert(hasText("720 × 1280 px"))
+        composeRule.onNodeWithTag("scene-canvas-dimensions").assert(hasText("720 × 1280 px"))
 
         composeRule.activityRule.scenario.recreate()
         composeRule.waitUntil("custom canvas dimensions restore from project storage", 15_000L) {
