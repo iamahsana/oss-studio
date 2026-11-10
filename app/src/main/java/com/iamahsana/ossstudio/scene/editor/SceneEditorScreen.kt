@@ -19,6 +19,7 @@ import androidx.compose.foundation.clickable
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -61,6 +62,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
@@ -193,6 +195,9 @@ fun SceneEditorScreen(
     }
     val scene = currentProject.scenes.firstOrNull { it.id == currentProject.activeSceneId }
         ?: currentProject.scenes.firstOrNull()
+    var viewportZoom by remember(project.id, scene?.id) { mutableStateOf(1f) }
+    var viewportPanX by remember(project.id, scene?.id) { mutableStateOf(0f) }
+    var viewportPanY by remember(project.id, scene?.id) { mutableStateOf(0f) }
     val selectedElement = scene?.elements?.firstOrNull { it.id == selectedElementId }
     val selectedSource = currentProject.sources.firstOrNull { it.id == selectedElement?.sourceId }
     var editingText by remember(selectedElementId) { mutableStateOf(selectedSource?.text.orEmpty()) }
@@ -293,12 +298,48 @@ fun SceneEditorScreen(
                 }
             }
             Text(scene.name, style = MaterialTheme.typography.titleMedium)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedButton(onClick = {
+                    viewportZoom = (viewportZoom - 0.25f).coerceAtLeast(1f)
+                    if (viewportZoom == 1f) { viewportPanX = 0f; viewportPanY = 0f }
+                }, enabled = viewportZoom > 1f) { Text("−") }
+                Text("${(viewportZoom * 100).roundToInt()}%", modifier = Modifier.weight(1f), textAlign = TextAlign.Center, style = MaterialTheme.typography.labelMedium)
+                OutlinedButton(onClick = { viewportZoom = (viewportZoom + 0.25f).coerceAtMost(4f) }, enabled = viewportZoom < 4f) { Text("＋") }
+                TextButton(onClick = { viewportZoom = 1f; viewportPanX = 0f; viewportPanY = 0f }) { Text("Reset") }
+            }
             BoxWithConstraints(
                 modifier = Modifier.fillMaxWidth()
                     .aspectRatio(scene.canvas.width.toFloat() / scene.canvas.height.toFloat())
                     .clip(RoundedCornerShape(12.dp))
                     .background(Color(0xFF17191D))
                     .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
+                    .clipToBounds()
+                    .pointerInput(scene.id, viewportZoom) {
+                        detectTransformGestures { _, pan, zoomChange, _ ->
+                            val nextZoom = (viewportZoom * zoomChange).coerceIn(1f, 4f)
+                            viewportZoom = nextZoom
+                            if (nextZoom <= 1f) {
+                                viewportPanX = 0f
+                                viewportPanY = 0f
+                            } else {
+                                val maxX = size.width * (nextZoom - 1f) / 2f
+                                val maxY = size.height * (nextZoom - 1f) / 2f
+                                viewportPanX = (viewportPanX + pan.x).coerceIn(-maxX, maxX)
+                                viewportPanY = (viewportPanY + pan.y).coerceIn(-maxY, maxY)
+                            }
+                        }
+                    }
+                    .graphicsLayer {
+                        scaleX = viewportZoom
+                        scaleY = viewportZoom
+                        translationX = viewportPanX
+                        translationY = viewportPanY
+                        transformOrigin = TransformOrigin.Center
+                    }
                     .testTag("scene-canvas")
             ) {
                 val scale = constraints.maxWidth.toFloat() / scene.canvas.width.toFloat()
