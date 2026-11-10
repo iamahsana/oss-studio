@@ -83,6 +83,7 @@ class MainActivitySmokeTest {
         composeRule.waitUntil("new text source appears in the scene layers", 15_000L) {
             composeRule.onAllNodesWithTag("scene-element-item").fetchSemanticsNodes().isNotEmpty()
         }
+        composeRule.onNodeWithTag("scene-panel-layers").performScrollTo().assertIsDisplayed()
         composeRule.waitUntil("new text element is composed on the canvas", 15_000L) {
             composeRule.onAllNodesWithTag("scene-canvas-element", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
         }
@@ -90,6 +91,9 @@ class MainActivitySmokeTest {
         // visibility for a selected element, independent of add-action focus timing.
         composeRule.onAllNodesWithTag("scene-canvas-element", useUnmergedTree = true)[0].performClick()
         composeRule.onNodeWithTag("scene-resize-handle", useUnmergedTree = true).assertExists().assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-panel-properties").performScrollTo().performClick()
+        composeRule.onNodeWithTag("scene-properties-panel").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-panel-layers").performScrollTo().performClick()
         composeRule.onNodeWithText("Undo").performScrollTo().performClick()
         assertTrue("Undo should remove the resize handle when the new element is removed", composeRule.onAllNodesWithTag("scene-resize-handle", useUnmergedTree = true).fetchSemanticsNodes().isEmpty())
         composeRule.onNodeWithText("Redo").performScrollTo().performClick()
