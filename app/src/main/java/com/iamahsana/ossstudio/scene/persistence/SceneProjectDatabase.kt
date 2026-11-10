@@ -75,7 +75,7 @@ class SceneProjectDatabase(
             }
             val original = SceneProjectJsonCodec.decode(oldDocument.first)
             val convertedGeometry = SceneProjectOrientationConverter.convert(original, orientation)
-            val now = maxOf(System.currentTimeMillis(), original.createdAtEpochMillis)
+            val now = maxOf(System.currentTimeMillis(), original.updatedAtEpochMillis)
             val converted = convertedGeometry.copy(updatedAtEpochMillis = now)
             val recovery = ContentValues().apply {
                 put("project_id", projectId)
