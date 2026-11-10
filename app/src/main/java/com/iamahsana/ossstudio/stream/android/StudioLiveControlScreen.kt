@@ -8,12 +8,15 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -22,8 +25,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.iamahsana.ossstudio.scene.model.CanvasOrientation
+import com.iamahsana.ossstudio.scene.model.CanvasSize
 import com.iamahsana.ossstudio.scene.model.SceneProject
 import com.iamahsana.ossstudio.scene.model.SceneSourceType
+import com.iamahsana.ossstudio.scene.persistence.SceneProjectRepository
+import com.iamahsana.ossstudio.scene.persistence.SceneProjectStoreProvider
 import com.iamahsana.ossstudio.stream.LiveSessionController
 import com.iamahsana.ossstudio.stream.rtmp.RtmpDestinationProfile
 import com.iamahsana.ossstudio.stream.rtmp.RtmpDestinationProfileStore
@@ -31,15 +38,29 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 
 @Composable
-fun StudioLiveControlScreen(context: Context, project: SceneProject?) {
+fun StudioLiveControlScreen(
+    context: Context,
+    project: SceneProject?,
+    onProjectChange: (SceneProject) -> Unit
+) {
     val controller = remember(context) { LiveSessionControllerRegistry.getOrCreate(context) }
+    val projectRepository = remember(context) {
+        SceneProjectRepository(SceneProjectStoreProvider.database(context))
+    }
     var sessionState by remember { mutableStateOf(LiveSessionControllerRegistry.state) }
     var detail by remember { mutableStateOf(LiveSessionControllerRegistry.detail) }
     val initialProfiles = remember(context) { loadProfiles(context) }
     var profiles by remember { mutableStateOf(initialProfiles.first) }
     var profileError by remember { mutableStateOf(initialProfiles.second) }
     var actionMessage by remember { mutableStateOf<String?>(null) }
+    var orientationMessage by remember { mutableStateOf<String?>(null) }
+    var pendingOrientation by remember { mutableStateOf<CanvasOrientation?>(null) }
+    var orientationWorking by remember { mutableStateOf(false) }
     val mainHandler = remember { Handler(Looper.getMainLooper()) }
+
+    DisposableEffect(projectRepository) {
+        onDispose { projectRepository.close() }
+    }
 
     LaunchedEffect(controller) {
         while (isActive) {
@@ -65,8 +86,19 @@ fun StudioLiveControlScreen(context: Context, project: SceneProject?) {
         LiveSessionController.State.STARTING,
         LiveSessionController.State.STOPPING
     )
-    val canStart = project != null && activeScene != null && enabledProfiles.isNotEmpty() &&
-        profileError == null && projectionReady && !busy &&
+    val orientationLocked = sessionState !in setOf(
+        LiveSessionController.State.IDLE,
+        LiveSessionController.State.STOPPED
+    ) || orientationWorking
+    val portraitCanvas = CanvasSize.DEFAULT_PORTRAIT
+    val landscapeCanvas = CanvasSize.DEFAULT_LANDSCAPE
+    val portraitIsApplied = project?.scenes?.isNotEmpty() == true &&
+        project.scenes.all { it.canvas == portraitCanvas }
+    val landscapeIsApplied = project?.scenes?.isNotEmpty() == true &&
+        project.scenes.all { it.canvas == landscapeCanvas }
+    val hasSingleCanonicalOrientation = portraitIsApplied || landscapeIsApplied
+    val canStart = project != null && activeScene != null && hasSingleCanonicalOrientation &&
+        enabledProfiles.isNotEmpty() && profileError == null && projectionReady && !busy &&
         sessionState in setOf(
             LiveSessionController.State.IDLE,
             LiveSessionController.State.STOPPED,
@@ -82,6 +114,46 @@ fun StudioLiveControlScreen(context: Context, project: SceneProject?) {
                 project?.let { "Project: ${it.name}" } ?: "Pilih project dari Home sebelum memulai LIVE.",
                 style = MaterialTheme.typography.bodySmall
             )
+
+            Text("Orientasi output LIVE", style = MaterialTheme.typography.titleMedium)
+            Text(
+                "Orientasi berlaku untuk seluruh scene dalam project. Geometri akan disesuaikan secara proporsional; elemen tidak diregangkan atau dipotong.",
+                style = MaterialTheme.typography.bodySmall
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (portraitIsApplied) {
+                    Button(enabled = false, onClick = {}) { Text("Portrait 9:16 ✓") }
+                } else {
+                    OutlinedButton(
+                        enabled = project != null && !orientationLocked,
+                        onClick = { pendingOrientation = CanvasOrientation.PORTRAIT }
+                    ) { Text("Portrait 9:16") }
+                }
+                if (landscapeIsApplied) {
+                    Button(enabled = false, onClick = {}) { Text("Landscape 16:9 ✓") }
+                } else {
+                    OutlinedButton(
+                        enabled = project != null && !orientationLocked,
+                        onClick = { pendingOrientation = CanvasOrientation.LANDSCAPE }
+                    ) { Text("Landscape 16:9") }
+                }
+            }
+            if (orientationLocked) {
+                Text(
+                    "Orientasi hanya dapat diubah saat LIVE tidak berjalan dan cleanup sesi sudah selesai.",
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+            orientationMessage?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+
+            if (project != null && activeScene != null && !hasSingleCanonicalOrientation) {
+                Text(
+                    "Sebelum LIVE, pilih Portrait 9:16 atau Landscape 16:9. Semua scene harus memakai satu format output yang sama.",
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
             Text("Tujuan aktif: ${enabledProfiles.size}", style = MaterialTheme.typography.bodySmall)
             profileError?.let { Text("Vault RTMP: $it", color = MaterialTheme.colorScheme.error) }
             if (requiresProjection && !projectionReady) {
@@ -133,6 +205,49 @@ fun StudioLiveControlScreen(context: Context, project: SceneProject?) {
                 style = MaterialTheme.typography.bodySmall
             )
         }
+    }
+
+    pendingOrientation?.let { target ->
+        val targetLabel = if (target == CanvasOrientation.PORTRAIT) "Portrait 9:16" else "Landscape 16:9"
+        AlertDialog(
+            onDismissRequest = { if (!orientationWorking) pendingOrientation = null },
+            title = { Text("Ubah orientasi project?") },
+            text = {
+                Text(
+                    "Semua scene akan dikonversi ke $targetLabel. Posisi dan ukuran elemen disesuaikan secara proporsional. Salinan project sebelum konversi disimpan sebagai recovery. Lanjutkan?"
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !orientationWorking && project != null && !orientationLocked,
+                    onClick = {
+                        val selectedProject = project ?: return@TextButton
+                        orientationWorking = true
+                        orientationMessage = "Mengonversi seluruh scene dan menyimpan recovery…"
+                        projectRepository.convertOrientation(selectedProject.id, target) { result ->
+                            mainHandler.post {
+                                orientationWorking = false
+                                pendingOrientation = null
+                                result.fold(
+                                    onSuccess = { converted ->
+                                        onProjectChange(converted)
+                                        orientationMessage = "Orientasi project berhasil diubah ke $targetLabel."
+                                    },
+                                    onFailure = { error ->
+                                        orientationMessage = "Konversi gagal; project lama tetap dipertahankan. ${error.message ?: ""}"
+                                    }
+                                )
+                            }
+                        }
+                    }
+                ) { Text("Konversi project") }
+            },
+            dismissButton = {
+                TextButton(enabled = !orientationWorking, onClick = { pendingOrientation = null }) {
+                    Text("Batal")
+                }
+            }
+        )
     }
 }
 

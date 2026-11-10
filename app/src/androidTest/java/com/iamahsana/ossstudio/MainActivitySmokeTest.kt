@@ -78,8 +78,10 @@ class MainActivitySmokeTest {
         composeRule.onNodeWithText("Redo").performScrollTo().assertIsDisplayed()
 
         composeRule.onNodeWithText("Pengaturan canvas").performScrollTo().performClick()
-        composeRule.onNodeWithText("Portrait · 9:16 · 1080 × 1920").assertIsDisplayed()
-        composeRule.onNodeWithText("Landscape · 16:9 · 1920 × 1080").performClick()
+        composeRule.onNodeWithText("Format canvas").assertIsDisplayed()
+        composeRule.onNodeWithText("Rasio dan ukuran canvas mengikuti orientasi output LIVE project.")
+            .assertIsDisplayed()
+        composeRule.onNodeWithText("Tutup").performClick()
 
         composeRule.onNodeWithTag("scene-add-text").performScrollTo().performClick()
         // The layer row displays the source name ("Text"), not its content
@@ -94,7 +96,7 @@ class MainActivitySmokeTest {
         // Select from the layer list explicitly so the test validates resize-handle
         // visibility for a selected element, independent of add-action focus timing.
         composeRule.onAllNodesWithTag("scene-canvas-element", useUnmergedTree = true)[0].performClick()
-        composeRule.onNodeWithTag("scene-resize-handle", useUnmergedTree = true).assertExists().assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-resize-handle", useUnmergedTree = true).performScrollTo().assertExists().assertIsDisplayed()
         composeRule.onNodeWithTag("scene-panel-properties").performScrollTo().performClick()
         composeRule.onNodeWithTag("scene-properties-panel").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithTag("scene-panel-layers").performScrollTo().performClick()
@@ -107,7 +109,7 @@ class MainActivitySmokeTest {
             composeRule.onAllNodesWithTag("scene-canvas-element", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onAllNodesWithTag("scene-canvas-element", useUnmergedTree = true)[0].performClick()
-        composeRule.onNodeWithTag("scene-resize-handle", useUnmergedTree = true).assertExists().assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-resize-handle", useUnmergedTree = true).performScrollTo().assertExists().assertIsDisplayed()
 
         composeRule.onNodeWithText("Tambah teks").performScrollTo().performClick()
         composeRule.onNodeWithTag("scene-multiselect-toggle").performScrollTo().assertIsDisplayed().performClick()
@@ -166,7 +168,7 @@ class MainActivitySmokeTest {
 
 
     @Test
-    fun customCanvasDimensionsAreSavedAndRestoredAfterActivityRecreation() {
+    fun editorCanvasSettingsExplainsLiveOrientationSourceOfTruth() {
         createdSmokeProject = true
         composeRule.onNodeWithText("Project baru").performClick()
         composeRule.onNodeWithText("Nama project").performTextInput("OSS UI Smoke")
@@ -176,20 +178,10 @@ class MainActivitySmokeTest {
         }
 
         composeRule.onNodeWithText("Pengaturan canvas").performScrollTo().performClick()
-        composeRule.onNodeWithTag("scene-canvas-preset-1-1").assertIsDisplayed()
-        composeRule.onNodeWithTag("scene-canvas-preset-4-5").assertIsDisplayed()
-        composeRule.onNodeWithTag("scene-canvas-preset-3-4").assertIsDisplayed()
-        composeRule.onNodeWithTag("scene-canvas-preset-4-3").assertIsDisplayed()
-        composeRule.onNodeWithTag("scene-canvas-width").performTextReplacement("720")
-        composeRule.onNodeWithTag("scene-canvas-height").performTextReplacement("1280")
-        composeRule.onNodeWithTag("scene-canvas-apply").performClick()
-        composeRule.onNodeWithTag("scene-canvas-dimensions").assert(hasText("720 × 1280 px"))
-
-        composeRule.activityRule.scenario.recreate()
-        composeRule.waitUntil("custom canvas dimensions restore from project storage", 15_000L) {
-            composeRule.onAllNodesWithTag("scene-canvas-dimensions").fetchSemanticsNodes().isNotEmpty()
-        }
-        composeRule.onNodeWithTag("scene-canvas-dimensions").assert(hasText("720 × 1280 px"))
+        composeRule.onNodeWithText("Format canvas").assertIsDisplayed()
+        composeRule.onNodeWithText("Untuk mengubahnya, buka halaman Studio lalu pilih Portrait 9:16 atau Landscape 16:9 pada bagian Orientasi output LIVE.")
+            .assertIsDisplayed()
+        composeRule.onNodeWithText("Tutup").performClick()
     }
 
     @Test
@@ -274,6 +266,33 @@ class MainActivitySmokeTest {
             val retained = RtmpDestinationProfileStore.load(context).filterNot { it.name == name }
             RtmpDestinationProfileStore.save(context, retained)
         }
+    }
+
+    @Test
+    fun studioOrientationChangeConvertsProjectAndEditorCanvasTogether() {
+        createdSmokeProject = true
+        composeRule.onNodeWithText("Project baru").performClick()
+        composeRule.onNodeWithText("Nama project").performTextInput("OSS UI Smoke")
+        composeRule.onNodeWithText("Buat").performClick()
+        composeRule.waitUntil("new project opens editor", 15_000L) {
+            composeRule.onAllNodesWithText("Canvas kosong").fetchSemanticsNodes().isNotEmpty()
+        }
+
+        composeRule.onNodeWithText("Studio").performClick()
+        scrollUntilVisible("LIVE control")
+        composeRule.onNodeWithText("Landscape 16:9").performScrollTo().performClick()
+        composeRule.onNodeWithText("Ubah orientasi project?").assertIsDisplayed()
+        composeRule.onNodeWithText("Konversi project").performClick()
+        composeRule.waitUntil("orientation conversion completes", 15_000L) {
+            composeRule.onAllNodesWithText("Orientasi project berhasil diubah ke Landscape 16:9.")
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+
+        composeRule.onNodeWithText("Editor").performClick()
+        composeRule.waitUntil("editor receives converted project", 15_000L) {
+            composeRule.onAllNodesWithTag("scene-canvas-dimensions").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithTag("scene-canvas-dimensions").assert(hasText("1920 × 1080 px"))
     }
 
     @Test

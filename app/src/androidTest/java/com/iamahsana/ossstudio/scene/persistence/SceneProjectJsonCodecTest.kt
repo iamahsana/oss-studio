@@ -1,5 +1,7 @@
 package com.iamahsana.ossstudio.scene.persistence
 
+import android.content.Context
+import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.iamahsana.ossstudio.scene.model.*
 import org.junit.Assert.assertEquals
@@ -61,4 +63,44 @@ class SceneProjectJsonCodecTest {
             )
         }
     }
+
+    @Test
+    fun databaseOrientationConversionUpdatesEverySceneAndKeepsRecoverySnapshot() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val databaseName = "orientation-test-${System.nanoTime()}.db"
+        val database = SceneProjectDatabase(context, databaseName)
+        try {
+            val projectId = "orientation-project"
+            val original = SceneProject(
+                id = projectId,
+                name = "Orientation test",
+                createdAtEpochMillis = 1,
+                updatedAtEpochMillis = 2,
+                activeSceneId = "portrait",
+                scenes = listOf(
+                    Scene(id = "portrait", projectId = projectId, name = "Portrait"),
+                    Scene(
+                        id = "custom",
+                        projectId = projectId,
+                        name = "Custom landscape",
+                        canvas = CanvasSize.LANDSCAPE_4_3
+                    )
+                )
+            )
+            database.save(original)
+
+            val converted = database.convertProjectOrientation(projectId, CanvasOrientation.LANDSCAPE)
+
+            assertEquals(
+                listOf(CanvasSize.DEFAULT_LANDSCAPE, CanvasSize.DEFAULT_LANDSCAPE),
+                converted.scenes.map { it.canvas }
+            )
+            assertEquals(converted, database.get(projectId))
+            assertEquals(original, database.getRecovery(projectId))
+        } finally {
+            database.close()
+            context.deleteDatabase(databaseName)
+        }
+    }
+
 }

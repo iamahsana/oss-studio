@@ -233,7 +233,7 @@ private fun PageContent(page: AppPage, context: Context, activeProject: ScenePro
         if (page == AppPage.STUDIO) {
             item { RtmpDestinationProfilesScreen(context) }
             item { ShareScreenPermissionPanel(context) }
-            item { StudioLiveControlScreen(context, activeProject) }
+            item { StudioLiveControlScreen(context, activeProject, onProjectChange) }
         }
         if (page == AppPage.MIXER) {
             item { AudioPermissionPanel(context) }
