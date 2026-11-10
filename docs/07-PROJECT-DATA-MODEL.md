@@ -3,17 +3,25 @@
 ## Core entities
 - **Project:** stable ID, name, created/updated timestamps, active scene ID, project version. Canvas orientation is not an independent per-project preference; it is derived from the selected LIVE output configuration.
 - **Scene:** stable ID, project ID, name, canonical logical width/height derived from the selected LIVE orientation, background, ordered element references.
-- **SceneElement:** stable ID, source ID, transform, crop, opacity, visibility, lock state, z-order, grouping metadata.
-- **Source:** stable ID, source type, configuration, asset reference, enabled state, lifecycle state.
+- **SceneElement:** stable ID, source ID, extension ID/version requirement, transform, crop, opacity, visibility, lock state, z-order, grouping metadata.
+- **Source:** stable ID, source type, extension ID/version, configuration, asset reference, enabled state, lifecycle state.
 - **Asset:** stable ID, local URI/path, MIME type, size, checksum, dimensions/duration where applicable, provenance/license metadata.
 - **DestinationProfile:** stable ID, platform label, endpoint reference, secret reference, stream settings, enabled state.
 - **ExtensionRecord:** extension ID, version, source/provenance, license, declared capabilities, permissions, compatibility, enabled state.
+
+Every user-addable scene element/source type is supplied by an extension package, including Text, Image, Shape, GIF, Video, Share Screen, and future camera/source types. Core editor tools and the scene/compositor hosting contracts remain in Core; element implementations do not become permanently installed production Core elements. A scene element stores a stable extension identifier and compatible version requirement. If the extension is missing or incompatible, preserve its serialized configuration, transforms, assets, and layer position and render an unavailable-element placeholder until the extension is installed again.
 
 ## Geometry
 Persist scene geometry in logical canvas coordinates, not screen pixels. Transform operations must remain stable when the editor rotates, zooms, pans, or resizes. The selected LIVE output orientation is authoritative for all scene canvases: Portrait = 1080×1920 logical reference size; Landscape = 1920×1080. Do not persist arbitrary aspect ratios or user-defined canvas dimensions in the initial release. An orientation change is an explicit project-wide operation performed only while LIVE is stopped; convert element positions and sizes proportionally without distortion, preserve layer order/crop/rotation/group relationships, clamp only when required by bounds, and provide undo plus last-known-good recovery. All scenes must be synchronized atomically.
 
 ## Persistence strategy
 Current implementation: SQLiteOpenHelper stores versioned project documents and indexed project summaries in `oss_projects.db`; writes are transactional and version 2 migrates the recovery table for databases created by version 1. The repository serializes database work on a single I/O executor. DataStore remains a candidate for global preferences. Store media assets as managed files with references from the database. Use explicit transactions and forward-only migrations for structural schema changes.
+
+## Extension installation behavior
+- Element catalog metadata may be browsed without downloading extension payloads.
+- Download/install only after the user selects an uninstalled element and confirms the action.
+- Production installs must not silently bulk-download the complete element catalog.
+- Beta/testing builds may bundle the exact extension packages needed for their test scenarios; package identity and versions must still be recorded in the extension registry.
 
 ## Autosave and recovery
 - Persist meaningful edits automatically.
