@@ -94,9 +94,9 @@ class MainActivitySmokeTest {
         // Multi-select starts empty; explicitly select two different layer rows.
         assertTrue(composeRule.onAllNodesWithTag("scene-element-item").fetchSemanticsNodes().size == 2)
         composeRule.onAllNodesWithTag("scene-element-item")[0].performScrollTo().performClick()
-        composeRule.onNodeWithTag("scene-multiselect-count").assert(hasText("Dipilih: 1"))
+        composeRule.onNodeWithText("Selesai memilih").assertIsDisplayed()
         composeRule.onAllNodesWithTag("scene-element-item")[1].performScrollTo().performClick()
-        composeRule.onNodeWithTag("scene-multiselect-count").assert(hasText("Dipilih: 2"))
+        assertTrue(composeRule.onAllNodesWithText("✓ Teks baru").fetchSemanticsNodes().size == 2)
         composeRule.onNodeWithText("Kelompokkan (2)").performScrollTo().performClick()
         composeRule.onNodeWithText("Pisahkan grup").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Pisahkan grup").performClick()
