@@ -9,6 +9,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
@@ -162,6 +163,34 @@ class MainActivitySmokeTest {
         assertTrue(composeRule.onAllNodesWithText("private-smoke-key").fetchSemanticsNodes().isEmpty())
     }
 
+
+
+    @Test
+    fun customCanvasDimensionsAreSavedAndRestoredAfterActivityRecreation() {
+        createdSmokeProject = true
+        composeRule.onNodeWithText("Project baru").performClick()
+        composeRule.onNodeWithText("Nama project").performTextInput("OSS UI Smoke")
+        composeRule.onNodeWithText("Buat").performClick()
+        composeRule.waitUntil("new project opens its editor", 15_000L) {
+            composeRule.onAllNodesWithText("Canvas kosong").fetchSemanticsNodes().isNotEmpty()
+        }
+
+        composeRule.onNodeWithText("Pengaturan canvas").performScrollTo().performClick()
+        composeRule.onNodeWithTag("scene-canvas-preset-1-1").assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-canvas-preset-4-5").assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-canvas-preset-3-4").assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-canvas-preset-4-3").assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-canvas-width").performTextReplacement("720")
+        composeRule.onNodeWithTag("scene-canvas-height").performTextReplacement("1280")
+        composeRule.onNodeWithTag("scene-canvas-apply").performClick()
+        composeRule.onNodeWithTag("scene-canvas-dimensions").assert(hasText("720 × 1280 px"))
+
+        composeRule.activityRule.scenario.recreate()
+        composeRule.waitUntil("custom canvas dimensions restore from project storage", 15_000L) {
+            composeRule.onAllNodesWithTag("scene-canvas-dimensions").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithTag("scene-canvas-dimensions").assert(hasText("720 × 1280 px"))
+    }
 
     @Test
     fun activeProjectIsRestoredAfterActivityRecreation() {

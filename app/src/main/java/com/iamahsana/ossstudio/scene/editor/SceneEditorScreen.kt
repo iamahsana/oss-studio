@@ -51,6 +51,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -72,6 +73,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.IntOffset
@@ -80,6 +82,7 @@ import androidx.compose.ui.unit.sp
 import com.iamahsana.ossstudio.scene.model.SceneProject
 import com.iamahsana.ossstudio.scene.model.Scene
 import com.iamahsana.ossstudio.scene.model.CanvasSize
+import com.iamahsana.ossstudio.scene.model.CanvasOrientation
 import com.iamahsana.ossstudio.scene.model.CropRect
 import com.iamahsana.ossstudio.scene.model.SceneProjectEditor
 import com.iamahsana.ossstudio.scene.model.SceneProjectHistory
@@ -197,6 +200,17 @@ fun SceneEditorScreen(
     }
     val scene = currentProject.scenes.firstOrNull { it.id == currentProject.activeSceneId }
         ?: currentProject.scenes.firstOrNull()
+    var customCanvasWidth by remember(project.id, scene?.id) {
+        mutableStateOf(scene?.canvas?.width?.toString() ?: "1080")
+    }
+    var customCanvasHeight by remember(project.id, scene?.id) {
+        mutableStateOf(scene?.canvas?.height?.toString() ?: "1920")
+    }
+    fun openCanvasSettings() {
+        customCanvasWidth = scene?.canvas?.width?.toString() ?: "1080"
+        customCanvasHeight = scene?.canvas?.height?.toString() ?: "1920"
+        showCanvasSettings = true
+    }
     var viewportZoom by remember(project.id, scene?.id) { mutableStateOf(1f) }
     var viewportPanX by remember(project.id, scene?.id) { mutableStateOf(0f) }
     var viewportPanY by remember(project.id, scene?.id) { mutableStateOf(0f) }
@@ -278,7 +292,7 @@ fun SceneEditorScreen(
                 }) { Text("＋ Scene") }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = { showCanvasSettings = true }) {
+                OutlinedButton(onClick = { openCanvasSettings() }) {
                     Text("Pengaturan canvas")
                 }
             }
@@ -309,6 +323,11 @@ fun SceneEditorScreen(
                 }
             }
             Text(scene.name, style = MaterialTheme.typography.titleMedium)
+            Text(
+                "${scene.canvas.width} × ${scene.canvas.height} px",
+                modifier = Modifier.testTag("scene-canvas-dimensions"),
+                style = MaterialTheme.typography.labelSmall
+            )
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -743,7 +762,7 @@ fun SceneEditorScreen(
                         enabled = selectedElement != null && selectedSource != null,
                         onClick = { editorPanel = "properties" }
                     ) { Text("Properti") }
-                    OutlinedButton(onClick = { showCanvasSettings = true }) { Text("Canvas") }
+                    OutlinedButton(onClick = { openCanvasSettings() }) { Text("Canvas") }
                 }
             }
             if (editorPanel == "properties" && selectedElement != null && selectedSource != null) {
@@ -1133,26 +1152,84 @@ fun SceneEditorScreen(
             onDismissRequest = { showCanvasSettings = false },
             title = { Text("Pengaturan canvas") },
             text = {
+                val widthValue = customCanvasWidth.toIntOrNull()
+                val heightValue = customCanvasHeight.toIntOrNull()
+                val validCustomSize = widthValue != null && heightValue != null &&
+                    widthValue in CanvasSize.MIN_DIMENSION..CanvasSize.MAX_DIMENSION &&
+                    heightValue in CanvasSize.MIN_DIMENSION..CanvasSize.MAX_DIMENSION
+                fun chooseCanvasSize(canvas: CanvasSize) {
+                    applyProject(SceneProjectEditor.updateSceneCanvas(
+                        currentProject, scene.id, canvas, System.currentTimeMillis()
+                    ))
+                    customCanvasWidth = canvas.width.toString()
+                    customCanvasHeight = canvas.height.toString()
+                    showCanvasSettings = false
+                }
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Pilih orientasi dan rasio untuk scene aktif.")
+                    Text("Preset rasio")
                     OutlinedButton(
-                        modifier = Modifier.fillMaxWidth(),
-                        onClick = {
-                            applyProject(SceneProjectEditor.updateSceneCanvas(
-                                currentProject, scene.id, CanvasSize.DEFAULT_PORTRAIT, System.currentTimeMillis()
-                            ))
-                            showCanvasSettings = false
-                        }
+                        modifier = Modifier.fillMaxWidth().testTag("scene-canvas-preset-9-16"),
+                        onClick = { chooseCanvasSize(CanvasSize.DEFAULT_PORTRAIT) }
                     ) { Text("Portrait · 9:16 · 1080 × 1920") }
                     OutlinedButton(
-                        modifier = Modifier.fillMaxWidth(),
-                        onClick = {
-                            applyProject(SceneProjectEditor.updateSceneCanvas(
-                                currentProject, scene.id, CanvasSize.DEFAULT_LANDSCAPE, System.currentTimeMillis()
-                            ))
-                            showCanvasSettings = false
-                        }
+                        modifier = Modifier.fillMaxWidth().testTag("scene-canvas-preset-16-9"),
+                        onClick = { chooseCanvasSize(CanvasSize.DEFAULT_LANDSCAPE) }
                     ) { Text("Landscape · 16:9 · 1920 × 1080") }
+                    OutlinedButton(
+                        modifier = Modifier.fillMaxWidth().testTag("scene-canvas-preset-1-1"),
+                        onClick = { chooseCanvasSize(CanvasSize.SQUARE) }
+                    ) { Text("Square · 1:1 · 1080 × 1080") }
+                    OutlinedButton(
+                        modifier = Modifier.fillMaxWidth().testTag("scene-canvas-preset-4-5"),
+                        onClick = { chooseCanvasSize(CanvasSize.PORTRAIT_4_5) }
+                    ) { Text("Portrait · 4:5 · 1080 × 1350") }
+                    OutlinedButton(
+                        modifier = Modifier.fillMaxWidth().testTag("scene-canvas-preset-3-4"),
+                        onClick = { chooseCanvasSize(CanvasSize.PORTRAIT_3_4) }
+                    ) { Text("Portrait · 3:4 · 1080 × 1440") }
+                    OutlinedButton(
+                        modifier = Modifier.fillMaxWidth().testTag("scene-canvas-preset-4-3"),
+                        onClick = { chooseCanvasSize(CanvasSize.LANDSCAPE_4_3) }
+                    ) { Text("Landscape · 4:3 · 1440 × 1080") }
+                    Text("Ukuran custom (64–4096 px)")
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(
+                            value = customCanvasWidth,
+                            onValueChange = { customCanvasWidth = it.filter(Char::isDigit).take(4) },
+                            modifier = Modifier.weight(1f).testTag("scene-canvas-width"),
+                            label = { Text("Lebar (px)") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            singleLine = true
+                        )
+                        OutlinedTextField(
+                            value = customCanvasHeight,
+                            onValueChange = { customCanvasHeight = it.filter(Char::isDigit).take(4) },
+                            modifier = Modifier.weight(1f).testTag("scene-canvas-height"),
+                            label = { Text("Tinggi (px)") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            singleLine = true
+                        )
+                    }
+                    if (!validCustomSize) {
+                        Text(
+                            "Masukkan lebar dan tinggi antara 64 sampai 4096 px.",
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                    Button(
+                        modifier = Modifier.fillMaxWidth().testTag("scene-canvas-apply"),
+                        enabled = validCustomSize,
+                        onClick = {
+                            val width = widthValue ?: return@Button
+                            val height = heightValue ?: return@Button
+                            val orientation = if (height >= width) {
+                                CanvasOrientation.PORTRAIT
+                            } else {
+                                CanvasOrientation.LANDSCAPE
+                            }
+                            chooseCanvasSize(CanvasSize(width, height, orientation))
+                        }
+                    ) { Text("Terapkan ukuran custom") }
                 }
             },
             confirmButton = {

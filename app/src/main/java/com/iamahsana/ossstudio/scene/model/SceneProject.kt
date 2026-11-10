@@ -14,7 +14,9 @@ data class CanvasSize(
     val orientation: CanvasOrientation
 ) {
     init {
-        require(width > 0 && height > 0) { "Canvas dimensions must be positive" }
+        require(width in MIN_DIMENSION..MAX_DIMENSION && height in MIN_DIMENSION..MAX_DIMENSION) {
+            "Canvas dimensions must be between $MIN_DIMENSION and $MAX_DIMENSION pixels"
+        }
         require(
             when (orientation) {
                 CanvasOrientation.PORTRAIT -> height >= width
@@ -24,8 +26,15 @@ data class CanvasSize(
     }
 
     companion object {
+        const val MIN_DIMENSION = 64
+        const val MAX_DIMENSION = 4096
+
         val DEFAULT_PORTRAIT = CanvasSize(1080, 1920, CanvasOrientation.PORTRAIT)
         val DEFAULT_LANDSCAPE = CanvasSize(1920, 1080, CanvasOrientation.LANDSCAPE)
+        val SQUARE = CanvasSize(1080, 1080, CanvasOrientation.PORTRAIT)
+        val PORTRAIT_4_5 = CanvasSize(1080, 1350, CanvasOrientation.PORTRAIT)
+        val PORTRAIT_3_4 = CanvasSize(1080, 1440, CanvasOrientation.PORTRAIT)
+        val LANDSCAPE_4_3 = CanvasSize(1440, 1080, CanvasOrientation.LANDSCAPE)
     }
 }
 
