@@ -28,6 +28,7 @@ Open Stream Software (OSS) is a lightweight, modular Android live-streaming stud
 11. [Update and Release Delivery](docs/11-UPDATE-DELIVERY.md)
 12. [Product Decision Register](docs/12-PRODUCT-DECISION-REGISTER.md)
 13. [Development and Pull Request Gates](docs/13-DEVELOPMENT-AND-PR-GATES.md)
+14. [Current Implementation Baseline Audit](docs/14-IMPLEMENTATION-BASELINE-AUDIT.md)
 
 ## Repository boundaries
 The previous `oss-mobile` repository is retained as an archived/reference project. This repository is the clean restart; existing code will only be reused after compatibility, license, security, and architecture review.
