@@ -48,6 +48,12 @@ The repository contains a substantial written product and architecture plan, but
 - PR #13 (center alignment guides) remains a draft and is held until this documentation baseline is reviewed.
 - No feature PR should be merged ahead of the documentation baseline and the canvas correction plan.
 
+## Additional product requirements confirmed after the source audit
+
+The Scene Editor target is PixelLab functional/workflow parity, including the complete user-facing feature set; the current brief list of editor capabilities is a minimum and must be expanded into a feature-by-feature parity matrix before completion. Every user-addable scene element/source type (Text, Image, Shape, GIF, Video, Share Screen, and future source types) must be delivered as an extension. Core retains editor manipulation tools, extension hosting contracts, scene graph, and compositor. Production extension payloads download only on user demand after confirmation; beta builds may bundle only the test-required extensions. Preview remains deferred with no design or implementation work until the user explicitly revisits it.
+
+These requirements are normative and must be applied to subsequent corrective implementation planning. The existing source audit above remains a point-in-time record of the inspected code and does not claim these requirements are implemented.
+
 ## Audit limitations
 
 This review confirms source-level wiring and UI/model behavior. It does not prove:
