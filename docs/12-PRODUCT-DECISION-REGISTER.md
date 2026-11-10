@@ -58,7 +58,7 @@ Status: normative product baseline. This register records decisions that future 
 | X-004 | Overlay packs and nonessential visual features are modules, not a reason to bloat the streaming Core. | Approved |
 | X-005 | Overlay/source changes that require scene reconfiguration must be prepared before LIVE starts; do not promise that enabling a module mid-stream will always take effect safely. | Approved behavior direction |
 | X-006 | Extension updates must be user-controllable. Automatic update checks may be supported, but downloads default to asking the user and installation must follow Android's supported confirmation flow. | Approved direction; exact settings UI can evolve |
-| X-007 | Every user-addable scene element/source type, including Text, Image, Shape, GIF, Video, Share Screen, and future camera/source types, is an installable extension; Core supplies the editor tools, extension host, scene graph, and compositor contracts. | Approved |
+| X-007 | Every user-addable scene element/source type, including Text, Image, Shape, Sticker, Emoji, Drawing, GIF, Video, Template, Share Screen, and future camera/source types, is an installable extension; Core supplies the editor tools, extension host, scene graph, and compositor contracts. | Approved |
 | X-008 | Production downloads are on demand only: when a user selects an uninstalled element, ask for confirmation before downloading it; never silently bulk-download the full catalog. Beta/testing builds may bundle only the extensions required for test scenarios. | Approved |
 
 ## User experience and quality
