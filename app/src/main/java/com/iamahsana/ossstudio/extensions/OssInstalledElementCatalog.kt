@@ -65,8 +65,10 @@ object OssInstalledElementCatalog {
                     )
                 }
             }
-            .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.extensionName }
-                .thenBy(String.CASE_INSENSITIVE_ORDER) { it.name })
+            .sortedWith(
+                compareBy<OssInstalledElement> { it.extensionName.lowercase() }
+                    .thenBy { it.name.lowercase() }
+            )
             .toList()
     }
 
