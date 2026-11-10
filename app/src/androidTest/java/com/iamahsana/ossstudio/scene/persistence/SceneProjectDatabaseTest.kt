@@ -66,6 +66,7 @@ class SceneProjectDatabaseTest {
         val databaseName = "oss_projects_autosave_failure_test.db"
         val databasePath = context.getDatabasePath(databaseName)
         if (databasePath.exists()) databasePath.deleteRecursively()
+        databasePath.parentFile?.mkdirs()
         assertTrue("test path must be created as a directory", databasePath.mkdir())
 
         val database = SceneProjectDatabase(context, databaseName)
