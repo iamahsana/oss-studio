@@ -107,13 +107,28 @@ fun SceneEditorScreen(
     val repository = remember(project.id) {
         SceneProjectRepository(SceneProjectStoreProvider.database(context))
     }
-    val autosave = remember(repository) { SceneProjectAutosave(repository) }
+    var saveStatus by remember(project.id) { mutableStateOf("Semua perubahan tersimpan") }
+    val mainHandler = remember { Handler(Looper.getMainLooper()) }
+    val autosave = remember(repository) {
+        SceneProjectAutosave(
+            repository = repository,
+            onSaved = {
+                mainHandler.post { saveStatus = "Tersimpan" }
+            },
+            onError = { error ->
+                mainHandler.post {
+                    saveStatus = "Gagal menyimpan: ${error.message ?: "kesalahan penyimpanan"}"
+                }
+            }
+        )
+    }
     val latestProject = rememberUpdatedState(currentProject)
     fun applyProject(updated: SceneProject, historyGroup: String? = null) {
         history.record(updated, historyGroup)
         historyVersion++
         currentProject = updated
         onProjectChange(updated)
+        saveStatus = "Menyimpan…"
         autosave.schedule(updated)
     }
     fun restoreHistory(updated: SceneProject?) {
@@ -128,7 +143,6 @@ fun SceneEditorScreen(
     }
     val importExecutor = remember(repository) { Executors.newSingleThreadExecutor() }
     val importActive = remember(repository) { AtomicBoolean(true) }
-    val mainHandler = remember { Handler(Looper.getMainLooper()) }
     var mediaStatus by remember(project.id) { mutableStateOf<String?>(null) }
     DisposableEffect(autosave, repository, importExecutor) {
         onDispose {
@@ -230,7 +244,7 @@ fun SceneEditorScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(currentProject.name, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-            Text("Autosave", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+            Text(saveStatus, style = MaterialTheme.typography.labelSmall, color = if (saveStatus.startsWith("Gagal")) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(enabled = historyVersion >= 0 && history.canUndo, onClick = {
@@ -782,9 +796,18 @@ fun SceneEditorScreen(
                     applyProject(updated)
                     selectedElementId = null
                     confirmRemoveSource = false
-                    removedAssets.forEach { asset ->
-                        runCatching {
-                            importExecutor.execute { runCatching { SceneAssetStorage.deleteAsset(context, asset) } }
+                    // Keep the media files until the project snapshot without these assets is durable.
+                    // If persistence fails or a newer edit supersedes this flush, retaining an orphan
+                    // file is safer than leaving a saved project with a broken asset reference.
+                    autosave.flush { result ->
+                        if (result.isSuccess) {
+                            removedAssets.forEach { asset ->
+                                runCatching {
+                                    importExecutor.execute {
+                                        runCatching { SceneAssetStorage.deleteAsset(context, asset) }
+                                    }
+                                }
+                            }
                         }
                     }
                 }) { Text("Hapus") }
