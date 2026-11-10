@@ -83,7 +83,7 @@ class MainActivitySmokeTest {
 
         composeRule.onNodeWithText("Tambah teks").performScrollTo().performClick()
         composeRule.onNodeWithText("Pilih beberapa").performScrollTo().performClick()
-        composeRule.onAllNodesWithTag("scene-element-item").onFirst().performScrollTo().performClick()
+        composeRule.onAllNodesWithTag("scene-element-item")[0].performScrollTo().performClick()
         composeRule.onNodeWithText("Kelompokkan (2)").performScrollTo().performClick()
         composeRule.onNodeWithText("Pisahkan grup").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Pisahkan grup").performClick()
