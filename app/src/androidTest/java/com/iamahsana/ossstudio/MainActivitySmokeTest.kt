@@ -78,7 +78,13 @@ class MainActivitySmokeTest {
         composeRule.onNodeWithText("Landscape · 16:9 · 1920 × 1080").performClick()
 
         composeRule.onNodeWithText("Tambah teks").performScrollTo().performClick()
-        composeRule.waitUntil("new text element is composed on the canvas", 10_000L) {
+        // First wait for the new source to appear in the layer list. On API 29,
+        // the canvas subtree can recompose one frame later than the surrounding
+        // editor controls, so checking its semantics immediately is racy.
+        composeRule.waitUntil("new text source appears in the scene layers", 15_000L) {
+            composeRule.onAllNodesWithText("Teks baru").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.waitUntil("new text element is composed on the canvas", 15_000L) {
             composeRule.onAllNodesWithTag("scene-canvas-element", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
         }
         // Select from the layer list explicitly so the test validates resize-handle
