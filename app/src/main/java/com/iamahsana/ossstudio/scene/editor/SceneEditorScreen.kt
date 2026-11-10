@@ -19,6 +19,8 @@ import androidx.compose.foundation.clickable
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -61,9 +63,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
@@ -193,6 +197,9 @@ fun SceneEditorScreen(
     }
     val scene = currentProject.scenes.firstOrNull { it.id == currentProject.activeSceneId }
         ?: currentProject.scenes.firstOrNull()
+    var viewportZoom by remember(project.id, scene?.id) { mutableStateOf(1f) }
+    var viewportPanX by remember(project.id, scene?.id) { mutableStateOf(0f) }
+    var viewportPanY by remember(project.id, scene?.id) { mutableStateOf(0f) }
     val selectedElement = scene?.elements?.firstOrNull { it.id == selectedElementId }
     val selectedSource = currentProject.sources.firstOrNull { it.id == selectedElement?.sourceId }
     var editingText by remember(selectedElementId) { mutableStateOf(selectedSource?.text.orEmpty()) }
@@ -293,12 +300,76 @@ fun SceneEditorScreen(
                 }
             }
             Text(scene.name, style = MaterialTheme.typography.titleMedium)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedButton(onClick = {
+                    viewportZoom = (viewportZoom - 0.25f).coerceAtLeast(1f)
+                    if (viewportZoom == 1f) { viewportPanX = 0f; viewportPanY = 0f }
+                }, enabled = viewportZoom > 1f) { Text("−") }
+                Text("${(viewportZoom * 100).roundToInt()}%", modifier = Modifier.weight(1f), textAlign = TextAlign.Center, style = MaterialTheme.typography.labelMedium)
+                OutlinedButton(onClick = { viewportZoom = (viewportZoom + 0.25f).coerceAtMost(4f) }, enabled = viewportZoom < 4f) { Text("＋") }
+                TextButton(onClick = { viewportZoom = 1f; viewportPanX = 0f; viewportPanY = 0f }) { Text("Reset") }
+            }
             BoxWithConstraints(
                 modifier = Modifier.fillMaxWidth()
                     .aspectRatio(scene.canvas.width.toFloat() / scene.canvas.height.toFloat())
                     .clip(RoundedCornerShape(12.dp))
                     .background(Color(0xFF17191D))
                     .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
+                    .clipToBounds()
+                    .pointerInput(scene.id) {
+                        awaitEachGesture {
+                            awaitFirstDown(requireUnconsumed = false)
+                            do {
+                                val event = awaitPointerEvent(PointerEventPass.Initial)
+                                val pressedCount = event.changes.count { it.pressed }
+                                if (pressedCount >= 2) {
+                                    val pointers = event.changes.filter { it.pressed }.take(2)
+                                    if (pointers.size < 2) return@awaitEachGesture
+                                    val first = pointers[0]
+                                    val second = pointers[1]
+                                    val previousCenter = Offset(
+                                        (first.previousPosition.x + second.previousPosition.x) / 2f,
+                                        (first.previousPosition.y + second.previousPosition.y) / 2f
+                                    )
+                                    val currentCenter = Offset(
+                                        (first.position.x + second.position.x) / 2f,
+                                        (first.position.y + second.position.y) / 2f
+                                    )
+                                    val previousDx = first.previousPosition.x - second.previousPosition.x
+                                    val previousDy = first.previousPosition.y - second.previousPosition.y
+                                    val currentDx = first.position.x - second.position.x
+                                    val currentDy = first.position.y - second.position.y
+                                    val previousDistance = kotlin.math.sqrt(previousDx * previousDx + previousDy * previousDy)
+                                    val currentDistance = kotlin.math.sqrt(currentDx * currentDx + currentDy * currentDy)
+                                    val zoomChange = if (previousDistance > 0.001f) currentDistance / previousDistance else 1f
+                                    val pan = currentCenter - previousCenter
+                                    val nextZoom = (viewportZoom * zoomChange).coerceIn(1f, 4f)
+                                    viewportZoom = nextZoom
+                                    if (nextZoom <= 1f) {
+                                        viewportPanX = 0f
+                                        viewportPanY = 0f
+                                    } else {
+                                        val maxX = size.width * (nextZoom - 1f) / 2f
+                                        val maxY = size.height * (nextZoom - 1f) / 2f
+                                        viewportPanX = (viewportPanX + pan.x).coerceIn(-maxX, maxX)
+                                        viewportPanY = (viewportPanY + pan.y).coerceIn(-maxY, maxY)
+                                    }
+                                    event.changes.forEach { it.consume() }
+                                }
+                            } while (event.changes.any { it.pressed })
+                        }
+                    }
+                    .graphicsLayer {
+                        scaleX = viewportZoom
+                        scaleY = viewportZoom
+                        translationX = viewportPanX
+                        translationY = viewportPanY
+                        transformOrigin = TransformOrigin.Center
+                    }
                     .testTag("scene-canvas")
             ) {
                 val scale = constraints.maxWidth.toFloat() / scene.canvas.width.toFloat()
@@ -503,11 +574,16 @@ fun SceneEditorScreen(
                 style = MaterialTheme.typography.bodySmall
             )
             mediaStatus?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+            // Keep the primary add-text action outside the horizontal scroller.
+            // This makes it reliably reachable by touch and accessibility services.
+            Button(
+                modifier = Modifier.fillMaxWidth().testTag("scene-add-text"),
+                onClick = { addSource(SceneSourceType.TEXT, "Teks baru") }
+            ) { Text("Tambah teks") }
             Row(
                 modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Button(onClick = { addSource(SceneSourceType.TEXT, "Teks baru") }) { Text("Tambah teks") }
                 OutlinedButton(onClick = { mediaPicker.launch(arrayOf("image/*", "video/*")) }) { Text("Tambah media") }
                 OutlinedButton(onClick = { addSource(SceneSourceType.SHARE_SCREEN) }) { Text("Share Screen") }
             }

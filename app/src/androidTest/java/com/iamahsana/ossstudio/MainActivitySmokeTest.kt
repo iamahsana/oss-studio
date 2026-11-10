@@ -77,7 +77,15 @@ class MainActivitySmokeTest {
         composeRule.onNodeWithText("Portrait · 9:16 · 1080 × 1920").assertIsDisplayed()
         composeRule.onNodeWithText("Landscape · 16:9 · 1920 × 1080").performClick()
 
-        composeRule.onNodeWithText("Tambah teks").performScrollTo().performClick()
+        composeRule.onNodeWithTag("scene-add-text").performScrollTo().performClick()
+        // The layer row displays the source name ("Text"), not its content
+        // ("Teks baru"). Wait for the tagged layer row before checking canvas.
+        composeRule.waitUntil("new text source appears in the scene layers", 15_000L) {
+            composeRule.onAllNodesWithTag("scene-element-item").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.waitUntil("new text element is composed on the canvas", 15_000L) {
+            composeRule.onAllNodesWithTag("scene-canvas-element", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
+        }
         // Select from the layer list explicitly so the test validates resize-handle
         // visibility for a selected element, independent of add-action focus timing.
         composeRule.onAllNodesWithTag("scene-canvas-element", useUnmergedTree = true)[0].performClick()
@@ -86,7 +94,10 @@ class MainActivitySmokeTest {
         assertTrue("Undo should remove the resize handle when the new element is removed", composeRule.onAllNodesWithTag("scene-resize-handle", useUnmergedTree = true).fetchSemanticsNodes().isEmpty())
         composeRule.onNodeWithText("Redo").performScrollTo().performClick()
         composeRule.onNodeWithText("Teks baru").performScrollTo().assertIsDisplayed()
-        // Undo clears the selection when the element is absent; reselect it after redo.
+        // Undo clears the selection when the element is absent; wait for redo to recompose it.
+        composeRule.waitUntil("redo restores the canvas element", 10_000L) {
+            composeRule.onAllNodesWithTag("scene-canvas-element", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
+        }
         composeRule.onAllNodesWithTag("scene-canvas-element", useUnmergedTree = true)[0].performClick()
         composeRule.onNodeWithTag("scene-resize-handle", useUnmergedTree = true).assertExists().assertIsDisplayed()
 
