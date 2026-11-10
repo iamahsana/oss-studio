@@ -19,7 +19,8 @@
 ## Stage 2 — Scene and media engine
 - Scene/source registry and project persistence.
 - Canvas orientation follows the LIVE output setting and supports Portrait (9:16) or Landscape (16:9) only; all scenes in the active project remain synchronized. No custom dimensions or extra aspect-ratio presets. Add layers, transforms, crop, grid/snap, and safe areas.
-- Text, image, GIF, and video sources.
+- Implement the PixelLab-parity Scene Editor interaction framework and build a traceable feature-by-feature parity matrix; do not mark the editor complete while any agreed PixelLab feature is missing.
+- Implement the extension host/registry contracts required for all user-addable scene elements. Text, image, shape, GIF, video, Share Screen, and future source types are delivered as extensions, not permanently installed production Core elements.
 - Asset manager, undo/redo, autosave/recovery.
 - Share Screen as an optional source added to a scene; it is never the canvas itself.
 - Bounded decoding/cache and lifecycle cleanup.
@@ -40,6 +41,8 @@
 
 ## Stage 5 — Extensions and sharing
 - Extension Center and declarative module manifest.
+- Package every user-addable scene element/source type as an installable extension; download only on explicit user demand after confirmation.
+- Beta/testing builds may bundle only the extensions needed for the test matrix; production installs must not silently bulk-download or bundle the full element catalog.
 - Permission/compatibility/provenance validation.
 - Core event bus and Koneksi integration contracts.
 - Song Request, alerts, effects, and automation as separate modules subject to platform access.
