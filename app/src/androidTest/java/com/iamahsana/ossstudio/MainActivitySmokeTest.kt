@@ -1,6 +1,8 @@
 package com.iamahsana.ossstudio
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onAllNodesWithText
@@ -92,9 +94,9 @@ class MainActivitySmokeTest {
         // Multi-select starts empty; explicitly select two different layer rows.
         assertTrue(composeRule.onAllNodesWithTag("scene-element-item").fetchSemanticsNodes().size == 2)
         composeRule.onAllNodesWithTag("scene-element-item")[0].performScrollTo().performClick()
-        composeRule.onNodeWithText("Dipilih: 1").assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-multiselect-count").assert(hasText("Dipilih: 1"))
         composeRule.onAllNodesWithTag("scene-element-item")[1].performScrollTo().performClick()
-        composeRule.onNodeWithText("Dipilih: 2").assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-multiselect-count").assert(hasText("Dipilih: 2"))
         composeRule.onNodeWithText("Kelompokkan (2)").performScrollTo().performClick()
         composeRule.onNodeWithText("Pisahkan grup").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Pisahkan grup").performClick()
