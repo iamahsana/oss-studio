@@ -74,8 +74,8 @@ class MainActivitySmokeTest {
         composeRule.onNodeWithTag("scene-add-media").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithTag("scene-add-share-screen").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Snap grid").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("Grid").assertIsDisplayed()
-        composeRule.onNodeWithText("Safe area").assertIsDisplayed()
+        composeRule.onNodeWithText("Grid").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Safe area").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Undo").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Redo").performScrollTo().assertIsDisplayed()
 
