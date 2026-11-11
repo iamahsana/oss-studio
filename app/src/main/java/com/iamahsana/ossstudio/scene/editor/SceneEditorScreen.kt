@@ -216,7 +216,7 @@ fun SceneEditorScreen(
     var viewportPanY by remember(project.id, scene?.id) { mutableStateOf(0f) }
     val selectedElement = scene?.elements?.firstOrNull { it.id == selectedElementId }
     val selectedSource = currentProject.sources.firstOrNull { it.id == selectedElement?.sourceId }
-    var editingText by remember(selectedElementId) { mutableStateOf(selectedSource?.text.orEmpty()) }
+    var editingText by remember(selectedElementId) { mutableStateOf(selectedSource?.text ?: selectedSource?.settings?.get("text").orEmpty()) }
     var confirmRemoveSource by remember(selectedElementId) { mutableStateOf(false) }
     var editorPanel by remember(project.id) { mutableStateOf("layers") }
 
@@ -1027,7 +1027,12 @@ fun SceneEditorScreen(
                                 }
                             )
                         }
-                        if (selectedSource.type == SceneSourceType.TEXT) {
+                        val selectedExtensionText = selectedSource.type == SceneSourceType.EXTENSION &&
+                            installedElements.any {
+                                it.extensionId == selectedSource.extensionId &&
+                                    it.typeId == selectedSource.typeId && it.kind == "text"
+                            }
+                        if (selectedSource.type == SceneSourceType.TEXT || selectedExtensionText) {
                             OutlinedTextField(
                                 value = editingText,
                                 onValueChange = { editingText = it },
@@ -1035,7 +1040,11 @@ fun SceneEditorScreen(
                                 label = { Text("Isi teks") }
                             )
                             Button(onClick = {
-                                val updatedSource = selectedSource.copy(text = editingText)
+                                val updatedSource = if (selectedSource.type == SceneSourceType.TEXT) {
+                                    selectedSource.copy(text = editingText)
+                                } else {
+                                    selectedSource.copy(settings = selectedSource.settings + ("text" to editingText))
+                                }
                                 applyProject(SceneProjectEditor.updateSource(currentProject, updatedSource, System.currentTimeMillis()))
                             }) { Text("Terapkan teks") }
                             val fontSize = selectedSource.settings["fontSize"]?.toFloatOrNull() ?: 48f
@@ -1301,7 +1310,7 @@ fun SceneEditorScreen(
                                 selectedElementId = element.id
                                 selectedElementIds = setOf(element.id)
                             }
-                            editingText = source?.text.orEmpty()
+                            editingText = source?.text ?: source?.settings?.get("text").orEmpty()
                         }
                     ) {
                         Text((if (chosen && multiSelectMode) "✓ " else "") + (source?.displayName ?: "Element"))
