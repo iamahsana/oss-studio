@@ -23,10 +23,9 @@ class SceneProjectJsonCodecTest {
 
     @Test fun readsLegacySchemaV1AndWritesCurrentSchemaV2() {
         val project=SceneProject(id="legacy",name="Legacy",createdAtEpochMillis=1,updatedAtEpochMillis=2)
-        val legacy=JSONObject(SceneProjectJsonCodec.encode(project))
-            .put("schemaVersion",1)
-            .remove("liveOrientation")
-            .toString()
+        val legacyObject = JSONObject(SceneProjectJsonCodec.encode(project)).put("schemaVersion", 1)
+        legacyObject.remove("liveOrientation")
+        val legacy = legacyObject.toString()
 
         val decoded=SceneProjectJsonCodec.decode(legacy)
         val rewritten=JSONObject(SceneProjectJsonCodec.encode(decoded))
@@ -65,12 +64,11 @@ class SceneProjectJsonCodecTest {
     }
 
     @Test
-    fun readsSchemaV2SourcesWithoutExtensionFields() {
+    fun readsSchemaV3SourcesWithoutExtensionFields() {
         val project = SceneProject(id = "v2", name = "Schema v2", createdAtEpochMillis = 1, updatedAtEpochMillis = 2)
-        val schemaV2 = JSONObject(SceneProjectJsonCodec.encode(project))
-            .put("schemaVersion", 3)
-            .remove("liveOrientation")
-            .toString()
+        val schemaV2Object = JSONObject(SceneProjectJsonCodec.encode(project)).put("schemaVersion", 3)
+        schemaV2Object.remove("liveOrientation")
+        val schemaV2 = schemaV2Object.toString()
 
         val decoded = SceneProjectJsonCodec.decode(schemaV2)
 
