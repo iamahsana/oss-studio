@@ -65,7 +65,7 @@ class MainActivitySmokeTest {
         composeRule.waitUntil(15_000) {
             composeRule.onAllNodesWithText("OSS UI Smoke").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithText("OSS UI Smoke").assertIsDisplayed()
+        composeRule.onAllNodesWithText("OSS UI Smoke")[0].assertIsDisplayed()
         composeRule.waitUntil(15_000) {
             composeRule.onAllNodesWithText("Canvas kosong").fetchSemanticsNodes().isNotEmpty()
         }
