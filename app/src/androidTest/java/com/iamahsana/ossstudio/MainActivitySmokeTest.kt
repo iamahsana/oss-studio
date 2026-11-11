@@ -136,6 +136,13 @@ class MainActivitySmokeTest {
             composeRule.onAllNodesWithTag("scene-element-item").fetchSemanticsNodes().size == 3
         }
         assertTrue("Duplicating a layer should add exactly one scene element", composeRule.onAllNodesWithTag("scene-element-item").fetchSemanticsNodes().size == 3)
+        val moveUpActions = composeRule.onAllNodes(SemanticsMatcher("layer move up action") { node -> node.config.getOrNull(SemanticsProperties.TestTag)?.startsWith("scene-layer-move-up-") == true })
+        val moveDownActions = composeRule.onAllNodes(SemanticsMatcher("layer move down action") { node -> node.config.getOrNull(SemanticsProperties.TestTag)?.startsWith("scene-layer-move-down-") == true })
+        moveUpActions.assertCountEquals(3)
+        moveDownActions.assertCountEquals(3)
+        moveUpActions[1].performScrollTo().performClick()
+        moveDownActions[1].performScrollTo().performClick()
+        assertTrue("Layer reordering must preserve all scene elements", composeRule.onAllNodesWithTag("scene-element-item").fetchSemanticsNodes().size == 3)
         // The duplicate action selects its new layer. Restart multi-select to
         // begin this grouping assertion with an empty selection.
         composeRule.onNodeWithText("Selesai memilih").performScrollTo().performClick()
