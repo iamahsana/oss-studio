@@ -317,8 +317,10 @@ fun distributeTransformsByRotatedBounds(
     if (transforms.size < 2) return transforms
     val ordered = transforms.mapIndexed { index, transform -> index to transform.rotatedBounds() }
         .sortedBy { (_, bounds) -> if (horizontal) bounds.left else bounds.top }
-    val start = if (horizontal) ordered.first().second.left else ordered.first().second.top
-    val end = if (horizontal) ordered.last().second.right else ordered.last().second.bottom
+    val start = if (horizontal) ordered.minOf { if (horizontal) it.second.left else it.second.top }
+        else ordered.minOf { it.second.top }
+    val end = if (horizontal) ordered.maxOf { it.second.right }
+        else ordered.maxOf { it.second.bottom }
     val totalExtent = ordered.sumOf { (_, bounds) ->
         (if (horizontal) bounds.width else bounds.height).toDouble()
     }.toFloat()
