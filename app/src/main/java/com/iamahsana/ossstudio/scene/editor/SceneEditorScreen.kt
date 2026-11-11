@@ -785,7 +785,7 @@ fun SceneEditorScreen(
                                                 latestProject.value,
                                                 scene.id,
                                                 element.id,
-                                                transform.copy(width = resizeWidth, height = resizeHeight),
+                                                transform.copy(width = resizeWidth, height = resizeHeight).clampedToCanvas(scene.canvas),
                                                 System.currentTimeMillis()
                                             )
                                             applyProject(updated, "resize:${element.id}")
@@ -828,7 +828,7 @@ fun SceneEditorScreen(
                                                     y = resizeY,
                                                     width = resizeWidth,
                                                     height = resizeHeight
-                                                ),
+                                                ).clampedToCanvas(scene.canvas),
                                                 System.currentTimeMillis()
                                             )
                                             applyProject(updated, "resize:${element.id}")
@@ -863,7 +863,7 @@ fun SceneEditorScreen(
                                                 latestProject.value,
                                                 scene.id,
                                                 element.id,
-                                                transform.copy(y = resizeY, width = resizeWidth, height = resizeHeight),
+                                                transform.copy(y = resizeY, width = resizeWidth, height = resizeHeight).clampedToCanvas(scene.canvas),
                                                 System.currentTimeMillis()
                                             )
                                             applyProject(updated, "resize:${element.id}")
@@ -898,7 +898,7 @@ fun SceneEditorScreen(
                                                 latestProject.value,
                                                 scene.id,
                                                 element.id,
-                                                transform.copy(x = resizeX, width = resizeWidth, height = resizeHeight),
+                                                transform.copy(x = resizeX, width = resizeWidth, height = resizeHeight).clampedToCanvas(scene.canvas),
                                                 System.currentTimeMillis()
                                             )
                                             applyProject(updated, "resize:${element.id}")
