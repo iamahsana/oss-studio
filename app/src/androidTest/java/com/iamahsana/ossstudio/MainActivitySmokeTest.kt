@@ -1,6 +1,8 @@
 package com.iamahsana.ossstudio
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.SemanticsProperties
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.hasText
