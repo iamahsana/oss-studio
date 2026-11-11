@@ -1766,7 +1766,7 @@ fun SceneEditorScreen(
                             modifier = Modifier.weight(1f).testTag("scene-element-item"),
                             onClick = {
                                 if (multiSelectMode) {
-                                    selectedElementIds = if (chosen) {
+                                    selectedElementIds = if (element.id in selectedElementIds) {
                                         selectedElementIds - element.id
                                     } else {
                                         selectedElementIds + element.id
