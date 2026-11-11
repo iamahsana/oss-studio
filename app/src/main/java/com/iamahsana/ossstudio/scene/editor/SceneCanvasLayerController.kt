@@ -262,7 +262,7 @@ class SceneCanvasLayerController(
                     cachedBitmaps = decoded.bitmaps
                     cachedMovies = decoded.movies
                     cachedExtensionElements = decoded.extensions
-                    assetSignature = nextSignature
+                    assetSignature = assetSignature(project, scene)
                     drawFrame(surface)
                 }.onFailure { error ->
                     log("scene_canvas_update_decode_failed", error.message ?: "Scene asset update failed")
