@@ -87,6 +87,8 @@ import androidx.compose.ui.unit.sp
 import com.iamahsana.ossstudio.extensions.OssInstalledElement
 import com.iamahsana.ossstudio.extensions.OssInstalledElementCatalog
 import com.iamahsana.ossstudio.scene.model.ElementTransform
+import com.iamahsana.ossstudio.scene.model.clampedToCanvas
+import com.iamahsana.ossstudio.scene.model.rotatedBounds
 import com.iamahsana.ossstudio.scene.model.SceneProject
 import com.iamahsana.ossstudio.scene.model.Scene
 import com.iamahsana.ossstudio.scene.model.CropRect
@@ -537,16 +539,12 @@ fun SceneEditorScreen(
                                             change.consume()
                                             val nextX = dragX + amount.x / scale
                                             val nextY = dragY + amount.y / scale
-                                            dragX = clampSceneCoordinate(
-                                                if (snapEnabled) snapSceneCoordinate(nextX) else nextX,
-                                                scene.canvas.width.toFloat(),
-                                                transform.width
-                                            )
-                                            dragY = clampSceneCoordinate(
-                                                if (snapEnabled) snapSceneCoordinate(nextY) else nextY,
-                                                scene.canvas.height.toFloat(),
-                                                transform.height
-                                            )
+                                            val candidate = transform.copy(
+                                                x = if (snapEnabled) snapSceneCoordinate(nextX) else nextX,
+                                                y = if (snapEnabled) snapSceneCoordinate(nextY) else nextY
+                                            ).clampedToCanvas(scene.canvas)
+                                            dragX = candidate.x
+                                            dragY = candidate.y
                                             val latest = latestProject.value
                                             val latestTransform = latest.scenes
                                                 .firstOrNull { it.id == scene.id }
@@ -1113,7 +1111,7 @@ fun SceneEditorScreen(
                                 onClick = {
                                     applyProject(SceneProjectEditor.updateTransform(
                                         currentProject, scene.id, selectedElement.id,
-                                        elementTransform.copy(x = 0f), System.currentTimeMillis()
+                                        elementTransform.copy(x = elementTransform.x - elementTransform.rotatedBounds().left), System.currentTimeMillis()
                                     ))
                                 }
                             ) { Text("Kiri") }
@@ -1123,7 +1121,7 @@ fun SceneEditorScreen(
                                 onClick = {
                                     applyProject(SceneProjectEditor.updateTransform(
                                         currentProject, scene.id, selectedElement.id,
-                                        elementTransform.copy(x = (scene.canvas.width - elementTransform.width).coerceAtLeast(0f) / 2f),
+                                        elementTransform.copy(x = elementTransform.x + (scene.canvas.width - elementTransform.rotatedBounds().width) / 2f - elementTransform.rotatedBounds().left),
                                         System.currentTimeMillis()
                                     ))
                                 }
@@ -1134,7 +1132,7 @@ fun SceneEditorScreen(
                                 onClick = {
                                     applyProject(SceneProjectEditor.updateTransform(
                                         currentProject, scene.id, selectedElement.id,
-                                        elementTransform.copy(x = (scene.canvas.width - elementTransform.width).coerceAtLeast(0f)),
+                                        elementTransform.copy(x = elementTransform.x + scene.canvas.width - elementTransform.rotatedBounds().right),
                                         System.currentTimeMillis()
                                     ))
                                 }
@@ -1150,7 +1148,7 @@ fun SceneEditorScreen(
                                 onClick = {
                                     applyProject(SceneProjectEditor.updateTransform(
                                         currentProject, scene.id, selectedElement.id,
-                                        elementTransform.copy(y = 0f), System.currentTimeMillis()
+                                        elementTransform.copy(y = elementTransform.y - elementTransform.rotatedBounds().top), System.currentTimeMillis()
                                     ))
                                 }
                             ) { Text("Atas") }
@@ -1160,7 +1158,7 @@ fun SceneEditorScreen(
                                 onClick = {
                                     applyProject(SceneProjectEditor.updateTransform(
                                         currentProject, scene.id, selectedElement.id,
-                                        elementTransform.copy(y = (scene.canvas.height - elementTransform.height).coerceAtLeast(0f) / 2f),
+                                        elementTransform.copy(y = elementTransform.y + (scene.canvas.height - elementTransform.rotatedBounds().height) / 2f - elementTransform.rotatedBounds().top),
                                         System.currentTimeMillis()
                                     ))
                                 }
@@ -1171,7 +1169,7 @@ fun SceneEditorScreen(
                                 onClick = {
                                     applyProject(SceneProjectEditor.updateTransform(
                                         currentProject, scene.id, selectedElement.id,
-                                        elementTransform.copy(y = (scene.canvas.height - elementTransform.height).coerceAtLeast(0f)),
+                                        elementTransform.copy(y = elementTransform.y + scene.canvas.height - elementTransform.rotatedBounds().bottom),
                                         System.currentTimeMillis()
                                     ))
                                 }
