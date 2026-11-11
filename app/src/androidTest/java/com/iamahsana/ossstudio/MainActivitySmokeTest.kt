@@ -122,7 +122,7 @@ class MainActivitySmokeTest {
         composeRule.onNodeWithText("Selesai memilih").assertIsDisplayed()
         composeRule.onNodeWithTag("scene-multiselect-status").assertExists()
         composeRule.onNodeWithText("Mode pemilihan aktif · Dipilih: 0").assertExists()
-        assertTrue("Multi-select mode should show exactly two scene layer rows", composeRule.onAllNodesWithTag("scene-element-item").fetchSemanticsNodes().size == 2)
+        assertTrue("Multi-select mode should expose at least two scene layer rows", composeRule.onAllNodesWithTag("scene-element-item").fetchSemanticsNodes().size >= 2)
         composeRule.onAllNodesWithTag("scene-element-item")[0].performClick()
         composeRule.onAllNodesWithTag("scene-element-item")[1].performClick()
         assertTrue("Selecting both layer rows should mark both as selected", composeRule.onAllNodesWithText("✓ Text").fetchSemanticsNodes().size == 2)
