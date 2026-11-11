@@ -22,7 +22,7 @@ class SceneProjectJsonCodecTest {
         assertEquals(p,SceneProjectJsonCodec.decode(SceneProjectJsonCodec.encode(p)))
     }
 
-    @Test fun readsLegacySchemaV1AndWritesCurrentSchemaV2() {
+    @Test fun readsLegacySchemaV1AndWritesCurrentSchemaV4() {
         val project=SceneProject(id="legacy",name="Legacy",createdAtEpochMillis=1,updatedAtEpochMillis=2)
         val legacyObject = JSONObject(SceneProjectJsonCodec.encode(project)).put("schemaVersion", 1)
         legacyObject.remove("liveOrientation")
