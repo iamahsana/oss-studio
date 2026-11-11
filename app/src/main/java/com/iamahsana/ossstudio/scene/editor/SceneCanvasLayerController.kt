@@ -448,7 +448,7 @@ class SceneCanvasLayerController(
                             drawCachedBitmap(canvas, source.id, element.crop, destination, element.opacity)
                         SceneSourceType.CAMERA -> drawPlaceholder(canvas, destination, "Camera", element.opacity)
                         SceneSourceType.USB_VIDEO -> drawPlaceholder(canvas, destination, "USB Video", element.opacity)
-                        SceneSourceType.EXTENSION -> drawExtensionElement(canvas, source, destination, element.opacity, scaleY)
+                        SceneSourceType.EXTENSION -> drawExtensionElement(canvas, source, destination, element.crop, element.opacity, scaleY)
                         SceneSourceType.SHARE_SCREEN -> Unit
                     }
                     canvas.restoreToCount(save)
@@ -546,6 +546,7 @@ class SceneCanvasLayerController(
         canvas: Canvas,
         source: SceneSource,
         destination: RectF,
+        crop: com.iamahsana.ossstudio.scene.model.CropRect,
         opacity: Float,
         scaleY: Float
     ) {
@@ -560,7 +561,7 @@ class SceneCanvasLayerController(
                 textOverride = source.settings["text"] ?: source.displayName
             )
             "image", "sticker", "video", "background" ->
-                drawCachedBitmap(canvas, source.id, com.iamahsana.ossstudio.scene.model.CropRect(), destination, opacity)
+                drawCachedBitmap(canvas, source.id, crop, destination, opacity)
             "gif" -> {
                 if (!drawCachedMovie(canvas, source.id, destination, opacity)) {
                     drawCachedBitmap(canvas, source.id, com.iamahsana.ossstudio.scene.model.CropRect(), destination, opacity)
