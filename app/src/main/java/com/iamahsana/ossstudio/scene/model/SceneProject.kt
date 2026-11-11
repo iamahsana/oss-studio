@@ -272,3 +272,66 @@ fun ElementTransform.clampedToCanvas(canvas: CanvasSize): ElementTransform {
     return copy(x = x + deltaX, y = y + deltaY)
 }
 
+
+
+enum class ElementBoundsAlignment { START, CENTER, END }
+
+/**
+ * Aligns elements by their rotated visual bounds, preserving each element's size and rotation.
+ * The returned list keeps the same order as the input list.
+ */
+fun alignTransformsByRotatedBounds(
+    transforms: List<ElementTransform>,
+    horizontal: Boolean,
+    alignment: ElementBoundsAlignment,
+    canvas: CanvasSize
+): List<ElementTransform> {
+    if (transforms.isEmpty()) return transforms
+    val bounds = transforms.map { it.rotatedBounds() }
+    val start = if (horizontal) bounds.minOf { it.left } else bounds.minOf { it.top }
+    val end = if (horizontal) bounds.maxOf { it.right } else bounds.maxOf { it.bottom }
+    val center = (start + end) / 2f
+    return transforms.mapIndexed { index, transform ->
+        val current = bounds[index]
+        val currentStart = if (horizontal) current.left else current.top
+        val currentEnd = if (horizontal) current.right else current.bottom
+        val delta = when (alignment) {
+            ElementBoundsAlignment.START -> start - currentStart
+            ElementBoundsAlignment.CENTER -> center - (currentStart + currentEnd) / 2f
+            ElementBoundsAlignment.END -> end - currentEnd
+        }
+        (if (horizontal) transform.copy(x = transform.x + delta)
+        else transform.copy(y = transform.y + delta)).clampedToCanvas(canvas)
+    }
+}
+
+/**
+ * Evenly distributes rotated visual bounds along one axis. Returns null when the
+ * selected elements cannot fit without overlapping; input order is preserved.
+ */
+fun distributeTransformsByRotatedBounds(
+    transforms: List<ElementTransform>,
+    horizontal: Boolean,
+    canvas: CanvasSize
+): List<ElementTransform>? {
+    if (transforms.size < 2) return transforms
+    val ordered = transforms.mapIndexed { index, transform -> index to transform.rotatedBounds() }
+        .sortedBy { (_, bounds) -> if (horizontal) bounds.left else bounds.top }
+    val start = if (horizontal) ordered.first().second.left else ordered.first().second.top
+    val end = if (horizontal) ordered.last().second.right else ordered.last().second.bottom
+    val totalExtent = ordered.sumOf { (_, bounds) ->
+        (if (horizontal) bounds.width else bounds.height).toDouble()
+    }.toFloat()
+    val gap = (end - start - totalExtent) / (ordered.size - 1)
+    if (gap < -0.001f) return null
+    val result = transforms.toMutableList()
+    var cursor = start
+    ordered.forEach { (index, bounds) ->
+        val transform = transforms[index]
+        val delta = cursor - (if (horizontal) bounds.left else bounds.top)
+        result[index] = (if (horizontal) transform.copy(x = transform.x + delta)
+        else transform.copy(y = transform.y + delta)).clampedToCanvas(canvas)
+        cursor += (if (horizontal) bounds.width else bounds.height) + gap
+    }
+    return result
+}
