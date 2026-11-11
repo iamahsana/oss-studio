@@ -1300,3 +1300,29 @@ private fun SceneAnimatedGif(filePath: String, contentDescription: String, crop:
     if (drawable is AnimatedImageDrawable) {
         DisposableEffect(drawable) {
             drawable.start()
+            onDispose { drawable.stop() }
+        }
+    }
+    if (drawable != null) {
+        AndroidView(
+            factory = {
+                ImageView(it).apply {
+                    scaleType = ImageView.ScaleType.CENTER_CROP
+                    this.contentDescription = contentDescription
+                    setImageDrawable(drawable)
+                }
+            },
+            update = { it.setImageDrawable(drawable) },
+            modifier = Modifier.fillMaxSize().graphicsLayer {
+                val cropWidth = (crop.right - crop.left).coerceAtLeast(0.001f)
+                val cropHeight = (crop.bottom - crop.top).coerceAtLeast(0.001f)
+                scaleX = 1f / cropWidth
+                scaleY = 1f / cropHeight
+                translationX = ((0.5f - (crop.left + crop.right) / 2f) / cropWidth) * size.width
+                translationY = ((0.5f - (crop.top + crop.bottom) / 2f) / cropHeight) * size.height
+            }
+        )
+    } else {
+        Text("GIF tidak dapat dimuat", color = Color.White, textAlign = TextAlign.Center)
+    }
+}
