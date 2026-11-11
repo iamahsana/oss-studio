@@ -132,6 +132,7 @@ class MainActivitySmokeTest {
         // First reveal the panel in the outer workspace, then scroll the
         // bounded layer list itself before tapping each row.
         composeRule.onNodeWithTag("scene-panel-layers").performScrollTo()
+        composeRule.onNodeWithTag("scene-work-area-scroll").performTouchInput { swipeUp() }
         composeRule.onAllNodesWithTag("scene-element-item")[0].performScrollTo().performClick()
         composeRule.waitUntil("first layer is selected", 5_000L) {
             composeRule.onAllNodesWithText("Mode pemilihan aktif · Dipilih: 1").fetchSemanticsNodes().isNotEmpty()
