@@ -301,6 +301,37 @@ class SceneProjectEditorTest {
     }
 
     @Test
+    fun translatingRotatedGroupClampsVisibleBoundsToCanvas() {
+        val original = project()
+        val positioned = SceneProjectEditor.updateTransform(
+            original, "scene", "first",
+            ElementTransform(x = 100f, y = 100f, width = 320f, height = 180f, rotationDegrees = 90f),
+            20L
+        )
+        val positionedBoth = SceneProjectEditor.updateTransform(
+            positioned, "scene", "second",
+            ElementTransform(x = 100f, y = 100f, width = 320f, height = 180f, rotationDegrees = 90f),
+            30L
+        )
+        val grouped = SceneProjectEditor.groupElements(
+            positionedBoth, "scene", setOf("first", "second"), 40L, groupId = "rotated"
+        )
+
+        val moved = SceneProjectEditor.translateGroup(grouped, "scene", "rotated", -500f, -500f, 50L)
+        val bounds = moved.scenes.single().elements.map { it.transform.rotatedBounds() }
+
+        bounds.forEach { bound ->
+            assertEquals(0f, bound.left, 0.001f)
+            assertEquals(0f, bound.top, 0.001f)
+            assertTrue(bound.right <= 1080f)
+            assertTrue(bound.bottom <= 1920f)
+        }
+        assertEquals(-70f, moved.scenes.single().elements.first().transform.x, 0.001f)
+        assertEquals(70f, moved.scenes.single().elements.first().transform.y, 0.001f)
+        assertEquals(100f, grouped.scenes.single().elements.first().transform.x)
+    }
+
+    @Test
     fun groupingRejectsAGroupIdAlreadyUsedByAnotherGroup() {
         val original = project()
         val withThird = SceneProjectEditor.addElement(original, "scene", "a", 20L)
