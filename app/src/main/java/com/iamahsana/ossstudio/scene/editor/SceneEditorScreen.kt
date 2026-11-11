@@ -111,6 +111,7 @@ fun SceneEditorScreen(
     var snapEnabled by remember(project.id) { mutableStateOf(true) }
     var gridVisible by remember(project.id) { mutableStateOf(true) }
     var safeAreaVisible by remember(project.id) { mutableStateOf(true) }
+    var centerGuidesVisible by remember(project.id) { mutableStateOf(false) }
     val repository = remember(project.id) {
         SceneProjectRepository(SceneProjectStoreProvider.database(context))
     }
@@ -313,6 +314,18 @@ fun SceneEditorScreen(
                     Text("Safe area")
                     Switch(checked = safeAreaVisible, onCheckedChange = { safeAreaVisible = it })
                 }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Garis tengah")
+                    Switch(
+                        modifier = Modifier.testTag("scene-center-guides-toggle"),
+                        checked = centerGuidesVisible,
+                        onCheckedChange = { centerGuidesVisible = it }
+                    )
+                }
             }
             Text(scene.name, style = MaterialTheme.typography.titleMedium)
             Text(
@@ -394,7 +407,7 @@ fun SceneEditorScreen(
             ) {
                 val scale = constraints.maxWidth.toFloat() / scene.canvas.width.toFloat()
                 val density = LocalDensity.current
-                if (gridVisible || safeAreaVisible) {
+                if (gridVisible || safeAreaVisible || centerGuidesVisible) {
                     Canvas(modifier = Modifier.matchParentSize()) {
                         if (gridVisible) {
                             val step = DEFAULT_GRID_SIZE * scale
@@ -418,6 +431,11 @@ fun SceneEditorScreen(
                                 )
                                 y += step
                             }
+                        }
+                        if (centerGuidesVisible) {
+                            val centerGuide = Color(0xFF4FC3F7).copy(alpha = 0.8f)
+                            drawLine(centerGuide, Offset(size.width / 2f, 0f), Offset(size.width / 2f, size.height), 1.dp.toPx())
+                            drawLine(centerGuide, Offset(0f, size.height / 2f), Offset(size.width, size.height / 2f), 1.dp.toPx())
                         }
                         if (safeAreaVisible) {
                             val insetX = size.width * 0.05f

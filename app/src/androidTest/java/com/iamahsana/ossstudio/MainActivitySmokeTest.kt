@@ -76,6 +76,8 @@ class MainActivitySmokeTest {
         composeRule.onNodeWithText("Snap grid").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Grid").assertIsDisplayed()
         composeRule.onNodeWithText("Safe area").assertIsDisplayed()
+        composeRule.onNodeWithText("Garis tengah").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-center-guides-toggle").assertIsDisplayed()
         composeRule.onNodeWithText("Undo").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Redo").performScrollTo().assertIsDisplayed()
 
