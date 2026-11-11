@@ -57,8 +57,8 @@ class SceneProjectJsonCodecMigrationTest {
         assertEquals(3, decoded.sourceSchemaVersion)
         assertEquals(CanvasOrientation.LANDSCAPE, decoded.project.liveOrientation)
         assertTrue(decoded.project.scenes.all { it.canvas == CanvasSize.DEFAULT_LANDSCAPE })
-        assertEquals("com.community.badges", decoded.project.sources.single().extensionId)
-        assertEquals("com.community.badges.animated-badge", decoded.project.sources.single().typeId)
+        assertEquals("com.community.badges", decoded.project.sources.first { it.type.name == "EXTENSION" }.extensionId)
+        assertEquals("com.community.badges.animated-badge", decoded.project.sources.first { it.type.name == "EXTENSION" }.typeId)
 
         val encoded = SceneProjectJsonCodec.encode(decoded.project)
         val decodedAgain = SceneProjectJsonCodec.decodeWithMetadata(encoded)
