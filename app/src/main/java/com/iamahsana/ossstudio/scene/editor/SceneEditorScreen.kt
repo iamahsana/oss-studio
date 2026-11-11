@@ -1298,6 +1298,17 @@ fun SceneEditorScreen(
                                     onCheckedChange = { updateTextSetting("strikethrough", it.toString()) }
                                 )
                             }
+                            OutlinedButton(
+                                modifier = Modifier.fillMaxWidth().testTag("text-reset-formatting"),
+                                onClick = {
+                                    updateTextSettings(listOf(
+                                        "fontSize", "color", "align", "bold", "italic",
+                                        "fontExtensionId", "fontTypeId", "fontFamily",
+                                        "outlineWidth", "outlineColor", "shadowRadius", "shadowColor",
+                                        "letterSpacing", "lineSpacing", "underline", "strikethrough"
+                                    ).associateWith { null })
+                                }
+                            ) { Text("Reset gaya teks") }
                             }
                         }
                         val selectedExtensionShape = selectedSource.type == SceneSourceType.EXTENSION &&
