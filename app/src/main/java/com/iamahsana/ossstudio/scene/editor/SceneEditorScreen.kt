@@ -720,6 +720,7 @@ fun SceneEditorScreen(
             }
             Column(
                 modifier = Modifier.weight(1f).fillMaxWidth()
+                    .testTag("scene-work-area-scroll")
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
