@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: oss-android-ci-${{ github.ref }}
+  group: oss-android-ci-${{ github.ref }}-${{ github.sha }}
   cancel-in-progress: true
 
 permissions:
