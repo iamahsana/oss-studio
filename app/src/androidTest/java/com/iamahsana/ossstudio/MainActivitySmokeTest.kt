@@ -95,6 +95,11 @@ class MainActivitySmokeTest {
         composeRule.waitUntil("new text element is composed on the canvas", 15_000L) {
             composeRule.onAllNodesWithTag("scene-canvas-element", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
         }
+        // Layer visibility and lock controls should work without opening Properties.
+        composeRule.onNodeWithText("Sembunyi").performScrollTo().performClick()
+        composeRule.onNodeWithText("Tampil").performScrollTo().performClick()
+        composeRule.onNodeWithText("Kunci").performScrollTo().performClick()
+        composeRule.onNodeWithText("Buka").performScrollTo().performClick()
         // Select from the layer list explicitly so the test validates resize-handle
         // visibility for a selected element, independent of add-action focus timing.
         composeRule.onAllNodesWithTag("scene-canvas-element", useUnmergedTree = true)[0].performClick()
