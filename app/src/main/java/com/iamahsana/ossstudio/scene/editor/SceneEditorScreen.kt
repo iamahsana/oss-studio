@@ -1615,32 +1615,26 @@ fun SceneEditorScreen(
                     var updated = currentProject
                     val timestamp = System.currentTimeMillis()
                     val original = selectedElementsForAlignment.map { it.transform }
-                    val aligned = original.mapIndexed { index, transform ->
-                        var result = transform
-                        if (horizontal != null) {
-                            result = alignTransformsByRotatedBounds(
-                                original, true,
-                                when (horizontal) {
-                                    "left" -> ElementBoundsAlignment.START
-                                    "center" -> ElementBoundsAlignment.CENTER
-                                    else -> ElementBoundsAlignment.END
-                                }, scene.canvas
-                            )[index]
-                        }
-                        if (vertical != null) {
-                            result = alignTransformsByRotatedBounds(
-                                if (horizontal == null) original else original.mapIndexed { i, item ->
-                                    if (i == index) result else item
-                                },
-                                false,
-                                when (vertical) {
-                                    "top" -> ElementBoundsAlignment.START
-                                    "center" -> ElementBoundsAlignment.CENTER
-                                    else -> ElementBoundsAlignment.END
-                                }, scene.canvas
-                            )[index]
-                        }
-                        result
+                    var aligned = original
+                    if (horizontal != null) {
+                        aligned = alignTransformsByRotatedBounds(
+                            aligned, true,
+                            when (horizontal) {
+                                "left" -> ElementBoundsAlignment.START
+                                "center" -> ElementBoundsAlignment.CENTER
+                                else -> ElementBoundsAlignment.END
+                            }, scene.canvas
+                        )
+                    }
+                    if (vertical != null) {
+                        aligned = alignTransformsByRotatedBounds(
+                            aligned, false,
+                            when (vertical) {
+                                "top" -> ElementBoundsAlignment.START
+                                "center" -> ElementBoundsAlignment.CENTER
+                                else -> ElementBoundsAlignment.END
+                            }, scene.canvas
+                        )
                     }
                     selectedElementsForAlignment.zip(aligned).forEach { (selected, transform) ->
                         updated = SceneProjectEditor.updateTransform(
