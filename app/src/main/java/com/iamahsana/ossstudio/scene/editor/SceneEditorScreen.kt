@@ -1178,19 +1178,6 @@ fun SceneEditorScreen(
                                 }
                             ) { Text("Bawah") }
                         }
-                        Text("Rotasi: ${elementTransform.rotationDegrees.toInt()}°")
-                        Slider(
-                            modifier = Modifier.testTag("scene-transform-rotation"),
-                            value = elementTransform.rotationDegrees.coerceIn(-180f, 180f),
-                            onValueChange = { value ->
-                                if (!selectedElement.locked) applyProject(SceneProjectEditor.updateTransform(
-                                    currentProject, scene.id, selectedElement.id,
-                                    elementTransform.copy(rotationDegrees = value), System.currentTimeMillis()
-                                ))
-                            },
-                            valueRange = -180f..180f,
-                            enabled = !selectedElement.locked
-                        )
                         Text("Opacity: ${(selectedElement.opacity * 100f).toInt()}%")
                         Slider(
                             value = selectedElement.opacity,
