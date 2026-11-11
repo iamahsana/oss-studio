@@ -106,6 +106,7 @@ fun SceneEditorScreen(
     var selectedElementId by remember(project.id) { mutableStateOf<String?>(null) }
     var multiSelectMode by remember(project.id) { mutableStateOf(false) }
     var selectedElementIds by remember(project.id) { mutableStateOf<Set<String>>(emptySet()) }
+    var selectedGroupId by remember(project.id) { mutableStateOf<String?>(null) }
     val history = remember(project.id) { SceneProjectHistory(project) }
     var historyVersion by remember(project.id) { mutableStateOf(0) }
     var showCanvasSettings by remember(project.id) { mutableStateOf(false) }
@@ -1098,32 +1099,44 @@ fun SceneEditorScreen(
                 .filter { it.id in selectedElementIds }
                 .mapNotNull { it.groupId }
                 .distinct()
+            val activeGroupId = selectedGroupId?.takeIf { groupId ->
+                scene.elements.any { it.groupId == groupId }
+            } ?: selectedGroupIds.singleOrNull()
             val canGroup = selectedElementIds.size >= 2 &&
                 scene.elements.filter { it.id in selectedElementIds }.all { it.groupId == null }
-            if (canGroup || selectedGroupIds.size == 1) {
+            if (canGroup || activeGroupId != null) {
                 Row(
                     modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     if (canGroup) {
                         OutlinedButton(onClick = {
+                            val groupId = java.util.UUID.randomUUID().toString()
                             val updated = SceneProjectEditor.groupElements(
-                                currentProject, scene.id, selectedElementIds, System.currentTimeMillis()
+                                currentProject, scene.id, selectedElementIds,
+                                System.currentTimeMillis(), groupId = groupId
                             )
                             applyProject(updated)
+                            selectedGroupId = groupId
                             multiSelectMode = false
                             selectedElementId = selectedElementIds.firstOrNull()
                             selectedElementIds = selectedElementId?.let(::setOf) ?: emptySet()
+                            editorPanel = "layers"
                         }) { Text("Kelompokkan (" + selectedElementIds.size + ")") }
                     }
-                    if (selectedGroupIds.size == 1) {
-                        OutlinedButton(onClick = {
-                            applyProject(SceneProjectEditor.ungroupElements(
-                                currentProject, scene.id, selectedGroupIds.single(), System.currentTimeMillis()
-                            ))
-                            multiSelectMode = false
-                            selectedElementIds = selectedElementId?.let(::setOf) ?: emptySet()
-                        }) { Text("Pisahkan grup") }
+                    if (activeGroupId != null) {
+                        OutlinedButton(
+                            modifier = Modifier.testTag("scene-ungroup"),
+                            onClick = {
+                                applyProject(SceneProjectEditor.ungroupElements(
+                                    currentProject, scene.id, activeGroupId, System.currentTimeMillis()
+                                ))
+                                selectedGroupId = null
+                                multiSelectMode = false
+                                selectedElementIds = selectedElementId?.let(::setOf) ?: emptySet()
+                                editorPanel = "layers"
+                            }
+                        ) { Text("Pisahkan grup") }
                     }
                 }
             }
@@ -1157,6 +1170,7 @@ fun SceneEditorScreen(
                                 selectedElementId = element.id
                                 selectedElementIds = setOf(element.id)
                             }
+                            selectedGroupId = element.groupId
                             editingText = source?.text.orEmpty()
                         }
                     ) {
