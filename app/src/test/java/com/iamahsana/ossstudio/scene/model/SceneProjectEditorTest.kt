@@ -282,11 +282,14 @@ class SceneProjectEditorTest {
         )
         val scaled = SceneProjectEditor.scaleGroup(grouped, "scene", "pair", 1.5f, 40L)
         val elements = scaled.scenes.single().elements
-        assertEquals(150f, elements.first().transform.width)
-        assertEquals(150f, elements.last().transform.width)
-        assertEquals(0f, elements.first().transform.x)
-        assertEquals(0f, elements.first().transform.y)
-        assertEquals(0f, grouped.scenes.single().elements.first().transform.x)
+        val originalElements = grouped.scenes.single().elements
+        originalElements.zip(elements).forEach { (before, after) ->
+            assertEquals(before.transform.width * 1.5f, after.transform.width, 0.001f)
+            assertEquals(before.transform.height * 1.5f, after.transform.height, 0.001f)
+        }
+        assertEquals(originalElements.first().transform.x, elements.first().transform.x, 0.001f)
+        assertEquals(originalElements.first().transform.y, elements.first().transform.y, 0.001f)
+        assertEquals(0f, originalElements.first().transform.x)
     }
 
     @Test
