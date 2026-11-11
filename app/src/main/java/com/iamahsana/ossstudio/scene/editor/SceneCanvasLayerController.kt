@@ -189,23 +189,27 @@ class SceneCanvasLayerController(
                     ?: return@forEach
             } else null
             if (extension != null) extensions[source.id] = extension
-            val file = if (extension != null) {
-                extension.resolveResource() ?: return@forEach
-            } else {
-                val asset = source.assetId?.let(assets::get) ?: return@forEach
-                File(appContext.filesDir, asset.relativePath)
-            }
             val kind = extension?.kind ?: source.type.name.lowercase()
+            // Text and shape elements are rendered from their declarative settings;
+            // they do not require a package resource. Asset-backed kinds are decoded
+            // only when a verified resource (or a normal scene asset) exists.
+            val file = if (extension != null) {
+                extension.resolveResource()
+            } else {
+                source.assetId?.let(assets::get)?.let { File(appContext.filesDir, it.relativePath) }
+            }
             when (kind) {
-                "gif" -> {
-                    val movie = runCatching { Movie.decodeFile(file.absolutePath) }.getOrNull()
+                "gif" -> file?.let { assetFile ->
+                    val movie = runCatching { Movie.decodeFile(assetFile.absolutePath) }.getOrNull()
                     if (movie != null) movies[source.id] = movie
-                    else decodeBitmap(file)?.let { decoded[source.id] = it }
+                    else decodeBitmap(assetFile)?.let { decoded[source.id] = it }
                 }
-                "image", "sticker", "background" -> decodeBitmap(file)?.let { decoded[source.id] = it }
-                "video" -> runCatching { VideoFrameDecoder(file) }.getOrNull()?.let { decoder ->
-                    videoDecoders[source.id] = decoder
-                    decoder.frameAt(0L)?.let { decoded[source.id] = it }
+                "image", "sticker", "background" -> file?.let { decodeBitmap(it)?.let { bitmap -> decoded[source.id] = bitmap } }
+                "video" -> file?.let { assetFile ->
+                    runCatching { VideoFrameDecoder(assetFile) }.getOrNull()?.let { decoder ->
+                        videoDecoders[source.id] = decoder
+                        decoder.frameAt(0L)?.let { decoded[source.id] = it }
+                    }
                 }
             }
         }
