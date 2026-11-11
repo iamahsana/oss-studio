@@ -80,6 +80,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.iamahsana.ossstudio.extensions.OssInstalledElement
 import com.iamahsana.ossstudio.extensions.OssInstalledElementCatalog
+import com.iamahsana.ossstudio.scene.model.ElementTransform
 import com.iamahsana.ossstudio.scene.model.SceneProject
 import com.iamahsana.ossstudio.scene.model.Scene
 import com.iamahsana.ossstudio.scene.model.CropRect
@@ -257,8 +258,22 @@ fun SceneEditorScreen(
         )
         val timestamp = System.currentTimeMillis()
         val withSource = SceneProjectEditor.addSource(currentProject, source, timestamp)
-        val updated = SceneProjectEditor.addElement(withSource, activeScene.id, source.id, timestamp)
-        val newElementId = updated.scenes.first { it.id == activeScene.id }.elements.last().id
+        val added = SceneProjectEditor.addElement(withSource, activeScene.id, source.id, timestamp)
+        val newElementId = added.scenes.first { it.id == activeScene.id }.elements.last().id
+        val updated = if (element.kind == "background") {
+            SceneProjectEditor.updateTransform(
+                added,
+                activeScene.id,
+                newElementId,
+                ElementTransform(
+                    x = 0f,
+                    y = 0f,
+                    width = activeScene.canvas.width.toFloat(),
+                    height = activeScene.canvas.height.toFloat()
+                ),
+                timestamp
+            )
+        } else added
         selectedElementId = newElementId
         selectedElementIds = setOf(newElementId)
         editorPanel = "layers"
