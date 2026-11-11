@@ -767,6 +767,20 @@ fun SceneEditorScreen(
                     Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("Elemen dipilih: ${selectedSource.displayName}", style = MaterialTheme.typography.titleSmall)
                         val elementTransform = selectedElement.transform
+                        fun updateGeometry(
+                            transform: com.iamahsana.ossstudio.scene.model.ElementTransform,
+                            field: String
+                        ) {
+                            if (!selectedElement.locked) {
+                                applyProject(
+                                    SceneProjectEditor.updateTransform(
+                                        currentProject, scene.id, selectedElement.id,
+                                        transform, System.currentTimeMillis()
+                                    ),
+                                    "geometry-$field:${selectedElement.id}"
+                                )
+                            }
+                        }
                         var geometryX by remember(selectedElement.id, elementTransform.x) {
                             mutableStateOf(elementTransform.x.toInt().toString())
                         }
@@ -789,36 +803,88 @@ fun SceneEditorScreen(
                                 onValueChange = { value ->
                                     geometryX = value
                                     value.toIntOrNull()?.let { parsed ->
-                                        if (!selectedElement.locked) applyProject(SceneProjectEditor.updateTransform(
-                                            currentProject, scene.id, selectedElement.id,
-                                            elementTransform.copy(x = parsed.toFloat().coerceIn(
-                                                0f, (scene.canvas.width - elementTransform.width).coerceAtLeast(0f)
-                                            )), System.currentTimeMillis()
-                                        ), "geometry-x:${selectedElement.id}"), System.currentTimeMillis()
-                                        ), "geometry-y:${selectedElement.id}") {
+                                        updateGeometry(elementTransform.copy(x = parsed.toFloat().coerceIn(
+                                            0f, (scene.canvas.width - elementTransform.width).coerceAtLeast(0f)
+                                        )), "x")
+                                    }
+                                },
+                                modifier = Modifier.weight(1f).testTag("scene-geometry-x-input"),
+                                label = { Text("X (px)") },
+                                singleLine = true,
+                                enabled = !selectedElement.locked
+                            )
+                            OutlinedTextField(
+                                value = geometryY,
+                                onValueChange = { value ->
+                                    geometryY = value
+                                    value.toIntOrNull()?.let { parsed ->
+                                        updateGeometry(elementTransform.copy(y = parsed.toFloat().coerceIn(
+                                            0f, (scene.canvas.height - elementTransform.height).coerceAtLeast(0f)
+                                        )), "y")
+                                    }
+                                },
+                                modifier = Modifier.weight(1f).testTag("scene-geometry-y-input"),
+                                label = { Text("Y (px)") },
+                                singleLine = true,
+                                enabled = !selectedElement.locked
+                            )
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedTextField(
                                 value = geometryWidth,
                                 onValueChange = { value ->
                                     geometryWidth = value
                                     value.toIntOrNull()?.let { parsed ->
-                                        if (!selectedElement.locked) {
-                                            val width = parsed.toFloat().coerceIn(16f, scene.canvas.width.toFloat())
-                                            applyProject(SceneProjectEditor.updateTransform(
-                                                currentProject, scene.id, selectedElement.id,
-                                                elementTransform.copy(
-                                                    x = elementTransform.x.coerceAtMost((scene.canvas.width - width).coerceAtLeast(0f)),
-                                                    width = width
-                                                ), System.currentTimeMillis()
-                                        ), "geometry-width:${selectedElement.id}")
-                                            applyProject(SceneProjectEditor.updateTransform(
-                                                currentProject, scene.id, selectedElement.id,
-                                                elementTransform.copy(
-                                                    y = elementTransform.y.coerceAtMost((scene.canvas.height - height).coerceAtLeast(0f)),
-                                                    height = height
-                                                ), System.currentTimeMillis()
-                                        ), "geometry-height:${selectedElement.id}"),
-                                        System.currentTimeMillis()
-                                        ), "geometry-rotation:${selectedElement.id}"),
+                                        val width = parsed.toFloat().coerceIn(16f, scene.canvas.width.toFloat())
+                                        updateGeometry(elementTransform.copy(
+                                            x = elementTransform.x.coerceAtMost((scene.canvas.width - width).coerceAtLeast(0f)),
+                                            width = width
+                                        ), "width")
+                                    }
+                                },
+                                modifier = Modifier.weight(1f).testTag("scene-geometry-width-input"),
+                                label = { Text("Lebar (px)") },
+                                singleLine = true,
+                                enabled = !selectedElement.locked
+                            )
+                            OutlinedTextField(
+                                value = geometryHeight,
+                                onValueChange = { value ->
+                                    geometryHeight = value
+                                    value.toIntOrNull()?.let { parsed ->
+                                        val height = parsed.toFloat().coerceIn(16f, scene.canvas.height.toFloat())
+                                        updateGeometry(elementTransform.copy(
+                                            y = elementTransform.y.coerceAtMost((scene.canvas.height - height).coerceAtLeast(0f)),
+                                            height = height
+                                        ), "height")
+                                    }
+                                },
+                                modifier = Modifier.weight(1f).testTag("scene-geometry-height-input"),
+                                label = { Text("Tinggi (px)") },
+                                singleLine = true,
+                                enabled = !selectedElement.locked
+                            )
+                        }
+                        OutlinedTextField(
+                            value = geometryRotation,
+                            onValueChange = { value ->
+                                geometryRotation = value
+                                value.toIntOrNull()?.let { parsed ->
+                                    updateGeometry(
+                                        elementTransform.copy(rotationDegrees = parsed.coerceIn(-180, 180).toFloat()),
+                                        "rotation"
+                                    )
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth().testTag("scene-geometry-rotation-input"),
+                            label = { Text("Rotasi (°)") },
+                            singleLine = true,
+                            enabled = !selectedElement.locked
+                        )
+                        Text("Posisi horizontal: ${elementTransform.x.toInt()} px")
+                        Slider(
+                            modifier = Modifier.testTag("scene-transform-x"),
+                            value = elementTransform.x.coerceIn(0f, (scene.canvas.width - elementTransform.width).coerceAtLeast(0f)),
                             onValueChange = { value ->
                                 if (!selectedElement.locked) applyProject(SceneProjectEditor.updateTransform(
                                     currentProject, scene.id, selectedElement.id,
