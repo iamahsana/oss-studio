@@ -1554,6 +1554,58 @@ fun SceneEditorScreen(
                 .filter { it.id in selectedElementIds }
                 .mapNotNull { it.groupId }
                 .distinct()
+            val selectedElementsForAlignment = scene.elements.filter { it.id in selectedElementIds }
+            val canAlignSelection = selectedElementsForAlignment.size >= 2 &&
+                selectedElementsForAlignment.none { it.locked }
+            if (canAlignSelection) {
+                val left = selectedElementsForAlignment.minOf { it.transform.x }
+                val top = selectedElementsForAlignment.minOf { it.transform.y }
+                val right = selectedElementsForAlignment.maxOf { it.transform.x + it.transform.width }
+                val bottom = selectedElementsForAlignment.maxOf { it.transform.y + it.transform.height }
+                val centerX = (left + right) / 2f
+                val centerY = (top + bottom) / 2f
+                fun alignSelection(horizontal: String? = null, vertical: String? = null) {
+                    var updated = currentProject
+                    val timestamp = System.currentTimeMillis()
+                    selectedElementsForAlignment.forEach { selected ->
+                        val transform = selected.transform
+                        val nextX = when (horizontal) {
+                            "left" -> left
+                            "center" -> centerX - transform.width / 2f
+                            "right" -> right - transform.width
+                            else -> transform.x
+                        }.coerceIn(0f, (scene.canvas.width - transform.width).coerceAtLeast(0f))
+                        val nextY = when (vertical) {
+                            "top" -> top
+                            "center" -> centerY - transform.height / 2f
+                            "bottom" -> bottom - transform.height
+                            else -> transform.y
+                        }.coerceIn(0f, (scene.canvas.height - transform.height).coerceAtLeast(0f))
+                        updated = SceneProjectEditor.updateTransform(
+                            updated, scene.id, selected.id,
+                            transform.copy(x = nextX, y = nextY), timestamp
+                        )
+                    }
+                    applyProject(updated)
+                }
+                Text("Ratakan pilihan", style = MaterialTheme.typography.labelLarge)
+                Row(
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    OutlinedButton(modifier = Modifier.testTag("scene-multi-align-left"), onClick = { alignSelection(horizontal = "left") }) { Text("Kiri") }
+                    OutlinedButton(modifier = Modifier.testTag("scene-multi-align-center-x"), onClick = { alignSelection(horizontal = "center") }) { Text("Tengah X") }
+                    OutlinedButton(modifier = Modifier.testTag("scene-multi-align-right"), onClick = { alignSelection(horizontal = "right") }) { Text("Kanan") }
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    OutlinedButton(modifier = Modifier.testTag("scene-multi-align-top"), onClick = { alignSelection(vertical = "top") }) { Text("Atas") }
+                    OutlinedButton(modifier = Modifier.testTag("scene-multi-align-center-y"), onClick = { alignSelection(vertical = "center") }) { Text("Tengah Y") }
+                    OutlinedButton(modifier = Modifier.testTag("scene-multi-align-bottom"), onClick = { alignSelection(vertical = "bottom") }) { Text("Bawah") }
+                }
+            }
             val canGroup = selectedElementIds.size >= 2 &&
                 scene.elements.filter { it.id in selectedElementIds }.all { it.groupId == null }
             if (canGroup || selectedGroupIds.size == 1) {
