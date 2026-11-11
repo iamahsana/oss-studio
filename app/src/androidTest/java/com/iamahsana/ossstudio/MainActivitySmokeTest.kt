@@ -110,6 +110,10 @@ class MainActivitySmokeTest {
         composeRule.onNodeWithTag("text-line-spacing").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithTag("text-reset-formatting").performScrollTo().assertIsDisplayed().performClick()
         composeRule.onNodeWithText("Kunci").performScrollTo().performClick()
+        assertTrue(
+            "Locked elements must not expose canvas resize handles",
+            composeRule.onAllNodesWithTag("scene-resize-handle", useUnmergedTree = true).fetchSemanticsNodes().isEmpty()
+        )
         composeRule.onNodeWithText("Elemen terkunci. Buka kunci untuk mengubah teks dan tipografinya.")
             .performScrollTo().assertIsDisplayed()
         assertTrue(
