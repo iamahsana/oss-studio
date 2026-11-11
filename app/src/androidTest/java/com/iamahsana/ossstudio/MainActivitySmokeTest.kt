@@ -132,7 +132,7 @@ class MainActivitySmokeTest {
         // First reveal the panel in the outer workspace, then scroll the
         // bounded layer list itself before tapping each row.
         composeRule.onNodeWithTag("scene-panel-layers").performScrollTo()
-        composeRule.onNodeWithTag("scene-work-area-scroll").performTouchInput { swipeUp() }
+        // The layer rows now share the work area's single vertical scroll chain.
         composeRule.onAllNodesWithTag("scene-element-item")[0].performScrollTo().performClick()
         composeRule.waitUntil("first layer is selected", 5_000L) {
             composeRule.onAllNodesWithText("Mode pemilihan aktif · Dipilih: 1").fetchSemanticsNodes().isNotEmpty()
@@ -177,8 +177,7 @@ class MainActivitySmokeTest {
         composeRule.onNodeWithText("Server URL (rtmp:// atau rtmps://)")
             .performTextInput("rtmps://live.example.com/app")
         composeRule.onNodeWithText("Stream key").performTextInput("private-smoke-key")
-        composeRule.onNodeWithText("Simpan terenkripsi").performClick()
-        composeRule.waitUntil(15_000) {
+        composeRule.onNodeWithText("Simpan terenkripsi").performClick()        composeRule.waitUntil(15_000) {
             composeRule.onAllNodesWithText(uniqueName).fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithText(uniqueName).assertIsDisplayed()
