@@ -485,6 +485,10 @@ class SceneCanvasLayerController(
         if (state != State.READY || !videoDecodeInFlight.compareAndSet(false, true)) return
         val decoders = cachedVideoDecoders
         val starts = videoStartTimes
+        // Asset updates can replace/release decoders while a frame callback is
+        // queued on the main thread. Bind this decode to the current generation
+        // so stale frames are never installed into the replacement scene.
+        val generation = assetGeneration.get()
         val now = SystemClock.uptimeMillis()
         try {
             assetExecutor.execute {
@@ -495,7 +499,7 @@ class SceneCanvasLayerController(
                 }.toMap()
                 mainHandler.post {
                     videoDecodeInFlight.set(false)
-                    if (state != State.READY) {
+                    if (state != State.READY || generation != assetGeneration.get()) {
                         frames.values.forEach { if (!it.isRecycled) it.recycle() }
                         return@post
                     }
