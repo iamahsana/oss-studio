@@ -1521,6 +1521,8 @@ fun SceneEditorScreen(
                 scene.elements.sortedBy { it.zIndex }.forEach { element ->
                     val source = currentProject.sources.firstOrNull { it.id == element.sourceId }
                     val chosen = element.id in selectedElementIds
+                    val layerPosition = scene.elements.sortedBy { it.zIndex }.indexOfFirst { it.id == element.id }
+                    val layerCount = scene.elements.size
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -1582,6 +1584,24 @@ fun SceneEditorScreen(
                                 applyProject(duplicated)
                             }
                         ) { Text("Salin") }
+                        TextButton(
+                            modifier = Modifier.testTag("scene-layer-move-up-" + element.id),
+                            enabled = layerPosition > 0,
+                            onClick = {
+                                applyProject(SceneProjectEditor.moveElement(
+                                    currentProject, scene.id, element.id, layerPosition - 1, System.currentTimeMillis()
+                                ))
+                            }
+                        ) { Text("↑") }
+                        TextButton(
+                            modifier = Modifier.testTag("scene-layer-move-down-" + element.id),
+                            enabled = layerPosition < layerCount - 1,
+                            onClick = {
+                                applyProject(SceneProjectEditor.moveElement(
+                                    currentProject, scene.id, element.id, layerPosition + 1, System.currentTimeMillis()
+                                ))
+                            }
+                        ) { Text("↓") }
                     }
                 }
             }
