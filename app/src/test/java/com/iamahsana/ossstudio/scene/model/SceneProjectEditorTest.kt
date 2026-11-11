@@ -120,6 +120,15 @@ class SceneProjectEditorTest {
     }
 
     @Test
+    fun lockedElementCropCannotBeChanged() {
+        val original = SceneProjectEditor.setElementLocked(project(), "scene", "first", true, 20L)
+        val crop = CropRect(left = 0.1f, top = 0.2f, right = 0.9f, bottom = 0.8f)
+        val updated = SceneProjectEditor.updateElementCrop(original, "scene", "first", crop, 30L)
+        assertEquals(original, updated)
+        assertEquals(CropRect(), updated.scenes.single().elements.first().crop)
+    }
+
+    @Test
     fun cropModelRejectsInvertedAndOutOfRangeCoordinates() {
         assertThrows(IllegalArgumentException::class.java) {
             CropRect(left = 0.8f, right = 0.2f)
