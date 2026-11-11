@@ -17,7 +17,7 @@ class SceneProjectJsonCodecTest {
         val source=SceneSource("image",SceneSourceType.IMAGE,"Photo",assetId=asset.id,settings=mapOf("fit" to "cover"))
         val scene=Scene("main","project","Main",CanvasSize.DEFAULT_LANDSCAPE,0xFF112233,
             listOf(SceneElement("element","image",ElementTransform(12f,24f,640f,360f,15f),CropRect(.1f,.2f,.9f,.8f),.75f,true,true,4,"group")))
-        val p=SceneProject("project","Round trip",100,200,"main",listOf(scene),listOf(source),listOf(asset))
+        val p=SceneProject("project","Round trip",100,200,"main",listOf(scene),listOf(source),listOf(asset), liveOrientation = CanvasOrientation.LANDSCAPE)
         assertEquals(p,SceneProjectJsonCodec.decode(SceneProjectJsonCodec.encode(p)))
     }
 
@@ -25,6 +25,7 @@ class SceneProjectJsonCodecTest {
         val project=SceneProject(id="legacy",name="Legacy",createdAtEpochMillis=1,updatedAtEpochMillis=2)
         val legacy=JSONObject(SceneProjectJsonCodec.encode(project))
             .put("schemaVersion",1)
+            .remove("liveOrientation")
             .toString()
 
         val decoded=SceneProjectJsonCodec.decode(legacy)
@@ -32,7 +33,7 @@ class SceneProjectJsonCodecTest {
 
         assertEquals(project.id,decoded.id)
         assertEquals(project.name,decoded.name)
-        assertEquals(3,rewritten.getInt("schemaVersion"))
+        assertEquals(4,rewritten.getInt("schemaVersion"))
     }
 
     @Test
@@ -56,7 +57,7 @@ class SceneProjectJsonCodecTest {
         val encoded = JSONObject(SceneProjectJsonCodec.encode(project))
         val decoded = SceneProjectJsonCodec.decode(encoded.toString())
 
-        assertEquals(3, encoded.getInt("schemaVersion"))
+        assertEquals(4, encoded.getInt("schemaVersion"))
         assertEquals(project, decoded)
         assertEquals(source.extensionId, decoded.sources.single().extensionId)
         assertEquals(source.typeId, decoded.sources.single().typeId)
@@ -67,7 +68,8 @@ class SceneProjectJsonCodecTest {
     fun readsSchemaV2SourcesWithoutExtensionFields() {
         val project = SceneProject(id = "v2", name = "Schema v2", createdAtEpochMillis = 1, updatedAtEpochMillis = 2)
         val schemaV2 = JSONObject(SceneProjectJsonCodec.encode(project))
-            .put("schemaVersion", 2)
+            .put("schemaVersion", 3)
+            .remove("liveOrientation")
             .toString()
 
         val decoded = SceneProjectJsonCodec.decode(schemaV2)
