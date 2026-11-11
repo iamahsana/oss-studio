@@ -159,7 +159,7 @@ class SceneCanvasLayerController(
                     if (movie != null) movies[source.id] = movie
                     else decodeBitmap(file)?.let { decoded[source.id] = it }
                 }
-                "image", "sticker" -> decodeBitmap(file)?.let { decoded[source.id] = it }
+                "image", "sticker", "background" -> decodeBitmap(file)?.let { decoded[source.id] = it }
                 "video" -> decodeVideoFrame(file)?.let { decoded[source.id] = it }
             }
         }
@@ -427,14 +427,14 @@ class SceneCanvasLayerController(
                 canvas, source, destination, opacity, scaleY,
                 textOverride = source.settings["text"] ?: source.displayName
             )
-            "image", "sticker", "video" ->
+            "image", "sticker", "video", "background" ->
                 drawCachedBitmap(canvas, source.id, com.iamahsana.ossstudio.scene.model.CropRect(), destination, opacity)
             "gif" -> {
                 if (!drawCachedMovie(canvas, source.id, destination, opacity)) {
                     drawCachedBitmap(canvas, source.id, com.iamahsana.ossstudio.scene.model.CropRect(), destination, opacity)
                 }
             }
-            "shape", "background" -> drawExtensionShape(canvas, source, destination, opacity)
+            "shape" -> drawExtensionShape(canvas, source, destination, opacity)
             else -> drawPlaceholder(canvas, destination, "Unsupported element: ${element.kind}", opacity)
         }
     }
