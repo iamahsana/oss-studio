@@ -1064,6 +1064,43 @@ fun SceneEditorScreen(
                             steps = 71,
                             enabled = !selectedElement.locked
                         )
+                        Row(
+                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            OutlinedButton(
+                                modifier = Modifier.testTag("scene-rotate-left-90"),
+                                enabled = !selectedElement.locked,
+                                onClick = {
+                                    val next = ((elementTransform.rotationDegrees - 90f) % 360f + 360f) % 360f
+                                    applyProject(SceneProjectEditor.updateTransform(
+                                        currentProject, scene.id, selectedElement.id,
+                                        elementTransform.copy(rotationDegrees = next), System.currentTimeMillis()
+                                    ))
+                                }
+                            ) { Text("Putar -90°") }
+                            OutlinedButton(
+                                modifier = Modifier.testTag("scene-rotate-right-90"),
+                                enabled = !selectedElement.locked,
+                                onClick = {
+                                    val next = ((elementTransform.rotationDegrees + 90f) % 360f + 360f) % 360f
+                                    applyProject(SceneProjectEditor.updateTransform(
+                                        currentProject, scene.id, selectedElement.id,
+                                        elementTransform.copy(rotationDegrees = next), System.currentTimeMillis()
+                                    ))
+                                }
+                            ) { Text("Putar +90°") }
+                            OutlinedButton(
+                                modifier = Modifier.testTag("scene-rotate-reset"),
+                                enabled = !selectedElement.locked && elementTransform.rotationDegrees != 0f,
+                                onClick = {
+                                    applyProject(SceneProjectEditor.updateTransform(
+                                        currentProject, scene.id, selectedElement.id,
+                                        elementTransform.copy(rotationDegrees = 0f), System.currentTimeMillis()
+                                    ))
+                                }
+                            ) { Text("Reset") }
+                        }
                         Text("Perataan ke canvas", style = MaterialTheme.typography.labelLarge)
                         Row(
                             modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
