@@ -1228,6 +1228,59 @@ fun SceneEditorScreen(
                                 )
                             }
                         }
+                        val selectedExtensionShape = selectedSource.type == SceneSourceType.EXTENSION &&
+                            installedElements.any {
+                                it.extensionId == selectedSource.extensionId &&
+                                    it.typeId == selectedSource.typeId && it.kind == "shape"
+                            }
+                        if (selectedExtensionShape) {
+                            Text("Bentuk", style = MaterialTheme.typography.labelLarge)
+                            Row(
+                                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                listOf(
+                                    "rectangle" to "Persegi",
+                                    "rounded-rect" to "Sudut bulat",
+                                    "circle" to "Lingkaran"
+                                ).forEach { (shape, label) ->
+                                    OutlinedButton(
+                                        modifier = Modifier.testTag("extension-shape-$shape"),
+                                        onClick = { updateTextSetting("shape", shape) }
+                                    ) { Text(label) }
+                                }
+                            }
+                            Text("Warna bentuk", style = MaterialTheme.typography.labelLarge)
+                            Row(
+                                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                listOf(
+                                    "#FFFFFFFF" to "Putih",
+                                    "#FF202124" to "Hitam",
+                                    "#FF4CAF50" to "Hijau",
+                                    "#FF2196F3" to "Biru",
+                                    "#FFE91E63" to "Merah muda",
+                                    "#FFFFC107" to "Kuning"
+                                ).forEach { (color, label) ->
+                                    OutlinedButton(
+                                        modifier = Modifier.testTag("extension-shape-color-$color"),
+                                        onClick = { updateTextSetting("fillColor", color) }
+                                    ) { Text(label) }
+                                }
+                            }
+                            val cornerRadius = (selectedSource.settings["cornerRadius"]?.toFloatOrNull() ?: 18f)
+                                .coerceIn(0f, 128f)
+                            Text("Radius sudut: ${cornerRadius.toInt()} px")
+                            Slider(
+                                modifier = Modifier.testTag("extension-shape-corner-radius"),
+                                value = cornerRadius,
+                                onValueChange = { updateTextSetting("cornerRadius", it.toInt().toString()) },
+                                valueRange = 0f..128f,
+                                enabled = selectedSource.settings["shape"] == "rounded-rect" ||
+                                    selectedSource.settings["shape"] == "roundrect"
+                            )
+                        }
                         val orderedElements = scene.elements.sortedBy { it.zIndex }
                         val layerIndex = orderedElements.indexOfFirst { it.id == selectedElement.id }
                         Row(
