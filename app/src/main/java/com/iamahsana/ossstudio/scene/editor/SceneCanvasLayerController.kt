@@ -16,6 +16,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.view.Surface
+import com.iamahsana.ossstudio.extensions.OssInstalledElement
 import com.iamahsana.ossstudio.extensions.OssInstalledElementCatalog
 import com.iamahsana.ossstudio.scene.model.Scene
 import com.iamahsana.ossstudio.scene.model.SceneProject
@@ -50,6 +51,7 @@ class SceneCanvasLayerController(
     private var outputSurface: Surface? = null
     private var cachedBitmaps: Map<String, Bitmap> = emptyMap()
     private var cachedMovies: Map<String, Movie> = emptyMap()
+    private var cachedExtensionElements: Map<String, OssInstalledElement> = emptyMap()
     private var assetSignature: String = ""
     private val assetGeneration = AtomicLong(0L)
     private val gifStartTime = SystemClock.uptimeMillis()
@@ -109,6 +111,7 @@ class SceneCanvasLayerController(
                 result.onSuccess { decoded ->
                     cachedBitmaps = decoded.bitmaps
                     cachedMovies = decoded.movies
+                    cachedExtensionElements = decoded.extensions
                     assetSignature = assetSignature(project, scene)
                     state = State.WAITING_FOR_GL
                     waitForGl()
@@ -121,7 +124,8 @@ class SceneCanvasLayerController(
 
     private data class DecodedAssets(
         val bitmaps: Map<String, Bitmap>,
-        val movies: Map<String, Movie>
+        val movies: Map<String, Movie>,
+        val extensions: Map<String, OssInstalledElement>
     )
 
     private fun decodeSceneAssets(project: SceneProject, scene: Scene): DecodedAssets {
@@ -130,6 +134,7 @@ class SceneCanvasLayerController(
             .mapTo(mutableSetOf()) { it.sourceId }
         val decoded = LinkedHashMap<String, Bitmap>()
         val movies = LinkedHashMap<String, Movie>()
+        val extensions = LinkedHashMap<String, OssInstalledElement>()
         project.sources.filter {
             it.id in usedSourceIds && it.enabled &&
                 it.type in setOf(SceneSourceType.IMAGE, SceneSourceType.GIF, SceneSourceType.VIDEO, SceneSourceType.EXTENSION)
@@ -140,6 +145,7 @@ class SceneCanvasLayerController(
                 OssInstalledElementCatalog.find(File(appContext.filesDir, "extensions"), extensionId, typeId)
                     ?: return@forEach
             } else null
+            if (extension != null) extensions[source.id] = extension
             val file = if (extension != null) {
                 extension.resolveResource() ?: return@forEach
             } else {
@@ -157,7 +163,7 @@ class SceneCanvasLayerController(
                 "video" -> decodeVideoFrame(file)?.let { decoded[source.id] = it }
             }
         }
-        return DecodedAssets(decoded, movies)
+        return DecodedAssets(decoded, movies, extensions)
     }
 
     private fun decodeBitmap(file: File): Bitmap? {
@@ -255,6 +261,7 @@ class SceneCanvasLayerController(
                     cachedBitmaps.values.forEach { if (!it.isRecycled) it.recycle() }
                     cachedBitmaps = decoded.bitmaps
                     cachedMovies = decoded.movies
+                    cachedExtensionElements = decoded.extensions
                     assetSignature = nextSignature
                     drawFrame(surface)
                 }.onFailure { error ->
@@ -370,12 +377,7 @@ class SceneCanvasLayerController(
             if (!cachedMovies.containsKey(source.id)) return@any false
             source.type == SceneSourceType.GIF || (
                 source.type == SceneSourceType.EXTENSION &&
-                    source.extensionId != null && source.typeId != null &&
-                    OssInstalledElementCatalog.find(
-                        File(appContext.filesDir, "extensions"),
-                        source.extensionId,
-                        source.typeId
-                    )?.kind == "gif"
+                    cachedExtensionElements[source.id]?.kind == "gif"
             )
         }
         if (hasVisibleGif && state == State.READY) {
@@ -415,15 +417,7 @@ class SceneCanvasLayerController(
         opacity: Float,
         scaleY: Float
     ) {
-        val extensionId = source.extensionId
-        val typeId = source.typeId
-        val element = if (extensionId != null && typeId != null) {
-            OssInstalledElementCatalog.find(
-                File(appContext.filesDir, "extensions"),
-                extensionId,
-                typeId
-            )
-        } else null
+        val element = cachedExtensionElements[source.id]
         if (element == null) {
             drawPlaceholder(canvas, destination, "Extension unavailable: ${source.displayName}", opacity)
             return
@@ -606,6 +600,7 @@ class SceneCanvasLayerController(
             cachedBitmaps.values.forEach { if (!it.isRecycled) it.recycle() }
             cachedBitmaps = emptyMap()
             cachedMovies = emptyMap()
+            cachedExtensionElements = emptyMap()
             assetSignature = ""
             project = null
             scene = null
