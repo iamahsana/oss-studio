@@ -177,7 +177,7 @@ class MainActivitySmokeTest {
         composeRule.onAllNodesWithTag("scene-element-item")[1].performScrollTo().performClick()
         composeRule.onAllNodesWithTag("scene-element-item")[2].performScrollTo().performClick()
         // The selected-count status is the stable contract; layer display names may vary by source type.
-        composeRule.onNodeWithText("Mode pemilihan aktif · Dipilih: 3").assertIsDisplayed()
+        composeRule.onNodeWithText("Mode pemilihan aktif · Dipilih: 3").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithTag("scene-multi-align-left").performScrollTo().assertIsDisplayed().performClick()
         composeRule.onNodeWithTag("scene-multi-align-center-y").performScrollTo().assertIsDisplayed().performClick()
         composeRule.onNodeWithTag("scene-multi-align-right").performScrollTo().assertIsDisplayed()
