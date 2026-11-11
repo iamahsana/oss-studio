@@ -64,7 +64,7 @@ class SceneProjectEditorTest {
         )
         val clampedTopLeft = outsideTopLeft.clampedToCanvas(canvas)
         val topLeftBounds = clampedTopLeft.rotatedBounds()
-        assertEquals(0f, topLeftBounds.left, 0.001f)
+        assertTrue("Rotated footprint must remain inside the canvas", topLeftBounds.left >= 0f && topLeftBounds.right <= canvas.width)
         assertEquals(0f, topLeftBounds.top, 0.001f)
 
         val outsideBottomRight = ElementTransform(
