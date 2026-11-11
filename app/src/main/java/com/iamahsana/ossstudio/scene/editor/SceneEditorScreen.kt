@@ -1122,12 +1122,14 @@ fun SceneEditorScreen(
                                 currentProject, scene.id, selectedElementIds,
                                 System.currentTimeMillis(), groupId = groupId
                             )
-                            applyProject(updated)
+                            // Keep every member selected after grouping. This makes
+                            // the group selection recoverable from the scene model itself,
+                            // even if the transient selectedGroupId state is recomposed.
                             selectedGroupId = groupId
                             multiSelectMode = false
                             selectedElementId = selectedElementIds.firstOrNull()
-                            selectedElementIds = selectedElementId?.let(::setOf) ?: emptySet()
                             editorPanel = "layers"
+                            applyProject(updated)
                         }) { Text("Kelompokkan (" + selectedElementIds.size + ")") }
                     }
                     if (activeGroupId != null) {
