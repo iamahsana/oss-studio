@@ -1050,6 +1050,81 @@ fun SceneEditorScreen(
                             valueRange = 16f..scene.canvas.height.toFloat(),
                             enabled = !selectedElement.locked
                         )
+                        Text("Perataan ke canvas", style = MaterialTheme.typography.labelLarge)
+                        Row(
+                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            OutlinedButton(
+                                modifier = Modifier.testTag("scene-align-left"),
+                                enabled = !selectedElement.locked,
+                                onClick = {
+                                    applyProject(SceneProjectEditor.updateTransform(
+                                        currentProject, scene.id, selectedElement.id,
+                                        elementTransform.copy(x = 0f), System.currentTimeMillis()
+                                    ))
+                                }
+                            ) { Text("Kiri") }
+                            OutlinedButton(
+                                modifier = Modifier.testTag("scene-align-center-horizontal"),
+                                enabled = !selectedElement.locked,
+                                onClick = {
+                                    applyProject(SceneProjectEditor.updateTransform(
+                                        currentProject, scene.id, selectedElement.id,
+                                        elementTransform.copy(x = (scene.canvas.width - elementTransform.width).coerceAtLeast(0f) / 2f),
+                                        System.currentTimeMillis()
+                                    ))
+                                }
+                            ) { Text("Tengah") }
+                            OutlinedButton(
+                                modifier = Modifier.testTag("scene-align-right"),
+                                enabled = !selectedElement.locked,
+                                onClick = {
+                                    applyProject(SceneProjectEditor.updateTransform(
+                                        currentProject, scene.id, selectedElement.id,
+                                        elementTransform.copy(x = (scene.canvas.width - elementTransform.width).coerceAtLeast(0f)),
+                                        System.currentTimeMillis()
+                                    ))
+                                }
+                            ) { Text("Kanan") }
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            OutlinedButton(
+                                modifier = Modifier.testTag("scene-align-top"),
+                                enabled = !selectedElement.locked,
+                                onClick = {
+                                    applyProject(SceneProjectEditor.updateTransform(
+                                        currentProject, scene.id, selectedElement.id,
+                                        elementTransform.copy(y = 0f), System.currentTimeMillis()
+                                    ))
+                                }
+                            ) { Text("Atas") }
+                            OutlinedButton(
+                                modifier = Modifier.testTag("scene-align-center-vertical"),
+                                enabled = !selectedElement.locked,
+                                onClick = {
+                                    applyProject(SceneProjectEditor.updateTransform(
+                                        currentProject, scene.id, selectedElement.id,
+                                        elementTransform.copy(y = (scene.canvas.height - elementTransform.height).coerceAtLeast(0f) / 2f),
+                                        System.currentTimeMillis()
+                                    ))
+                                }
+                            ) { Text("Tengah") }
+                            OutlinedButton(
+                                modifier = Modifier.testTag("scene-align-bottom"),
+                                enabled = !selectedElement.locked,
+                                onClick = {
+                                    applyProject(SceneProjectEditor.updateTransform(
+                                        currentProject, scene.id, selectedElement.id,
+                                        elementTransform.copy(y = (scene.canvas.height - elementTransform.height).coerceAtLeast(0f)),
+                                        System.currentTimeMillis()
+                                    ))
+                                }
+                            ) { Text("Bawah") }
+                        }
                         Text("Rotasi: ${elementTransform.rotationDegrees.toInt()}°")
                         Slider(
                             modifier = Modifier.testTag("scene-transform-rotation"),
