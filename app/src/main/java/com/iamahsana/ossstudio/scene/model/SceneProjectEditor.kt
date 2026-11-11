@@ -328,10 +328,13 @@ object SceneProjectEditor {
         require(members.isNotEmpty()) { "Group does not exist" }
         val movable = members.filterNot { it.locked }
         if (movable.isEmpty()) return project
-        val minDeltaX = movable.maxOf { -it.transform.x }
-        val maxDeltaX = movable.minOf { scene.canvas.width - it.transform.x - it.transform.width }
-        val minDeltaY = movable.maxOf { -it.transform.y }
-        val maxDeltaY = movable.minOf { scene.canvas.height - it.transform.y - it.transform.height }
+        // Clamp against the visible, rotated footprint rather than the stored
+        // unrotated rectangle. This keeps rotated members inside the LIVE canvas.
+        val bounds = movable.map { it.transform.rotatedBounds() }
+        val minDeltaX = bounds.maxOf { -it.left }
+        val maxDeltaX = bounds.minOf { scene.canvas.width - it.right }
+        val minDeltaY = bounds.maxOf { -it.top }
+        val maxDeltaY = bounds.minOf { scene.canvas.height - it.bottom }
         // A scene may have been resized after its elements were positioned. If a
         // member is larger than the canvas, no shared translation can fit the group.
         if (minDeltaX > maxDeltaX || minDeltaY > maxDeltaY) return project
