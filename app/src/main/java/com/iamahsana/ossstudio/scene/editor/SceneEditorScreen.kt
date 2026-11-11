@@ -1050,6 +1050,20 @@ fun SceneEditorScreen(
                             valueRange = 16f..scene.canvas.height.toFloat(),
                             enabled = !selectedElement.locked
                         )
+                        Text("Rotasi: ${elementTransform.rotationDegrees.toInt()}°")
+                        Slider(
+                            modifier = Modifier.testTag("scene-transform-rotation"),
+                            value = ((elementTransform.rotationDegrees % 360f) + 360f) % 360f,
+                            onValueChange = { value ->
+                                if (!selectedElement.locked) applyProject(SceneProjectEditor.updateTransform(
+                                    currentProject, scene.id, selectedElement.id,
+                                    elementTransform.copy(rotationDegrees = value), System.currentTimeMillis()
+                                ))
+                            },
+                            valueRange = 0f..360f,
+                            steps = 71,
+                            enabled = !selectedElement.locked
+                        )
                         Text("Perataan ke canvas", style = MaterialTheme.typography.labelLarge)
                         Row(
                             modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
