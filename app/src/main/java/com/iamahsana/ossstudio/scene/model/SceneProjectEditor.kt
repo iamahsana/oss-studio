@@ -372,23 +372,39 @@ object SceneProjectEditor {
         require(members.isNotEmpty()) { "Group does not exist" }
         val movable = members.filterNot { it.locked }
         if (movable.isEmpty()) return project
-        val originX = members.minOf { it.transform.x }
-        val originY = members.minOf { it.transform.y }
-        val right = members.maxOf { it.transform.x + it.transform.width }
-        val bottom = members.maxOf { it.transform.y + it.transform.height }
-        val minScale = movable.maxOf { maxOf(16f / it.transform.width, 16f / it.transform.height) }
+        // Use the group's rotated visual footprint as the scaling frame. Scaling
+        // each element around its unrotated top-left causes rotated layers to drift
+        // and can push their visible corners outside the LIVE canvas.
+        val memberBounds = members.map { it.transform.rotatedBounds() }
+        val originX = memberBounds.minOf { it.left }
+        val originY = memberBounds.minOf { it.top }
+        val right = memberBounds.maxOf { it.right }
+        val bottom = memberBounds.maxOf { it.bottom }
+        val minScale = movable.maxOf {
+            maxOf(16f / it.transform.width, 16f / it.transform.height)
+        }
         val maxScaleX = if (right > originX) (scene.canvas.width - originX) / (right - originX) else 2f
         val maxScaleY = if (bottom > originY) (scene.canvas.height - originY) / (bottom - originY) else 2f
-        val boundedScale = scaleFactor.coerceIn(minScale, minOf(maxScaleX, maxScaleY).coerceAtLeast(minScale))
+        val boundedScale = scaleFactor.coerceIn(
+            minScale,
+            minOf(maxScaleX, maxScaleY).coerceAtLeast(minScale)
+        )
         val updatedScene = scene.copy(
             elements = scene.elements.map { element ->
                 if (element.groupId == groupId && !element.locked) {
                     val transform = element.transform
+                    val bounds = transform.rotatedBounds()
+                    val centerX = (bounds.left + bounds.right) / 2f
+                    val centerY = (bounds.top + bounds.bottom) / 2f
+                    val scaledWidth = transform.width * boundedScale
+                    val scaledHeight = transform.height * boundedScale
+                    val scaledCenterX = originX + (centerX - originX) * boundedScale
+                    val scaledCenterY = originY + (centerY - originY) * boundedScale
                     element.copy(transform = transform.copy(
-                        x = originX + (transform.x - originX) * boundedScale,
-                        y = originY + (transform.y - originY) * boundedScale,
-                        width = transform.width * boundedScale,
-                        height = transform.height * boundedScale
+                        x = scaledCenterX - scaledWidth / 2f,
+                        y = scaledCenterY - scaledHeight / 2f,
+                        width = scaledWidth,
+                        height = scaledHeight
                     ))
                 } else element
             }
