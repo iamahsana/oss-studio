@@ -136,6 +136,10 @@ class MainActivitySmokeTest {
             composeRule.onAllNodesWithTag("scene-element-item").fetchSemanticsNodes().size == 3
         }
         assertTrue("Duplicating a layer should add exactly one scene element", composeRule.onAllNodesWithTag("scene-element-item").fetchSemanticsNodes().size == 3)
+        // The duplicate action selects its new layer. Restart multi-select to
+        // begin this grouping assertion with an empty selection.
+        composeRule.onNodeWithText("Selesai memilih").performScrollTo().performClick()
+        composeRule.onNodeWithTag("scene-multiselect-toggle").performScrollTo().performClick()
         composeRule.onAllNodesWithTag("scene-element-item")[0].performScrollTo().performClick()
         composeRule.onAllNodesWithTag("scene-element-item")[1].performScrollTo().performClick()
         assertTrue("Selecting both layer rows should mark both as selected", composeRule.onAllNodesWithText("✓ Text").fetchSemanticsNodes().size == 2)
