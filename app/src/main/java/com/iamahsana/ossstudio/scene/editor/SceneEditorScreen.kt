@@ -1183,9 +1183,14 @@ fun SceneEditorScreen(
                         }
                     ) {
                         Text(
-                            (if (chosen && multiSelectMode) "✓ " else "") +
+                            text = (if (chosen && multiSelectMode) "✓ " else "") +
                                 (source?.displayName ?: "Element") +
-                                if (element.groupId != null) " · Dalam grup" else ""
+                                if (element.groupId != null) " · Dalam grup" else "",
+                            modifier = if (element.groupId != null) {
+                                Modifier.testTag("scene-element-group-marker")
+                            } else {
+                                Modifier
+                            }
                         )
                     }
                 }
