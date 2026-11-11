@@ -1674,6 +1674,22 @@ fun SceneEditorScreen(
                         }) { Text("Kelompokkan (" + selectedElementIds.size + ")") }
                     }
                     if (selectedGroupIds.size == 1) {
+                        OutlinedButton(
+                            modifier = Modifier.testTag("scene-group-scale-up"),
+                            onClick = {
+                                applyProject(SceneProjectEditor.scaleGroup(
+                                    currentProject, scene.id, selectedGroupIds.single(), 1.15f, System.currentTimeMillis()
+                                ))
+                            }
+                        ) { Text("Perbesar grup") }
+                        OutlinedButton(
+                            modifier = Modifier.testTag("scene-group-scale-down"),
+                            onClick = {
+                                applyProject(SceneProjectEditor.scaleGroup(
+                                    currentProject, scene.id, selectedGroupIds.single(), 0.87f, System.currentTimeMillis()
+                                ))
+                            }
+                        ) { Text("Perkecil grup") }
                         OutlinedButton(onClick = {
                             applyProject(SceneProjectEditor.ungroupElements(
                                 currentProject, scene.id, selectedGroupIds.single(), System.currentTimeMillis()
