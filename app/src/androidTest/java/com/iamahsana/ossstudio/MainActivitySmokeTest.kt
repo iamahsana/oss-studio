@@ -138,8 +138,8 @@ class MainActivitySmokeTest {
             composeRule.onAllNodesWithTag("scene-element-item").fetchSemanticsNodes().size == 3
         }
         assertTrue("Duplicating a layer should add exactly one scene element", composeRule.onAllNodesWithTag("scene-element-item").fetchSemanticsNodes().size == 3)
-        val moveUpActions = composeRule.onAllNodes(SemanticsMatcher("layer move up action") { node -> node.config.getOrNull(SemanticsProperties.TestTag)?.startsWith("scene-layer-move-up-") == true })
-        val moveDownActions = composeRule.onAllNodes(SemanticsMatcher("layer move down action") { node -> node.config.getOrNull(SemanticsProperties.TestTag)?.startsWith("scene-layer-move-down-") == true })
+        val moveUpActions = composeRule.onAllNodes(SemanticsMatcher("layer move up action") { node -> node.config.contains(SemanticsProperties.TestTag) && node.config[SemanticsProperties.TestTag].startsWith("scene-layer-move-up-") })
+        val moveDownActions = composeRule.onAllNodes(SemanticsMatcher("layer move down action") { node -> node.config.contains(SemanticsProperties.TestTag) && node.config[SemanticsProperties.TestTag].startsWith("scene-layer-move-down-") })
         moveUpActions.assertCountEquals(3)
         moveDownActions.assertCountEquals(3)
         moveUpActions[1].performScrollTo().performClick()
