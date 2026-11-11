@@ -1182,7 +1182,11 @@ fun SceneEditorScreen(
                             editingText = source?.text.orEmpty()
                         }
                     ) {
-                        Text((if (chosen && multiSelectMode) "✓ " else "") + (source?.displayName ?: "Element"))
+                        Text(
+                            (if (chosen && multiSelectMode) "✓ " else "") +
+                                (source?.displayName ?: "Element") +
+                                if (element.groupId != null) " · Dalam grup" else ""
+                        )
                     }
                 }
             }
