@@ -78,6 +78,8 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.iamahsana.ossstudio.extensions.OssInstalledElement
+import com.iamahsana.ossstudio.extensions.OssInstalledElementCatalog
 import com.iamahsana.ossstudio.scene.model.SceneProject
 import com.iamahsana.ossstudio.scene.model.Scene
 import com.iamahsana.ossstudio.scene.model.CropRect
@@ -102,6 +104,14 @@ fun SceneEditorScreen(
     onProjectChange: (SceneProject) -> Unit
 ) {
     var currentProject by remember(project.id) { mutableStateOf(project) }
+    val installedElements by produceState(
+        initialValue = emptyList<OssInstalledElement>(),
+        key1 = context.filesDir
+    ) {
+        value = withContext(Dispatchers.IO) {
+            OssInstalledElementCatalog.listInstalled(File(context.filesDir, "extensions"))
+        }
+    }
     var selectedElementId by remember(project.id) { mutableStateOf<String?>(null) }
     var multiSelectMode by remember(project.id) { mutableStateOf(false) }
     var selectedElementIds by remember(project.id) { mutableStateOf<Set<String>>(emptySet()) }
@@ -232,6 +242,26 @@ fun SceneEditorScreen(
         val updated = SceneProjectEditor.addElement(withSource, activeScene.id, source.id, timestamp)
         selectedElementId = updated.scenes.first { it.id == activeScene.id }.elements.last().id
         editingText = text.orEmpty()
+        applyProject(updated)
+    }
+
+    fun addExtensionElement(element: OssInstalledElement) {
+        val activeScene = scene ?: return
+        if (element.kind !in setOf("text", "image", "sticker", "shape", "background", "gif", "video")) return
+        val source = SceneSource(
+            type = SceneSourceType.EXTENSION,
+            displayName = element.name,
+            settings = element.defaults + ("extensionKind" to element.kind),
+            extensionId = element.extensionId,
+            typeId = element.typeId
+        )
+        val timestamp = System.currentTimeMillis()
+        val withSource = SceneProjectEditor.addSource(currentProject, source, timestamp)
+        val updated = SceneProjectEditor.addElement(withSource, activeScene.id, source.id, timestamp)
+        val newElementId = updated.scenes.first { it.id == activeScene.id }.elements.last().id
+        selectedElementId = newElementId
+        selectedElementIds = setOf(newElementId)
+        editorPanel = "layers"
         applyProject(updated)
     }
 
@@ -734,6 +764,20 @@ fun SceneEditorScreen(
                             modifier = Modifier.weight(1f).testTag("scene-add-share-screen"),
                             onClick = { addSource(SceneSourceType.SHARE_SCREEN) }
                         ) { Text("Share Screen") }
+                    }
+                    val insertableExtensions = installedElements.filter {
+                        it.kind in setOf("text", "image", "sticker", "shape", "background", "gif", "video")
+                    }
+                    if (insertableExtensions.isNotEmpty()) {
+                        Text("Elemen ekstensi", style = MaterialTheme.typography.labelLarge)
+                        insertableExtensions.forEach { extensionElement ->
+                            OutlinedButton(
+                                modifier = Modifier.fillMaxWidth().testTag("scene-add-extension-element"),
+                                onClick = { addExtensionElement(extensionElement) }
+                            ) {
+                                Text("${extensionElement.name} · ${extensionElement.kind}")
+                            }
+                        }
                     }
                 }
             }
