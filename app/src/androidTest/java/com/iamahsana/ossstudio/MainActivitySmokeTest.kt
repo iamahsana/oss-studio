@@ -101,6 +101,17 @@ class MainActivitySmokeTest {
         composeRule.onNodeWithTag("scene-resize-handle", useUnmergedTree = true).performScrollTo().assertExists().assertIsDisplayed()
         composeRule.onNodeWithTag("scene-panel-properties").performScrollTo().performClick()
         composeRule.onNodeWithTag("scene-properties-panel").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("text-letter-spacing").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("text-line-spacing").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("text-reset-formatting").performScrollTo().assertIsDisplayed().performClick()
+        composeRule.onNodeWithText("Kunci").performScrollTo().performClick()
+        composeRule.onNodeWithText("Elemen terkunci. Buka kunci untuk mengubah teks dan tipografinya.")
+            .performScrollTo().assertIsDisplayed()
+        assertTrue(
+            "Locked text must not expose editable formatting controls",
+            composeRule.onAllNodesWithTag("text-reset-formatting").fetchSemanticsNodes().isEmpty()
+        )
+        composeRule.onNodeWithText("Buka kunci").performScrollTo().performClick()
         composeRule.onNodeWithTag("scene-panel-layers").performScrollTo().performClick()
         composeRule.onNodeWithText("Undo").performScrollTo().performClick()
         assertTrue("Undo should remove the resize handle when the new element is removed", composeRule.onAllNodesWithTag("scene-resize-handle", useUnmergedTree = true).fetchSemanticsNodes().isEmpty())
