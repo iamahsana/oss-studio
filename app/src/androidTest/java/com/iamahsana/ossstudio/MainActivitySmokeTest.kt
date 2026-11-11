@@ -116,7 +116,12 @@ class MainActivitySmokeTest {
         composeRule.onAllNodesWithTag("scene-canvas-element", useUnmergedTree = true)[0].performClick()
         composeRule.onNodeWithTag("scene-resize-handle", useUnmergedTree = true).assertExists().assertIsDisplayed()
 
-        composeRule.onNodeWithText("Tambah teks").performClick()
+        // Add a second source by its stable test tag, then wait for the layer
+        // list to reflect the project mutation before entering multi-select.
+        composeRule.onNodeWithTag("scene-add-text").performScrollTo().performClick()
+        composeRule.waitUntil("second text element appears in the scene layers", 10_000L) {
+            composeRule.onAllNodesWithTag("scene-element-item").fetchSemanticsNodes().size >= 2
+        }
         composeRule.onNodeWithTag("scene-multiselect-toggle").assertExists().performScrollTo().performClick()
         // Verify the mode itself before testing multi-selection state.
         composeRule.onNodeWithText("Selesai memilih").assertIsDisplayed()
