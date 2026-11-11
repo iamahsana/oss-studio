@@ -177,7 +177,8 @@ class MainActivitySmokeTest {
         composeRule.onNodeWithText("Server URL (rtmp:// atau rtmps://)")
             .performTextInput("rtmps://live.example.com/app")
         composeRule.onNodeWithText("Stream key").performTextInput("private-smoke-key")
-        composeRule.onNodeWithText("Simpan terenkripsi").performClick()        composeRule.waitUntil(15_000) {
+        composeRule.onNodeWithText("Simpan terenkripsi").performClick()
+        composeRule.waitUntil(15_000) {
             composeRule.onAllNodesWithText(uniqueName).fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithText(uniqueName).assertIsDisplayed()
