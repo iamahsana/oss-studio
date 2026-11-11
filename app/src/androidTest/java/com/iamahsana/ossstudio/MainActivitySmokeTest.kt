@@ -143,11 +143,10 @@ class MainActivitySmokeTest {
         composeRule.waitUntil("multi-select state reflects both selected layers", 5_000L) {
             composeRule.onAllNodesWithText("Mode pemilihan aktif · Dipilih: 2").fetchSemanticsNodes().isNotEmpty()
         }
-        // Bring the grouping action into the visible work area before tapping it.
-        // Otherwise Compose can dispatch a click against an off-screen control
-        // after the layer list has been scrolled to the second selected row.
-        composeRule.onNodeWithTag("scene-selection-toolbar").performScrollTo()
-        composeRule.onNodeWithText("Kelompokkan (2)").assertIsDisplayed().performClick()
+        // Scroll the actionable control itself into view. Scrolling only the
+        // parent toolbar does not guarantee its child button is visible on
+        // compact API 29 emulator layouts.
+        composeRule.onNodeWithTag("scene-group").performScrollTo().assertIsDisplayed().performClick()
         composeRule.waitUntil("group selection exposes the ungroup action", 5_000L) {
             composeRule.onAllNodesWithTag("scene-ungroup").fetchSemanticsNodes().isNotEmpty()
         }
@@ -162,7 +161,9 @@ class MainActivitySmokeTest {
             2,
             groupedLayerLabels.count { it.contains("Dalam grup") }
         )
-        composeRule.onNodeWithTag("scene-ungroup").assertIsDisplayed().performClick()
+        // The layer list can be scrolled independently of the toolbar;
+        // bring the split-group action back into view before asserting/tapping.
+        composeRule.onNodeWithTag("scene-ungroup").performScrollTo().assertIsDisplayed().performClick()
         composeRule.waitUntil("ungrouping removes the split-group action", 5_000L) {
             composeRule.onAllNodesWithTag("scene-ungroup").fetchSemanticsNodes().isEmpty()
         }
