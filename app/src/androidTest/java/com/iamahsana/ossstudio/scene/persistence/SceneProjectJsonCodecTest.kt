@@ -19,7 +19,7 @@ class SceneProjectJsonCodecTest {
     }
     @Test fun rejectsUnsupportedDocumentSchemaBeforeDecoding() {
         val project=SceneProject(id="schema",name="Schema",createdAtEpochMillis=1,updatedAtEpochMillis=1)
-        val encoded=SceneProjectJsonCodec.encode(project).replace("\"schemaVersion\":1","\"schemaVersion\":99")
+        val encoded=SceneProjectJsonCodec.encode(project).replace("\"schemaVersion\":2","\"schemaVersion\":99")
         assertThrows(IllegalArgumentException::class.java) {
             SceneProjectJsonCodec.decode(encoded)
         }
