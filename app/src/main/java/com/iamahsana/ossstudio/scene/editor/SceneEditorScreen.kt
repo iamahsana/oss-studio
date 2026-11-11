@@ -1102,9 +1102,12 @@ fun SceneEditorScreen(
             val selectedElementGroupId = selectedElementId?.let { selectedId ->
                 scene.elements.firstOrNull { it.id == selectedId }?.groupId
             }
-            val activeGroupId = selectedGroupId?.takeIf { groupId ->
-                scene.elements.any { it.groupId == groupId }
-            } ?: selectedGroupIds.singleOrNull() ?: selectedElementGroupId
+            // The just-created group ID is the authoritative selection state.
+            // Do not hide its action while the scene model is recomposing after
+            // applyProject; the ungroup handler still validates against the model.
+            val activeGroupId = selectedGroupId
+                ?: selectedGroupIds.singleOrNull()
+                ?: selectedElementGroupId
             val canGroup = selectedElementIds.size >= 2 &&
                 scene.elements.filter { it.id in selectedElementIds }.all { it.groupId == null }
             if (canGroup || activeGroupId != null) {
