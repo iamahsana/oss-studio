@@ -1567,6 +1567,21 @@ fun SceneEditorScreen(
                                 ))
                             }
                         ) { Text(if (element.locked) "Buka" else "Kunci") }
+                        OutlinedButton(
+                            modifier = Modifier.testTag("scene-layer-duplicate-" + element.id),
+                            enabled = !element.locked,
+                            onClick = {
+                                val beforeIds = scene.elements.mapTo(mutableSetOf()) { it.id }
+                                val duplicated = SceneProjectEditor.duplicateElement(
+                                    currentProject, scene.id, element.id, System.currentTimeMillis()
+                                )
+                                val duplicateId = duplicated.scenes.first { it.id == scene.id }
+                                    .elements.first { it.id !in beforeIds }.id
+                                selectedElementId = duplicateId
+                                selectedElementIds = setOf(duplicateId)
+                                applyProject(duplicated)
+                            }
+                        ) { Text("Salin") }
                     }
                 }
             }
