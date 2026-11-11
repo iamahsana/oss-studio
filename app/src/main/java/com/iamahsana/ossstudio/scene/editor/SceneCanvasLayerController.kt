@@ -283,13 +283,12 @@ class SceneCanvasLayerController(
             .sortedBy { it.id }
             .joinToString("|") { source ->
                 if (source.type == SceneSourceType.EXTENSION) {
-                    val extension = if (source.extensionId != null && source.typeId != null) {
-                        OssInstalledElementCatalog.find(
-                            File(appContext.filesDir, "extensions"),
-                            source.extensionId,
-                            source.typeId
-                        )
-                    } else null
+                    // Use the already verified catalog snapshot here. update() runs
+                    // on the main thread; checksum revalidation belongs to the
+                    // background decode path, never to a LIVE frame update.
+                    val extension = cachedExtensionElements[source.id]?.takeIf {
+                        it.extensionId == source.extensionId && it.typeId == source.typeId
+                    }
                     val resource = extension?.resolveResource()
                     "${source.id}:${source.type}:${source.enabled}:${source.extensionId}:${source.typeId}:${extension?.kind}:${resource?.length()}:${resource?.lastModified()}"
                 } else {
