@@ -1061,7 +1061,8 @@ fun SceneEditorScreen(
                                 ))
                             },
                             valueRange = 0f..360f,
-                            steps = 71,
+                            // 359 intermediate steps provide one-degree rotation increments.
+                            steps = 359,
                             enabled = !selectedElement.locked
                         )
                         Row(
