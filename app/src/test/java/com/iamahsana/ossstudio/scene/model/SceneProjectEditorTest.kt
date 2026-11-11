@@ -57,6 +57,15 @@ class SceneProjectEditorTest {
     }
 
     @Test
+    fun lockedElementTransformCannotBeChanged() {
+        val original = SceneProjectEditor.setElementLocked(project(), "scene", "first", true, 20L)
+        val updated = SceneProjectEditor.updateTransform(
+            original, "scene", "first", ElementTransform(x = 120f, y = 80f), 30L
+        )
+        assertEquals(original, updated)
+    }
+
+    @Test
     fun removingSourceAlsoRemovesItsElements() {
         val updated = SceneProjectEditor.removeSource(project(), "a", 20L)
         assertFalse(updated.sources.any { it.id == "a" })
@@ -145,6 +154,13 @@ class SceneProjectEditorTest {
         assertEquals(0.35f, updated.scenes.single().elements.first().opacity)
         assertEquals(1f, updated.scenes.single().elements.last().opacity)
         assertEquals(1f, original.scenes.single().elements.first().opacity)
+    }
+
+    @Test
+    fun lockedElementOpacityCannotBeChanged() {
+        val original = SceneProjectEditor.setElementLocked(project(), "scene", "first", true, 20L)
+        val updated = SceneProjectEditor.setElementOpacity(original, "scene", "first", 0.25f, 30L)
+        assertEquals(original, updated)
     }
 
     @Test
