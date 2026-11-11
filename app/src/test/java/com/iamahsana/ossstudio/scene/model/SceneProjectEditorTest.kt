@@ -536,4 +536,54 @@ class SceneProjectEditorTest {
         assertEquals(bounds.height, bounds.bottom - bounds.top, 0.001f)
     }
 
+    @Test
+    fun rotatedBoundsAlignmentUsesVisibleEdgesAndPreservesInputOrder() {
+        val transforms = listOf(
+            ElementTransform(x = 100f, y = 100f, width = 120f, height = 40f, rotationDegrees = 90f),
+            ElementTransform(x = 300f, y = 140f, width = 100f, height = 80f, rotationDegrees = 0f)
+        )
+        val aligned = alignTransformsByRotatedBounds(
+            transforms, horizontal = true, alignment = ElementBoundsAlignment.START,
+            canvas = CanvasSize.DEFAULT_PORTRAIT
+        )
+        val bounds = aligned.map { it.rotatedBounds() }
+        assertEquals(bounds[0].left, bounds[1].left, 0.001f)
+        assertEquals(transforms[0].rotationDegrees, aligned[0].rotationDegrees)
+        assertEquals(transforms[1].rotationDegrees, aligned[1].rotationDegrees)
+        assertEquals(transforms[0].width, aligned[0].width)
+        assertEquals(transforms[1].height, aligned[1].height)
+    }
+
+    @Test
+    fun rotatedBoundsDistributionCreatesEqualVisualGapsOnHorizontalAxis() {
+        val transforms = listOf(
+            ElementTransform(x = 80f, y = 100f, width = 120f, height = 40f, rotationDegrees = 90f),
+            ElementTransform(x = 400f, y = 100f, width = 80f, height = 80f),
+            ElementTransform(x = 220f, y = 100f, width = 60f, height = 120f, rotationDegrees = 90f)
+        )
+        val distributed = distributeTransformsByRotatedBounds(
+            transforms, horizontal = true, canvas = CanvasSize.DEFAULT_PORTRAIT
+        )!!
+        val ordered = distributed.map { it.rotatedBounds() }.sortedBy { it.left }
+        val firstGap = ordered[1].left - ordered[0].right
+        val secondGap = ordered[2].left - ordered[1].right
+        assertEquals(firstGap, secondGap, 0.001f)
+        assertTrue(ordered.all { it.left >= 0f && it.right <= 1080f })
+    }
+
+    @Test
+    fun rotatedBoundsDistributionReturnsNullWhenElementsCannotFitWithoutOverlap() {
+        val transforms = listOf(
+            ElementTransform(x = 0f, y = 100f, width = 700f, height = 500f, rotationDegrees = 90f),
+            ElementTransform(x = 200f, y = 100f, width = 700f, height = 500f, rotationDegrees = 90f),
+            ElementTransform(x = 400f, y = 100f, width = 700f, height = 500f, rotationDegrees = 90f)
+        )
+        assertEquals(
+            null,
+            distributeTransformsByRotatedBounds(
+                transforms, horizontal = true, canvas = CanvasSize.DEFAULT_PORTRAIT
+            )
+        )
+    }
+
 }
