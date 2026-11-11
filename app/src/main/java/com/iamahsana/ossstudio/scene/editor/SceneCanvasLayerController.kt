@@ -27,6 +27,7 @@ import com.pedro.encoder.input.gl.render.filters.`object`.SurfaceFilterRender
 import com.pedro.library.view.GlStreamInterface
 import java.io.File
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 
 /**
@@ -51,13 +52,21 @@ class SceneCanvasLayerController(
     private var outputSurface: Surface? = null
     private var cachedBitmaps: Map<String, Bitmap> = emptyMap()
     private var cachedMovies: Map<String, Movie> = emptyMap()
+    private var cachedVideoFrames: Map<String, Bitmap> = emptyMap()
+    private var cachedVideoDecoders: Map<String, VideoFrameDecoder> = emptyMap()
+    private var videoStartTimes: Map<String, Long> = emptyMap()
+    private val videoDecodeInFlight = AtomicBoolean(false)
     private var cachedExtensionElements: Map<String, OssInstalledElement> = emptyMap()
     private var cachedExtensionFonts: Map<String, Typeface> = emptyMap()
     private var cachedFontElements: Map<String, OssInstalledElement> = emptyMap()
     private var assetSignature: String = ""
     private val assetGeneration = AtomicLong(0L)
     private val gifStartTime = SystemClock.uptimeMillis()
-    private val gifFrameRunnable = Runnable { outputSurface?.let { drawFrame(it) } }
+    private val gifFrameRunnable = Runnable {
+        outputSurface?.let { surface ->
+            if (hasVisibleVideo()) decodeNextVideoFrames() else drawFrame(surface)
+        }
+    }
     private var project: SceneProject? = null
     private var scene: Scene? = null
     private var outputWidth = 0
@@ -116,6 +125,9 @@ class SceneCanvasLayerController(
                     cachedExtensionElements = decoded.extensions
                     cachedExtensionFonts = decoded.fonts
                     cachedFontElements = decoded.fontElements
+                    cachedVideoFrames = decoded.bitmaps.filterKeys { decoded.videoDecoders.containsKey(it) }
+                    cachedVideoDecoders = decoded.videoDecoders
+                    videoStartTimes = decoded.videoDecoders.keys.associateWith { SystemClock.uptimeMillis() }
                     assetSignature = assetSignature(project, scene)
                     state = State.WAITING_FOR_GL
                     waitForGl()
@@ -131,7 +143,8 @@ class SceneCanvasLayerController(
         val movies: Map<String, Movie>,
         val extensions: Map<String, OssInstalledElement>,
         val fonts: Map<String, Typeface>,
-        val fontElements: Map<String, OssInstalledElement>
+        val fontElements: Map<String, OssInstalledElement>,
+        val videoDecoders: Map<String, VideoFrameDecoder>
     )
 
     private fun decodeSceneAssets(project: SceneProject, scene: Scene): DecodedAssets {
@@ -143,6 +156,7 @@ class SceneCanvasLayerController(
         val extensions = LinkedHashMap<String, OssInstalledElement>()
         val fonts = LinkedHashMap<String, Typeface>()
         val fontElements = LinkedHashMap<String, OssInstalledElement>()
+        val videoDecoders = LinkedHashMap<String, VideoFrameDecoder>()
         project.sources.filter {
             it.id in usedSourceIds && it.enabled && (
                 it.type in setOf(SceneSourceType.IMAGE, SceneSourceType.GIF, SceneSourceType.VIDEO, SceneSourceType.EXTENSION) ||
@@ -186,10 +200,13 @@ class SceneCanvasLayerController(
                     else decodeBitmap(file)?.let { decoded[source.id] = it }
                 }
                 "image", "sticker", "background" -> decodeBitmap(file)?.let { decoded[source.id] = it }
-                "video" -> decodeVideoFrame(file)?.let { decoded[source.id] = it }
+                "video" -> runCatching { VideoFrameDecoder(file) }.getOrNull()?.let { decoder ->
+                    videoDecoders[source.id] = decoder
+                    decoder.frameAt(0L)?.let { decoded[source.id] = it }
+                }
             }
         }
-        return DecodedAssets(decoded, movies, extensions, fonts, fontElements)
+        return DecodedAssets(decoded, movies, extensions, fonts, fontElements, videoDecoders)
     }
 
     private fun decodeBitmap(file: File): Bitmap? {
@@ -205,17 +222,23 @@ class SceneCanvasLayerController(
         })
     }
 
-    private fun decodeVideoFrame(file: File): Bitmap? {
-        if (!file.isFile) return null
-        val retriever = MediaMetadataRetriever()
-        return try {
+    private class VideoFrameDecoder(file: File) {
+        private val retriever = MediaMetadataRetriever()
+        val durationMs: Long
+
+        init {
+            require(file.isFile) { "Video asset is missing" }
             retriever.setDataSource(file.absolutePath)
-            retriever.getScaledFrameAtTime(0L, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, 1280, 1280)
-        } catch (_: Exception) {
-            null
-        } finally {
-            runCatching { retriever.release() }
+            durationMs = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
+                ?.toLongOrNull()?.coerceAtLeast(1L) ?: 1L
         }
+
+        fun frameAt(positionMs: Long): Bitmap? = runCatching {
+            val timestampUs = (positionMs.coerceIn(0L, durationMs) * 1_000L)
+            retriever.getScaledFrameAtTime(timestampUs, MediaMetadataRetriever.OPTION_CLOSEST, 1280, 1280)
+        }.getOrNull()
+
+        fun release() { runCatching { retriever.release() } }
     }
 
     private fun waitForGl() {
@@ -285,11 +308,16 @@ class SceneCanvasLayerController(
                 }
                 result.onSuccess { decoded ->
                     cachedBitmaps.values.forEach { if (!it.isRecycled) it.recycle() }
-                    cachedBitmaps = decoded.bitmaps
+                    val oldVideoDecoders = cachedVideoDecoders
+                    cachedBitmaps = decoded.bitmaps.filterKeys { !decoded.videoDecoders.containsKey(it) }
                     cachedMovies = decoded.movies
                     cachedExtensionElements = decoded.extensions
                     cachedExtensionFonts = decoded.fonts
                     cachedFontElements = decoded.fontElements
+                    cachedVideoFrames = decoded.bitmaps.filterKeys { decoded.videoDecoders.containsKey(it) }
+                    cachedVideoDecoders = decoded.videoDecoders
+                    videoStartTimes = decoded.videoDecoders.keys.associateWith { SystemClock.uptimeMillis() }
+                    assetExecutor.execute { oldVideoDecoders.values.forEach { it.release() } }
                     assetSignature = assetSignature(project, scene)
                     drawFrame(surface)
                 }.onFailure { error ->
@@ -412,6 +440,7 @@ class SceneCanvasLayerController(
         } finally {
             surface.unlockCanvasAndPost(canvas)
         }
+        val hasVisibleVideo = hasVisibleVideo()
         val hasVisibleGif = currentScene.elements.any { element ->
             if (!element.visible || !shouldRenderElement(element)) return@any false
             val source = sources[element.sourceId] ?: return@any false
@@ -421,11 +450,53 @@ class SceneCanvasLayerController(
                     cachedExtensionElements[source.id]?.kind == "gif"
             )
         }
-        if (hasVisibleGif && state == State.READY) {
+        if ((hasVisibleGif || hasVisibleVideo) && state == State.READY) {
             mainHandler.removeCallbacks(gifFrameRunnable)
-            mainHandler.postDelayed(gifFrameRunnable, GIF_FRAME_INTERVAL_MS)
+            mainHandler.postDelayed(gifFrameRunnable, if (hasVisibleVideo) VIDEO_FRAME_INTERVAL_MS else GIF_FRAME_INTERVAL_MS)
         } else {
             mainHandler.removeCallbacks(gifFrameRunnable)
+        }
+    }
+
+    private fun hasVisibleVideo(): Boolean {
+        val currentProject = project ?: return false
+        val currentScene = scene ?: return false
+        val sources = currentProject.sources.associateBy { it.id }
+        return currentScene.elements.any { element ->
+            if (!element.visible || !shouldRenderElement(element)) return@any false
+            val source = sources[element.sourceId] ?: return@any false
+            source.enabled && cachedVideoDecoders.containsKey(source.id)
+        }
+    }
+
+    private fun decodeNextVideoFrames() {
+        if (state != State.READY || !videoDecodeInFlight.compareAndSet(false, true)) return
+        val decoders = cachedVideoDecoders
+        val starts = videoStartTimes
+        val now = SystemClock.uptimeMillis()
+        try {
+            assetExecutor.execute {
+                val frames = decoders.mapNotNull { (sourceId, decoder) ->
+                    val start = starts[sourceId] ?: now
+                    val elapsed = ((now - start).coerceAtLeast(0L) % decoder.durationMs)
+                    decoder.frameAt(elapsed)?.let { sourceId to it }
+                }.toMap()
+                mainHandler.post {
+                    videoDecodeInFlight.set(false)
+                    if (state != State.READY) {
+                        frames.values.forEach { if (!it.isRecycled) it.recycle() }
+                        return@post
+                    }
+                    val next = cachedVideoFrames.toMutableMap()
+                    frames.forEach { (sourceId, bitmap) ->
+                        next.put(sourceId, bitmap)?.let { old -> if (!old.isRecycled) old.recycle() }
+                    }
+                    cachedVideoFrames = next
+                    outputSurface?.let { drawFrame(it) }
+                }
+            }
+        } catch (_: Exception) {
+            videoDecodeInFlight.set(false)
         }
     }
 
@@ -439,7 +510,7 @@ class SceneCanvasLayerController(
         destination: RectF,
         opacity: Float
     ) {
-        val bitmap = cachedBitmaps[sourceId] ?: return
+        val bitmap = cachedVideoFrames[sourceId] ?: cachedBitmaps[sourceId] ?: return
         val left = (crop.left * bitmap.width).toInt().coerceIn(0, bitmap.width - 1)
         val top = (crop.top * bitmap.height).toInt().coerceIn(0, bitmap.height - 1)
         val right = (crop.right * bitmap.width).toInt().coerceIn(left + 1, bitmap.width)
@@ -641,6 +712,12 @@ class SceneCanvasLayerController(
             cachedBitmaps.values.forEach { if (!it.isRecycled) it.recycle() }
             cachedBitmaps = emptyMap()
             cachedMovies = emptyMap()
+            cachedVideoFrames.values.forEach { if (!it.isRecycled) it.recycle() }
+            cachedVideoFrames = emptyMap()
+            val decodersToRelease = cachedVideoDecoders.values.toList()
+            cachedVideoDecoders = emptyMap()
+            videoStartTimes = emptyMap()
+            assetExecutor.execute { decodersToRelease.forEach { it.release() } }
             cachedExtensionElements = emptyMap()
             cachedExtensionFonts = emptyMap()
             cachedFontElements = emptyMap()
@@ -682,6 +759,7 @@ class SceneCanvasLayerController(
         private const val GL_RETRY_MS = 50L
         private const val MAX_GL_ATTEMPTS = 100
         private const val GIF_FRAME_INTERVAL_MS = 33L
+        private const val VIDEO_FRAME_INTERVAL_MS = 66L
     }
 }
 
