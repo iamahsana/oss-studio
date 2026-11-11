@@ -257,15 +257,17 @@ fun ElementTransform.rotatedBounds(): ElementBounds {
  */
 fun ElementTransform.clampedToCanvas(canvas: CanvasSize): ElementTransform {
     val bounds = rotatedBounds()
-    val deltaX = if (bounds.width <= canvas.width) {
-        (-bounds.left).coerceIn(-bounds.left, canvas.width - bounds.right)
-    } else {
-        canvas.width / 2f - (bounds.left + bounds.right) / 2f
+    val deltaX = when {
+        bounds.width > canvas.width -> canvas.width / 2f - (bounds.left + bounds.right) / 2f
+        bounds.left < 0f -> -bounds.left
+        bounds.right > canvas.width -> canvas.width - bounds.right
+        else -> 0f
     }
-    val deltaY = if (bounds.height <= canvas.height) {
-        (-bounds.top).coerceIn(-bounds.top, canvas.height - bounds.bottom)
-    } else {
-        canvas.height / 2f - (bounds.top + bounds.bottom) / 2f
+    val deltaY = when {
+        bounds.height > canvas.height -> canvas.height / 2f - (bounds.top + bounds.bottom) / 2f
+        bounds.top < 0f -> -bounds.top
+        bounds.bottom > canvas.height -> canvas.height - bounds.bottom
+        else -> 0f
     }
     return copy(x = x + deltaX, y = y + deltaY)
 }
