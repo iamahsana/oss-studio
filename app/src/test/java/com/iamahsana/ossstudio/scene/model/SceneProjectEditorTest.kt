@@ -57,6 +57,39 @@ class SceneProjectEditorTest {
     }
 
     @Test
+    fun preciseRotationIsPersistedWithoutChangingElementGeometry() {
+        val original = project()
+        val transform = original.scenes.single().elements.first().transform.copy(
+            x = 125f,
+            y = 240f,
+            width = 640f,
+            height = 360f,
+            rotationDegrees = 37.5f
+        )
+
+        val updated = SceneProjectEditor.updateTransform(original, "scene", "first", transform, 20L)
+        val result = updated.scenes.single().elements.first().transform
+
+        assertEquals(37.5f, result.rotationDegrees)
+        assertEquals(125f, result.x)
+        assertEquals(240f, result.y)
+        assertEquals(640f, result.width)
+        assertEquals(360f, result.height)
+        assertEquals(0f, original.scenes.single().elements.first().transform.rotationDegrees)
+    }
+
+    @Test
+    fun lockedElementRotationCannotBeChanged() {
+        val original = SceneProjectEditor.setElementLocked(project(), "scene", "first", true, 20L)
+        val rotated = original.scenes.single().elements.first().transform.copy(rotationDegrees = 90f)
+
+        val updated = SceneProjectEditor.updateTransform(original, "scene", "first", rotated, 30L)
+
+        assertEquals(original, updated)
+        assertEquals(0f, updated.scenes.single().elements.first().transform.rotationDegrees)
+    }
+
+    @Test
     fun lockedElementTransformCannotBeChanged() {
         val original = SceneProjectEditor.setElementLocked(project(), "scene", "first", true, 20L)
         val updated = SceneProjectEditor.updateTransform(
