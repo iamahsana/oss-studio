@@ -136,6 +136,11 @@ class MainActivitySmokeTest {
         composeRule.onNodeWithTag("scene-multiselect-status").performScrollTo().assertExists().assertIsDisplayed()
         composeRule.onNodeWithText("Mode pemilihan aktif · Dipilih: 0").assertIsDisplayed()
         assertTrue("Multi-select mode should show exactly two scene layer rows", composeRule.onAllNodesWithTag("scene-element-item").fetchSemanticsNodes().size == 2)
+        composeRule.onAllNodesWithText("Salin").last().performScrollTo().performClick()
+        composeRule.waitUntil("duplicate layer is added", 10_000L) {
+            composeRule.onAllNodesWithTag("scene-element-item").fetchSemanticsNodes().size == 3
+        }
+        assertTrue("Duplicating a layer should add exactly one scene element", composeRule.onAllNodesWithTag("scene-element-item").fetchSemanticsNodes().size == 3)
         composeRule.onAllNodesWithTag("scene-element-item")[0].performScrollTo().performClick()
         composeRule.onAllNodesWithTag("scene-element-item")[1].performScrollTo().performClick()
         assertTrue("Selecting both layer rows should mark both as selected", composeRule.onAllNodesWithText("✓ Text").fetchSemanticsNodes().size == 2)
