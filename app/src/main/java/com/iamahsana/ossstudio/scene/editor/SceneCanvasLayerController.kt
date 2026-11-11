@@ -430,17 +430,7 @@ class SceneCanvasLayerController(
                     when (source.type) {
                         SceneSourceType.TEXT -> drawText(canvas, source, destination, element.opacity, scaleY)
                         SceneSourceType.GIF -> {
-                            val movie = cachedMovies[source.id]
-                            if (movie != null && movie.width() > 0 && movie.height() > 0) {
-                                val layer = canvas.saveLayer(destination, Paint().apply {
-                                    alpha = (element.opacity * 255f).toInt().coerceIn(0, 255)
-                                })
-                                val duration = movie.duration().takeIf { it > 0 } ?: 1000
-                                movie.setTime(((SystemClock.uptimeMillis() - gifStartTime) % duration).toInt())
-                                canvas.scale(width / movie.width().toFloat(), height / movie.height().toFloat())
-                                movie.draw(canvas, 0f, 0f)
-                                canvas.restoreToCount(layer)
-                            } else {
+                            if (!drawCachedMovie(canvas, source.id, destination, element.crop, element.opacity)) {
                                 drawCachedBitmap(canvas, source.id, element.crop, destination, element.opacity)
                             }
                         }
@@ -563,7 +553,7 @@ class SceneCanvasLayerController(
             "image", "sticker", "video", "background" ->
                 drawCachedBitmap(canvas, source.id, crop, destination, opacity)
             "gif" -> {
-                if (!drawCachedMovie(canvas, source.id, destination, opacity)) {
+                if (!drawCachedMovie(canvas, source.id, destination, crop, opacity)) {
                     drawCachedBitmap(canvas, source.id, crop, destination, opacity)
                 }
             }
@@ -576,19 +566,35 @@ class SceneCanvasLayerController(
         canvas: Canvas,
         sourceId: String,
         destination: RectF,
+        crop: com.iamahsana.ossstudio.scene.model.CropRect,
         opacity: Float
     ): Boolean {
         val movie = cachedMovies[sourceId] ?: return false
-        if (movie.width() <= 0 || movie.height() <= 0) return false
+        val movieWidth = movie.width()
+        val movieHeight = movie.height()
+        if (movieWidth <= 0 || movieHeight <= 0 || destination.width() <= 0f || destination.height() <= 0f) {
+            return false
+        }
+        val left = crop.left.coerceIn(0f, 0.999f)
+        val top = crop.top.coerceIn(0f, 0.999f)
+        val right = crop.right.coerceIn(left + 0.001f, 1f)
+        val bottom = crop.bottom.coerceIn(top + 0.001f, 1f)
+        val scaleX = destination.width() / (movieWidth * (right - left))
+        val scaleY = destination.height() / (movieHeight * (bottom - top))
         val layer = canvas.saveLayer(destination, Paint().apply {
             alpha = (opacity * 255f).toInt().coerceIn(0, 255)
         })
         val duration = movie.duration().takeIf { it > 0 } ?: 1000
         movie.setTime(((SystemClock.uptimeMillis() - gifStartTime) % duration).toInt())
-        canvas.save()
-        canvas.scale(destination.width() / movie.width().toFloat(), destination.height() / movie.height().toFloat())
+        val content = canvas.save()
+        canvas.clipRect(destination)
+        canvas.translate(
+            destination.left - left * movieWidth * scaleX,
+            destination.top - top * movieHeight * scaleY
+        )
+        canvas.scale(scaleX, scaleY)
         movie.draw(canvas, 0f, 0f)
-        canvas.restore()
+        canvas.restoreToCount(content)
         canvas.restoreToCount(layer)
         return true
     }
