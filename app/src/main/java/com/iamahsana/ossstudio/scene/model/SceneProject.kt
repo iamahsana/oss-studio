@@ -251,3 +251,22 @@ fun ElementTransform.rotatedBounds(): ElementBounds {
     )
 }
 
+/**
+ * Moves an element so its rotated visual footprint fits inside the canvas.
+ * If the rotated footprint is larger than an axis, that axis is centered.
+ */
+fun ElementTransform.clampedToCanvas(canvas: CanvasSize): ElementTransform {
+    val bounds = rotatedBounds()
+    val deltaX = if (bounds.width <= canvas.width) {
+        (-bounds.left).coerceIn(-bounds.left, canvas.width - bounds.right)
+    } else {
+        canvas.width / 2f - (bounds.left + bounds.right) / 2f
+    }
+    val deltaY = if (bounds.height <= canvas.height) {
+        (-bounds.top).coerceIn(-bounds.top, canvas.height - bounds.bottom)
+    } else {
+        canvas.height / 2f - (bounds.top + bounds.bottom) / 2f
+    }
+    return copy(x = x + deltaX, y = y + deltaY)
+}
+
