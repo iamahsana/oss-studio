@@ -1,5 +1,6 @@
 package com.iamahsana.ossstudio.scene.persistence
 
+import android.content.ContentValues
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -102,6 +103,71 @@ class SceneProjectJsonCodecTest {
                     )
                 )
             )
+        }
+    }
+
+    @Test
+    fun databaseGetMigratesLegacyDocumentAndPreservesOriginalRecoveryJson() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val databaseName = "legacy-migration-test-${System.nanoTime()}.db"
+        val database = SceneProjectDatabase(context, databaseName)
+        val legacy = """
+            {
+              "schemaVersion": 3,
+              "id": "legacy-db-project",
+              "name": "Legacy database project",
+              "createdAt": 1,
+              "updatedAt": 2,
+              "activeSceneId": "main",
+              "version": 1,
+              "scenes": [{
+                "id": "main",
+                "projectId": "legacy-db-project",
+                "name": "Main",
+                "w": 1440,
+                "h": 1080,
+                "orientation": "LANDSCAPE",
+                "background": -16777216,
+                "elements": []
+              }],
+              "sources": [],
+              "assets": []
+            }
+        """.trimIndent()
+        try {
+            val values = ContentValues().apply {
+                put("id", "legacy-db-project")
+                put("name", "Legacy database project")
+                put("updated_at", 2L)
+                put("document", legacy)
+            }
+            check(database.writableDatabase.insert("projects", null, values) != -1L)
+
+            val migrated = database.get("legacy-db-project")!!
+
+            assertEquals(CanvasOrientation.LANDSCAPE, migrated.liveOrientation)
+            assertEquals(CanvasSize.DEFAULT_LANDSCAPE, migrated.scenes.single().canvas)
+
+            val recoveryJson = database.readableDatabase.query(
+                "project_recovery", arrayOf("document"), "project_id=?",
+                arrayOf("legacy-db-project"), null, null, null, "1"
+            ).use { cursor ->
+                assertEquals(true, cursor.moveToFirst())
+                cursor.getString(0)
+            }
+            assertEquals(legacy, recoveryJson)
+
+            val storedSchema = database.readableDatabase.query(
+                "projects", arrayOf("document"), "id=?",
+                arrayOf("legacy-db-project"), null, null, null, "1"
+            ).use { cursor ->
+                assertEquals(true, cursor.moveToFirst())
+                JSONObject(cursor.getString(0)).getInt("schemaVersion")
+            }
+            assertEquals(4, storedSchema)
+        } finally {
+            database.close()
+            context.deleteDatabase(databaseName)
         }
     }
 
