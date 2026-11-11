@@ -1521,24 +1521,52 @@ fun SceneEditorScreen(
                 scene.elements.sortedBy { it.zIndex }.forEach { element ->
                     val source = currentProject.sources.firstOrNull { it.id == element.sourceId }
                     val chosen = element.id in selectedElementIds
-                    OutlinedButton(
-                        modifier = Modifier.fillMaxWidth().testTag("scene-element-item"),
-                        onClick = {
-                            if (multiSelectMode) {
-                                selectedElementIds = if (chosen) {
-                                    selectedElementIds - element.id
-                                } else {
-                                    selectedElementIds + element.id
-                                }
-                                selectedElementId = element.id
-                            } else {
-                                selectedElementId = element.id
-                                selectedElementIds = setOf(element.id)
-                            }
-                            editingText = source?.text ?: source?.settings?.get("text").orEmpty()
-                        }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text((if (chosen && multiSelectMode) "✓ " else "") + (source?.displayName ?: "Element"))
+                        OutlinedButton(
+                            modifier = Modifier.weight(1f).testTag("scene-element-item"),
+                            onClick = {
+                                if (multiSelectMode) {
+                                    selectedElementIds = if (chosen) {
+                                        selectedElementIds - element.id
+                                    } else {
+                                        selectedElementIds + element.id
+                                    }
+                                    selectedElementId = element.id
+                                } else {
+                                    selectedElementId = element.id
+                                    selectedElementIds = setOf(element.id)
+                                }
+                                editingText = source?.text ?: source?.settings?.get("text").orEmpty()
+                            }
+                        ) {
+                            val state = buildString {
+                                if (chosen && multiSelectMode) append("✓ ")
+                                append(source?.displayName ?: "Element")
+                                if (element.locked) append(" · Terkunci")
+                                if (!element.visible) append(" · Tersembunyi")
+                            }
+                            Text(state)
+                        }
+                        OutlinedButton(
+                            modifier = Modifier.testTag("scene-layer-visibility-" + element.id),
+                            onClick = {
+                                applyProject(SceneProjectEditor.setElementVisibility(
+                                    currentProject, scene.id, element.id, !element.visible, System.currentTimeMillis()
+                                ))
+                            }
+                        ) { Text(if (element.visible) "Sembunyi" else "Tampil") }
+                        OutlinedButton(
+                            modifier = Modifier.testTag("scene-layer-lock-" + element.id),
+                            onClick = {
+                                applyProject(SceneProjectEditor.setElementLocked(
+                                    currentProject, scene.id, element.id, !element.locked, System.currentTimeMillis()
+                                ))
+                            }
+                        ) { Text(if (element.locked) "Buka" else "Kunci") }
                     }
                 }
             }
