@@ -102,7 +102,7 @@ class MainActivitySmokeTest {
         // visibility for a selected element, independent of add-action focus timing.
         composeRule.onAllNodesWithTag("scene-canvas-element", useUnmergedTree = true)[0].performClick()
         composeRule.onNodeWithTag("scene-resize-handle", useUnmergedTree = true).assertExists().assertIsDisplayed()
-        composeRule.onNodeWithTag("scene-panel-properties").performClick()
+        composeRule.onNodeWithTag("scene-panel-properties").performScrollTo().performClick()
         composeRule.onNodeWithTag("scene-properties-panel").assertExists()
         composeRule.onNodeWithTag("scene-panel-layers").performClick()
         composeRule.onNodeWithText("Undo").performClick()
