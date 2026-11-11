@@ -276,6 +276,36 @@ class SceneProjectEditorTest {
     }
 
     @Test
+    fun scalingGroupResizesMembersTogetherAndPreservesTheirRelativeLayout() {
+        val grouped = SceneProjectEditor.groupElements(
+            project(), "scene", setOf("first", "second"), 30L, groupId = "pair"
+        )
+        val scaled = SceneProjectEditor.scaleGroup(grouped, "scene", "pair", 1.5f, 40L)
+        val elements = scaled.scenes.single().elements
+        assertEquals(150f, elements.first().transform.width)
+        assertEquals(150f, elements.last().transform.width)
+        assertEquals(0f, elements.first().transform.x)
+        assertEquals(0f, elements.first().transform.y)
+        assertEquals(0f, grouped.scenes.single().elements.first().transform.x)
+    }
+
+    @Test
+    fun scalingGroupKeepsMembersInsideCanvasAndDoesNotResizeLockedMembers() {
+        val original = project()
+        val moved = SceneProjectEditor.updateTransform(
+            original, "scene", "second", ElementTransform(x = 900f, y = 900f, width = 80f, height = 80f), 20L
+        )
+        val locked = SceneProjectEditor.setElementLocked(moved, "scene", "second", true, 30L)
+        val grouped = SceneProjectEditor.groupElements(locked, "scene", setOf("first", "second"), 40L, groupId = "pair")
+        val scaled = SceneProjectEditor.scaleGroup(grouped, "scene", "pair", 2f, 50L)
+        val first = scaled.scenes.single().elements.first()
+        val second = scaled.scenes.single().elements.last()
+        assertTrue(first.transform.x + first.transform.width <= 1080f)
+        assertTrue(first.transform.y + first.transform.height <= 1920f)
+        assertEquals(grouped.scenes.single().elements.last().transform, second.transform)
+    }
+
+    @Test
     fun ungroupingClearsOnlyTheRequestedGroup() {
         val original = project()
         val grouped = SceneProjectEditor.groupElements(
