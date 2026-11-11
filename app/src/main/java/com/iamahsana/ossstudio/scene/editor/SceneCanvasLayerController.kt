@@ -144,9 +144,10 @@ class SceneCanvasLayerController(
         val fonts = LinkedHashMap<String, Typeface>()
         val fontElements = LinkedHashMap<String, OssInstalledElement>()
         project.sources.filter {
-            it.id in usedSourceIds && it.enabled &&
+            it.id in usedSourceIds && it.enabled && (
                 it.type in setOf(SceneSourceType.IMAGE, SceneSourceType.GIF, SceneSourceType.VIDEO, SceneSourceType.EXTENSION) ||
                     (it.type == SceneSourceType.TEXT && it.settings["fontExtensionId"] != null && it.settings["fontTypeId"] != null)
+                )
         }.forEach { source ->
             val fontExtensionId = source.settings["fontExtensionId"]
             val fontTypeId = source.settings["fontTypeId"]
