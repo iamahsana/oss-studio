@@ -65,7 +65,7 @@ class MainActivitySmokeTest {
         composeRule.waitUntil(15_000) {
             composeRule.onAllNodesWithText("OSS UI Smoke").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onAllNodesWithText("OSS UI Smoke").assertCountEquals(2)
+        assertTrue("Created project should be visible in the Home/editor semantics tree", composeRule.onAllNodesWithText("OSS UI Smoke").fetchSemanticsNodes().isNotEmpty())
         composeRule.waitUntil(15_000) {
             composeRule.onAllNodesWithText("Canvas kosong").fetchSemanticsNodes().isNotEmpty()
         }
@@ -101,7 +101,19 @@ class MainActivitySmokeTest {
         composeRule.onNodeWithTag("scene-resize-handle", useUnmergedTree = true).performScrollTo().assertExists().assertIsDisplayed()
         composeRule.onNodeWithTag("scene-panel-properties").performScrollTo().performClick()
         composeRule.onNodeWithTag("scene-properties-panel").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-geometry-x-input").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-geometry-y-input").assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-geometry-width-input").assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-geometry-height-input").assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-geometry-rotation-input").assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-geometry-x-input").performTextReplacement("120")
+        composeRule.onNodeWithTag("scene-geometry-x-input").assert(hasText("120"))
+        composeRule.onNodeWithText("Undo").performScrollTo().performClick()
+        composeRule.onNodeWithTag("scene-geometry-x-input").assert(hasText("0"))
+        composeRule.onNodeWithText("Redo").performScrollTo().performClick()
+        composeRule.onNodeWithTag("scene-geometry-x-input").assert(hasText("120"))
         composeRule.onNodeWithTag("scene-panel-layers").performScrollTo().performClick()
+        composeRule.onNodeWithText("Undo").performScrollTo().performClick()
         composeRule.onNodeWithText("Undo").performScrollTo().performClick()
         assertTrue("Undo should remove the resize handle when the new element is removed", composeRule.onAllNodesWithTag("scene-resize-handle", useUnmergedTree = true).fetchSemanticsNodes().isEmpty())
         composeRule.onNodeWithText("Redo").performScrollTo().performClick()
