@@ -75,6 +75,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -220,10 +221,19 @@ fun SceneEditorScreen(
     var confirmRemoveSource by remember(selectedElementId) { mutableStateOf(false) }
     var editorPanel by remember(project.id) { mutableStateOf("layers") }
 
-    fun updateTextSetting(key: String, value: String) {
-        val source = selectedSource ?: return
-        val updatedSource = source.copy(settings = source.settings + (key to value))
+    fun updateTextSettings(values: Map<String, String?>) {
+        val sourceId = selectedSource?.id ?: return
+        val source = currentProject.sources.firstOrNull { it.id == sourceId } ?: return
+        val settings = source.settings.toMutableMap()
+        values.forEach { (key, value) ->
+            if (value == null) settings.remove(key) else settings[key] = value
+        }
+        val updatedSource = source.copy(settings = settings)
         applyProject(SceneProjectEditor.updateSource(currentProject, updatedSource, System.currentTimeMillis()))
+    }
+
+    fun updateTextSetting(key: String, value: String) {
+        updateTextSettings(mapOf(key to value))
     }
 
     fun addSource(type: SceneSourceType, text: String? = null) {
@@ -571,6 +581,22 @@ fun SceneEditorScreen(
                                 Text(label, color = Color.White, textAlign = TextAlign.Center)
                             }
                         } else if (source.type == SceneSourceType.TEXT) {
+                            val customFontFamily = remember(
+                                source.id,
+                                source.settings["fontExtensionId"],
+                                source.settings["fontTypeId"]
+                            ) {
+                                val font = installedElements.firstOrNull {
+                                    it.kind == "font" &&
+                                        it.extensionId == source.settings["fontExtensionId"] &&
+                                        it.typeId == source.settings["fontTypeId"]
+                                }
+                                font?.resolveResource()?.let { file ->
+                                    runCatching {
+                                        FontFamily(android.graphics.Typeface.createFromFile(file))
+                                    }.getOrNull()
+                                }
+                            }
                             val textColor = runCatching {
                                 Color(android.graphics.Color.parseColor(source.settings["color"] ?: "#FFFFFFFF"))
                             }.getOrDefault(Color.White)
@@ -586,6 +612,7 @@ fun SceneEditorScreen(
                                 textAlign = alignment,
                                 fontWeight = if (source.settings["bold"] == "true") FontWeight.Bold else FontWeight.Normal,
                                 fontStyle = if (source.settings["italic"] == "true") FontStyle.Italic else FontStyle.Normal,
+                                fontFamily = customFontFamily ?: FontFamily.Default,
                                 fontSize = ((textSize * scale) / density.density).sp
                             )
                         } else if (source.type == SceneSourceType.EXTENSION) {
@@ -596,6 +623,22 @@ fun SceneEditorScreen(
                             val extensionKind = extensionElement?.kind
                             when (extensionKind) {
                                 "text" -> {
+                                    val customFontFamily = remember(
+                                        source.id,
+                                        source.settings["fontExtensionId"],
+                                        source.settings["fontTypeId"]
+                                    ) {
+                                        val font = installedElements.firstOrNull {
+                                            it.kind == "font" &&
+                                                it.extensionId == source.settings["fontExtensionId"] &&
+                                                it.typeId == source.settings["fontTypeId"]
+                                        }
+                                        font?.resolveResource()?.let { file ->
+                                            runCatching {
+                                                FontFamily(android.graphics.Typeface.createFromFile(file))
+                                            }.getOrNull()
+                                        }
+                                    }
                                     val textColor = runCatching {
                                         Color(android.graphics.Color.parseColor(source.settings["color"] ?: "#FFFFFFFF"))
                                     }.getOrDefault(Color.White)
@@ -606,6 +649,7 @@ fun SceneEditorScreen(
                                         textAlign = TextAlign.Center,
                                         fontWeight = if (source.settings["bold"] == "true") FontWeight.Bold else FontWeight.Normal,
                                         fontStyle = if (source.settings["italic"] == "true") FontStyle.Italic else FontStyle.Normal,
+                                        fontFamily = customFontFamily ?: FontFamily.Default,
                                         fontSize = ((textSize * scale) / density.density).sp
                                     )
                                 }
@@ -1078,6 +1122,30 @@ fun SceneEditorScreen(
                                     checked = selectedSource.settings["italic"] == "true",
                                     onCheckedChange = { updateTextSetting("italic", it.toString()) }
                                 )
+                            }
+                            val availableExtensionFonts = installedElements.filter { it.kind == "font" }
+                            if (availableExtensionFonts.isNotEmpty()) {
+                                Text("Font ekstensi", style = MaterialTheme.typography.labelLarge)
+                                availableExtensionFonts.forEach { font ->
+                                    OutlinedButton(
+                                        modifier = Modifier.fillMaxWidth().testTag("scene-select-extension-font"),
+                                        onClick = {
+                                            updateTextSettings(mapOf(
+                                                "fontExtensionId" to font.extensionId,
+                                                "fontTypeId" to font.typeId
+                                            ))
+                                        }
+                                    ) { Text(font.name) }
+                                }
+                                OutlinedButton(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    onClick = {
+                                        updateTextSettings(mapOf(
+                                            "fontExtensionId" to null,
+                                            "fontTypeId" to null
+                                        ))
+                                    }
+                                ) { Text("Gunakan font bawaan") }
                             }
                             Text("Jenis huruf", style = MaterialTheme.typography.labelLarge)
                             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
