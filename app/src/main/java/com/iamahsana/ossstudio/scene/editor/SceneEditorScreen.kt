@@ -676,7 +676,8 @@ fun SceneEditorScreen(
                                             filePath = resource.absolutePath,
                                             contentDescription = source.displayName,
                                             isVideo = extensionKind == "video",
-                                            isGif = extensionKind == "gif"
+                                            isGif = extensionKind == "gif",
+                                            crop = element.crop
                                         )
                                     } else {
                                         Text("Resource ekstensi tidak tersedia", color = Color.White)
@@ -1018,7 +1019,15 @@ fun SceneEditorScreen(
                             },
                             valueRange = 0f..1f
                         )
-                        if (selectedSource.type in setOf(SceneSourceType.IMAGE, SceneSourceType.GIF, SceneSourceType.VIDEO)) {
+                        val selectedExtensionMedia = selectedSource.type == SceneSourceType.EXTENSION &&
+                            installedElements.any {
+                                it.extensionId == selectedSource.extensionId &&
+                                    it.typeId == selectedSource.typeId &&
+                                    it.kind in setOf("image", "sticker", "gif", "video")
+                            }
+                        if (selectedSource.type in setOf(SceneSourceType.IMAGE, SceneSourceType.GIF, SceneSourceType.VIDEO) ||
+                            selectedExtensionMedia
+                        ) {
                             val crop = selectedElement.crop
                             Text("Crop media", style = MaterialTheme.typography.labelLarge)
                             Text("Kiri: ${(crop.left * 100f).toInt()}%")
