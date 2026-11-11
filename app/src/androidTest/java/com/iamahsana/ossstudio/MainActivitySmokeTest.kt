@@ -142,6 +142,10 @@ class MainActivitySmokeTest {
             composeRule.onAllNodesWithText("Mode pemilihan aktif · Dipilih: 2").fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithText("Kelompokkan (2)").performClick()
+        composeRule.waitUntil("group membership is persisted on both selected layers", 5_000L) {
+            composeRule.onAllNodesWithText(" · Dalam grup", substring = true)
+                .fetchSemanticsNodes().size == 2
+        }
         composeRule.waitUntil("group selection exposes the ungroup action", 5_000L) {
             composeRule.onAllNodesWithTag("scene-ungroup").fetchSemanticsNodes().isNotEmpty()
         }
