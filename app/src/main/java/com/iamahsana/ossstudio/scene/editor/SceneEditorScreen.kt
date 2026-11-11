@@ -609,7 +609,7 @@ fun SceneEditorScreen(
                                         fontSize = ((textSize * scale) / density.density).sp
                                     )
                                 }
-                                "image", "sticker", "gif", "video" -> {
+                                "image", "sticker", "gif", "video", "background" -> {
                                     if (resource != null) {
                                         SceneAssetImage(
                                             filePath = resource.absolutePath,
@@ -621,7 +621,7 @@ fun SceneEditorScreen(
                                         Text("Resource ekstensi tidak tersedia", color = Color.White)
                                     }
                                 }
-                                "shape", "background" -> {
+                                "shape" -> {
                                     val shapeColor = runCatching {
                                         Color(android.graphics.Color.parseColor(
                                             source.settings["fillColor"] ?: source.settings["color"] ?: "#FFFFFFFF"
