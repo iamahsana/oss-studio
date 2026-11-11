@@ -49,7 +49,9 @@ data class SceneProject(
     val assets: List<SceneAsset> = emptyList(),
     val version: Int = CURRENT_VERSION,
     /** Persisted LIVE output orientation; all project scenes use this canonical canvas after migration. */
-    val liveOrientation: CanvasOrientation = CanvasOrientation.PORTRAIT
+    val liveOrientation: CanvasOrientation = scenes.firstOrNull { it.id == activeSceneId }?.canvas?.orientation
+        ?: scenes.firstOrNull()?.canvas?.orientation
+        ?: CanvasOrientation.PORTRAIT
 ) {
     init {
         require(id.isNotBlank())
