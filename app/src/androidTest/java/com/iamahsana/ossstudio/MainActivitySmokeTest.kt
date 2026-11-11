@@ -144,12 +144,16 @@ class MainActivitySmokeTest {
             composeRule.onAllNodesWithText("Mode pemilihan aktif · Dipilih: 2").fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithText("Kelompokkan (2)").performClick()
-        // Wait for the group action, then inspect each merged layer-row
-        // semantics node directly. This avoids substring matcher differences
-        // between Compose UI test versions and preserves useful failure output.
+        // Group controls and layer rows share one vertical work-area scroll.
+        // Return to the selection toolbar before asserting its ungroup action;
+        // otherwise the correct control can be outside the visible semantics tree.
+        composeRule.onNodeWithTag("scene-multiselect-toggle").performScrollTo()
         composeRule.waitUntil("group selection exposes the ungroup action", 5_000L) {
             composeRule.onAllNodesWithTag("scene-ungroup").fetchSemanticsNodes().isNotEmpty()
         }
+        // Inspect each merged layer-row semantics node directly after bringing
+        // the layer panel back into view.
+        composeRule.onNodeWithTag("scene-panel-layers").performScrollTo()
         val groupedLayerLabels = composeRule.onAllNodesWithTag("scene-element-item")
             .fetchSemanticsNodes()
             .map { node -> node.config[SemanticsProperties.Text].joinToString(" ") { it.text } }
