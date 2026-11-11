@@ -144,6 +144,12 @@ class MainActivitySmokeTest {
         moveDownActions.assertCountEquals(3)
         moveUpActions[1].performScrollTo().performClick()
         moveDownActions[1].performScrollTo().performClick()
+        val sendBackActions = composeRule.onAllNodes(SemanticsMatcher("send layer to back action") { node -> node.config.contains(SemanticsProperties.TestTag) && node.config[SemanticsProperties.TestTag].startsWith("scene-layer-send-back-") })
+        val bringFrontActions = composeRule.onAllNodes(SemanticsMatcher("bring layer to front action") { node -> node.config.contains(SemanticsProperties.TestTag) && node.config[SemanticsProperties.TestTag].startsWith("scene-layer-bring-front-") })
+        sendBackActions.assertCountEquals(3)
+        bringFrontActions.assertCountEquals(3)
+        sendBackActions[1].performScrollTo().performClick()
+        bringFrontActions[1].performScrollTo().performClick()
         assertTrue("Layer reordering must preserve all scene elements", composeRule.onAllNodesWithTag("scene-element-item").fetchSemanticsNodes().size == 3)
         // The duplicate action selects its new layer. Restart multi-select to
         // begin this grouping assertion with an empty selection.
