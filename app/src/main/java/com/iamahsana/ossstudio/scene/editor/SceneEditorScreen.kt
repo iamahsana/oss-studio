@@ -1165,7 +1165,16 @@ fun SceneEditorScreen(
                     val source = currentProject.sources.firstOrNull { it.id == element.sourceId }
                     val chosen = element.id in selectedElementIds
                     OutlinedButton(
-                        modifier = Modifier.fillMaxWidth().testTag("scene-element-item"),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("scene-element-item")
+                            .then(
+                                if (element.groupId != null) {
+                                    Modifier.testTag("scene-element-group-marker")
+                                } else {
+                                    Modifier
+                                }
+                            ),
                         onClick = {
                             if (multiSelectMode) {
                                 selectedElementIds = if (chosen) {
@@ -1183,14 +1192,9 @@ fun SceneEditorScreen(
                         }
                     ) {
                         Text(
-                            text = (if (chosen && multiSelectMode) "✓ " else "") +
+                            (if (chosen && multiSelectMode) "✓ " else "") +
                                 (source?.displayName ?: "Element") +
-                                if (element.groupId != null) " · Dalam grup" else "",
-                            modifier = if (element.groupId != null) {
-                                Modifier.testTag("scene-element-group-marker")
-                            } else {
-                                Modifier
-                            }
+                                if (element.groupId != null) " · Dalam grup" else ""
                         )
                     }
                 }
