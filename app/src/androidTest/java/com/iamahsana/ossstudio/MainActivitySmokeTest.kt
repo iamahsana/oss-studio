@@ -145,8 +145,8 @@ class MainActivitySmokeTest {
         composeRule.onNodeWithText("Kelompokkan (2)").performClick()
         composeRule.waitUntil("group membership is persisted on both selected layers", 5_000L) {
             composeRule.onAllNodesWithTag("scene-element-item").fetchSemanticsNodes().count { node ->
-                node.config.getOrNull(SemanticsProperties.Text)
-                    ?.any { it.text.contains("Dalam grup") } == true
+                node.config[SemanticsProperties.Text]
+                    .any { it.text.contains("Dalam grup") }
             } == 2
         }
         composeRule.waitUntil("group selection exposes the ungroup action", 5_000L) {
