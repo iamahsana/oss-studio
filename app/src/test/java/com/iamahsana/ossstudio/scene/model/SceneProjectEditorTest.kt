@@ -57,6 +57,45 @@ class SceneProjectEditorTest {
     }
 
     @Test
+    fun rotatedTransformClampingKeepsVisibleFootprintInsideCanvas() {
+        val canvas = CanvasSize.DEFAULT_PORTRAIT
+        val outsideTopLeft = ElementTransform(
+            x = -50f, y = -40f, width = 320f, height = 180f, rotationDegrees = 90f
+        )
+        val clampedTopLeft = outsideTopLeft.clampedToCanvas(canvas)
+        val topLeftBounds = clampedTopLeft.rotatedBounds()
+        assertEquals(0f, topLeftBounds.left, 0.001f)
+        assertEquals(0f, topLeftBounds.top, 0.001f)
+
+        val outsideBottomRight = ElementTransform(
+            x = 1000f, y = 1700f, width = 320f, height = 180f, rotationDegrees = 90f
+        )
+        val clampedBottomRight = outsideBottomRight.clampedToCanvas(canvas)
+        val bottomRightBounds = clampedBottomRight.rotatedBounds()
+        assertEquals(canvas.width.toFloat(), bottomRightBounds.right, 0.001f)
+        assertEquals(canvas.height.toFloat(), bottomRightBounds.bottom, 0.001f)
+    }
+
+    @Test
+    fun rotatedTransformClampingPreservesAlreadyVisiblePosition() {
+        val original = ElementTransform(
+            x = 300f, y = 400f, width = 320f, height = 180f, rotationDegrees = 37f
+        )
+        assertEquals(original, original.clampedToCanvas(CanvasSize.DEFAULT_PORTRAIT))
+    }
+
+    @Test
+    fun rotatedTransformLargerThanCanvasIsCenteredOnOversizedAxis() {
+        val canvas = CanvasSize.DEFAULT_PORTRAIT
+        val oversized = ElementTransform(
+            x = 10f, y = 20f, width = 2000f, height = 1800f, rotationDegrees = 90f
+        ).clampedToCanvas(canvas)
+        val bounds = oversized.rotatedBounds()
+        assertEquals(canvas.width / 2f, (bounds.left + bounds.right) / 2f, 0.001f)
+        assertEquals(canvas.height / 2f, (bounds.top + bounds.bottom) / 2f, 0.001f)
+    }
+
+    @Test
     fun preciseRotationIsPersistedWithoutChangingElementGeometry() {
         val original = project()
         val transform = original.scenes.single().elements.first().transform.copy(
