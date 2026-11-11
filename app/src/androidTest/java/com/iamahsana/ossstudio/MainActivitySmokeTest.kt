@@ -130,7 +130,9 @@ class MainActivitySmokeTest {
         assertTrue("Multi-select mode should expose at least two scene layer rows", composeRule.onAllNodesWithTag("scene-element-item").fetchSemanticsNodes().size >= 2)
         composeRule.onAllNodesWithTag("scene-element-item")[0].performClick()
         composeRule.onAllNodesWithTag("scene-element-item")[1].performClick()
-        assertTrue("Selecting both layer rows should mark both as selected", composeRule.onAllNodesWithText("✓ Text").fetchSemanticsNodes().size == 2)
+        composeRule.waitUntil("multi-select state reflects both selected layers", 5_000L) {
+            composeRule.onAllNodesWithText("Mode pemilihan aktif · Dipilih: 2").fetchSemanticsNodes().isNotEmpty()
+        }
         composeRule.onNodeWithText("Kelompokkan (2)").performClick()
         composeRule.onNodeWithText("Pisahkan grup").assertExists()
         composeRule.onNodeWithText("Pisahkan grup").performClick()
