@@ -1605,6 +1605,55 @@ fun SceneEditorScreen(
                     OutlinedButton(modifier = Modifier.testTag("scene-multi-align-center-y"), onClick = { alignSelection(vertical = "center") }) { Text("Tengah Y") }
                     OutlinedButton(modifier = Modifier.testTag("scene-multi-align-bottom"), onClick = { alignSelection(vertical = "bottom") }) { Text("Bawah") }
                 }
+                if (selectedElementsForAlignment.size >= 3) {
+                    val horizontalOrder = selectedElementsForAlignment.sortedBy { it.transform.x }
+                    val verticalOrder = selectedElementsForAlignment.sortedBy { it.transform.y }
+                    val horizontalGap = (
+                        right - left - selectedElementsForAlignment.sumOf { it.transform.width.toDouble() }
+                    ).toFloat() / (horizontalOrder.size - 1)
+                    val verticalGap = (
+                        bottom - top - selectedElementsForAlignment.sumOf { it.transform.height.toDouble() }
+                    ).toFloat() / (verticalOrder.size - 1)
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        OutlinedButton(
+                            modifier = Modifier.testTag("scene-distribute-horizontal"),
+                            enabled = horizontalGap >= 0f,
+                            onClick = {
+                                var updated = currentProject
+                                val timestamp = System.currentTimeMillis()
+                                var cursor = left
+                                horizontalOrder.forEach { item ->
+                                    updated = SceneProjectEditor.updateTransform(
+                                        updated, scene.id, item.id,
+                                        item.transform.copy(x = cursor), timestamp
+                                    )
+                                    cursor += item.transform.width + horizontalGap
+                                }
+                                applyProject(updated)
+                            }
+                        ) { Text("Sebar horizontal") }
+                        OutlinedButton(
+                            modifier = Modifier.testTag("scene-distribute-vertical"),
+                            enabled = verticalGap >= 0f,
+                            onClick = {
+                                var updated = currentProject
+                                val timestamp = System.currentTimeMillis()
+                                var cursor = top
+                                verticalOrder.forEach { item ->
+                                    updated = SceneProjectEditor.updateTransform(
+                                        updated, scene.id, item.id,
+                                        item.transform.copy(y = cursor), timestamp
+                                    )
+                                    cursor += item.transform.height + verticalGap
+                                }
+                                applyProject(updated)
+                            }
+                        ) { Text("Sebar vertikal") }
+                    }
+                }
             }
             val canGroup = selectedElementIds.size >= 2 &&
                 scene.elements.filter { it.id in selectedElementIds }.all { it.groupId == null }
