@@ -1586,6 +1586,7 @@ fun SceneEditorScreen(
                 modifier = Modifier.testTag("scene-multiselect-toggle"),
                 onClick = {
                     val enteringMultiSelect = !multiSelectMode
+                    android.util.Log.i("OSSSceneSelection", "toggle multi-select: entering=$enteringMultiSelect")
                     multiSelectMode = enteringMultiSelect
                     selectedElementIds = if (enteringMultiSelect) emptySet() else selectedElementIds
                 }
@@ -1765,6 +1766,7 @@ fun SceneEditorScreen(
                         OutlinedButton(
                             modifier = Modifier.weight(1f).testTag("scene-element-item"),
                             onClick = {
+                                android.util.Log.i("OSSSceneSelection", "layer click: id=${element.id}, multiSelect=$multiSelectMode, before=${selectedElementIds.size}")
                                 if (multiSelectMode) {
                                     selectedElementIds = if (element.id in selectedElementIds) {
                                         selectedElementIds - element.id
@@ -1776,6 +1778,7 @@ fun SceneEditorScreen(
                                     selectedElementId = element.id
                                     selectedElementIds = setOf(element.id)
                                 }
+                                android.util.Log.i("OSSSceneSelection", "layer click complete: selected=${selectedElementIds.size}")
                                 editingText = source?.text ?: source?.settings?.get("text").orEmpty()
                             }
                         ) {
