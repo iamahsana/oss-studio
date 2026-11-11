@@ -305,7 +305,7 @@ class SceneCanvasLayerController(
             .mapTo(mutableSetOf()) { it.sourceId }
         return project.sources
             .filter {
-                it.id in usedSourceIds && (
+                it.id in usedSourceIds && it.enabled && (
                     it.type in setOf(SceneSourceType.IMAGE, SceneSourceType.GIF, SceneSourceType.VIDEO, SceneSourceType.EXTENSION) ||
                         (it.type == SceneSourceType.TEXT && it.settings["fontExtensionId"] != null && it.settings["fontTypeId"] != null)
                     )
