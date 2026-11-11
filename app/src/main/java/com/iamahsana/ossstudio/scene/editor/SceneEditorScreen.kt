@@ -1023,7 +1023,7 @@ fun SceneEditorScreen(
                             installedElements.any {
                                 it.extensionId == selectedSource.extensionId &&
                                     it.typeId == selectedSource.typeId &&
-                                    it.kind in setOf("image", "sticker", "gif", "video")
+                                    it.kind in setOf("image", "sticker", "video")
                             }
                         if (selectedSource.type in setOf(SceneSourceType.IMAGE, SceneSourceType.GIF, SceneSourceType.VIDEO) ||
                             selectedExtensionMedia
