@@ -128,8 +128,14 @@ class MainActivitySmokeTest {
         composeRule.onNodeWithTag("scene-multiselect-status").assertExists()
         composeRule.onNodeWithText("Mode pemilihan aktif · Dipilih: 0").assertExists()
         assertTrue("Multi-select mode should expose at least two scene layer rows", composeRule.onAllNodesWithTag("scene-element-item").fetchSemanticsNodes().size >= 2)
-        composeRule.onAllNodesWithTag("scene-element-item")[0].performClick()
-        composeRule.onAllNodesWithTag("scene-element-item")[1].performClick()
+        // Each layer row lives in its own vertically scrollable list. Bring
+        // each target into view before clicking so emulator taps are delivered
+        // to the intended row rather than an off-screen semantics node.
+        composeRule.onAllNodesWithTag("scene-element-item")[0].performScrollTo().performClick()
+        composeRule.waitUntil("first layer is selected", 5_000L) {
+            composeRule.onAllNodesWithText("Mode pemilihan aktif · Dipilih: 1").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onAllNodesWithTag("scene-element-item")[1].performScrollTo().performClick()
         composeRule.waitUntil("multi-select state reflects both selected layers", 5_000L) {
             composeRule.onAllNodesWithText("Mode pemilihan aktif · Dipilih: 2").fetchSemanticsNodes().isNotEmpty()
         }
