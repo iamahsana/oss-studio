@@ -304,8 +304,10 @@ class SceneCanvasLayerController(
             .mapTo(mutableSetOf()) { it.sourceId }
         return project.sources
             .filter {
-                it.id in usedSourceIds &&
-                    it.type in setOf(SceneSourceType.IMAGE, SceneSourceType.GIF, SceneSourceType.VIDEO, SceneSourceType.EXTENSION)
+                it.id in usedSourceIds && (
+                    it.type in setOf(SceneSourceType.IMAGE, SceneSourceType.GIF, SceneSourceType.VIDEO, SceneSourceType.EXTENSION) ||
+                        (it.type == SceneSourceType.TEXT && it.settings["fontExtensionId"] != null && it.settings["fontTypeId"] != null)
+                    )
             }
             .sortedBy { it.id }
             .joinToString("|") { source ->
@@ -317,7 +319,12 @@ class SceneCanvasLayerController(
                         it.extensionId == source.extensionId && it.typeId == source.typeId
                     }
                     val resource = extension?.resolveResource()
-                    "${source.id}:${source.type}:${source.enabled}:${source.extensionId}:${source.typeId}:${extension?.kind}:${resource?.length()}:${resource?.lastModified()}"
+                    val font = cachedFontElements[source.id]?.takeIf {
+                        it.extensionId == source.settings["fontExtensionId"] &&
+                            it.typeId == source.settings["fontTypeId"]
+                    }
+                    val fontResource = font?.resolveResource()
+                    "${source.id}:${source.type}:${source.enabled}:${source.extensionId}:${source.typeId}:${extension?.kind}:${resource?.length()}:${resource?.lastModified()}:font:${source.settings["fontExtensionId"]}:${source.settings["fontTypeId"]}:${fontResource?.length()}:${fontResource?.lastModified()}"
                 } else if (source.settings["fontExtensionId"] != null && source.settings["fontTypeId"] != null) {
                     val font = cachedFontElements[source.id]?.takeIf {
                         it.extensionId == source.settings["fontExtensionId"] &&
