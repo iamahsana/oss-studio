@@ -21,6 +21,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.iamahsana.ossstudio.stream.rtmp.RtmpDestinationProfileStore
 import com.iamahsana.ossstudio.scene.persistence.SceneProjectStoreProvider
 import com.iamahsana.ossstudio.scene.persistence.SceneAssetStorage
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.After
 import org.junit.Rule
@@ -143,15 +144,20 @@ class MainActivitySmokeTest {
             composeRule.onAllNodesWithText("Mode pemilihan aktif · Dipilih: 2").fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithText("Kelompokkan (2)").performClick()
-        // OutlinedButton merges its label into one semantics node. Read the
-        // rendered group label from the merged tree, consistently across APIs.
-        composeRule.waitUntil("group membership is persisted on both selected layers", 5_000L) {
-            composeRule.onAllNodesWithText("Dalam grup", substring = true)
-                .fetchSemanticsNodes().size == 2
-        }
+        // Wait for the group action, then inspect each merged layer-row
+        // semantics node directly. This avoids substring matcher differences
+        // between Compose UI test versions and preserves useful failure output.
         composeRule.waitUntil("group selection exposes the ungroup action", 5_000L) {
             composeRule.onAllNodesWithTag("scene-ungroup").fetchSemanticsNodes().isNotEmpty()
         }
+        val groupedLayerLabels = composeRule.onAllNodesWithTag("scene-element-item")
+            .fetchSemanticsNodes()
+            .map { node -> node.config[SemanticsProperties.Text].joinToString(" ") { it.text } }
+        assertEquals(
+            "Both selected layer rows must display their persisted group membership: $groupedLayerLabels",
+            2,
+            groupedLayerLabels.count { it.contains("Dalam grup") }
+        )
         composeRule.onNodeWithTag("scene-ungroup").assertIsDisplayed().performClick()
         composeRule.waitUntil("ungrouping removes the split-group action", 5_000L) {
             composeRule.onAllNodesWithTag("scene-ungroup").fetchSemanticsNodes().isEmpty()
