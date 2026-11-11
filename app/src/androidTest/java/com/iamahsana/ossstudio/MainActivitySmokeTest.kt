@@ -173,19 +173,20 @@ class MainActivitySmokeTest {
         composeRule.onNodeWithTag("scene-align-bottom").performScrollTo().performClick()
         composeRule.onNodeWithTag("scene-panel-layers").performScrollTo().performClick()
         composeRule.onNodeWithTag("scene-multiselect-toggle").performScrollTo().performClick()
-        composeRule.onAllNodesWithTag("scene-element-item")[0].performScrollTo().performClick()
+        fun selectedLayerCount(): Int {
+            val status = composeRule.onNodeWithTag("scene-multiselect-status")
+            status.assertExists()
+            val text = status.fetchSemanticsNode().config[SemanticsProperties.Text].joinToString { it.text }
+            println("Multi-select status: $text")
+            return text.substringAfter("Dipilih: ", "-1").toIntOrNull() ?: -1
+        }
+        val layerRows = composeRule.onAllNodesWithTag("scene-element-item")
+        layerRows[0].performScrollTo().performClick()
+        composeRule.waitUntil("first layer becomes selected", 5_000L) { selectedLayerCount() == 1 }
         composeRule.onAllNodesWithTag("scene-element-item")[1].performScrollTo().performClick()
+        composeRule.waitUntil("second layer becomes selected", 5_000L) { selectedLayerCount() == 2 }
         composeRule.onAllNodesWithTag("scene-element-item")[2].performScrollTo().performClick()
-        // The selected-count status is the stable contract; layer display names may vary by source type.
-        val multiSelectStatus = composeRule.onNodeWithTag("scene-multiselect-status")
-        multiSelectStatus.assertExists()
-        val multiSelectStatusText = multiSelectStatus.fetchSemanticsNode()
-            .config[SemanticsProperties.Text].joinToString { it.text }
-        println("Multi-select status after selecting three layers: $multiSelectStatusText")
-        assertTrue(
-            "Selecting three distinct scene layers should report a count of 3, actual status: $multiSelectStatusText",
-            multiSelectStatusText.endsWith("Dipilih: 3")
-        )
+        composeRule.waitUntil("third layer becomes selected", 5_000L) { selectedLayerCount() == 3 }
         composeRule.onNodeWithTag("scene-multi-align-left").performScrollTo().assertIsDisplayed().performClick()
         composeRule.onNodeWithTag("scene-multi-align-center-y").performScrollTo().assertIsDisplayed().performClick()
         composeRule.onNodeWithTag("scene-multi-align-right").performScrollTo().assertIsDisplayed()
