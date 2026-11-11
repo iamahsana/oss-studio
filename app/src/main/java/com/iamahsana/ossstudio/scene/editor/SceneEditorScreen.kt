@@ -1551,7 +1551,7 @@ fun SceneEditorScreen(
                             }
                             Text(state)
                         }
-                        OutlinedButton(
+                        TextButton(
                             modifier = Modifier.testTag("scene-layer-visibility-" + element.id),
                             onClick = {
                                 applyProject(SceneProjectEditor.setElementVisibility(
@@ -1559,7 +1559,7 @@ fun SceneEditorScreen(
                                 ))
                             }
                         ) { Text(if (element.visible) "Sembunyi" else "Tampil") }
-                        OutlinedButton(
+                        TextButton(
                             modifier = Modifier.testTag("scene-layer-lock-" + element.id),
                             onClick = {
                                 applyProject(SceneProjectEditor.setElementLocked(
@@ -1567,7 +1567,7 @@ fun SceneEditorScreen(
                                 ))
                             }
                         ) { Text(if (element.locked) "Buka" else "Kunci") }
-                        OutlinedButton(
+                        TextButton(
                             modifier = Modifier.testTag("scene-layer-duplicate-" + element.id),
                             enabled = !element.locked,
                             onClick = {
