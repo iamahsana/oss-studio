@@ -437,6 +437,61 @@ class SceneProjectEditorTest {
     }
 
     @Test
+    fun scalingRotatedGroupPreservesVisualBoundsRelativeToGroupOrigin() {
+        val original = project()
+        val positioned = SceneProjectEditor.updateTransform(
+            original, "scene", "first",
+            ElementTransform(x = 150f, y = 200f, width = 200f, height = 100f, rotationDegrees = 90f),
+            20L
+        )
+        val positionedBoth = SceneProjectEditor.updateTransform(
+            positioned, "scene", "second",
+            ElementTransform(x = 500f, y = 500f, width = 160f, height = 80f, rotationDegrees = 30f),
+            30L
+        )
+        val grouped = SceneProjectEditor.groupElements(
+            positionedBoth, "scene", setOf("first", "second"), 40L, groupId = "rotated-pair"
+        )
+        val before = grouped.scenes.single().elements.map { it.transform.rotatedBounds() }
+        val originX = before.minOf { it.left }
+        val originY = before.minOf { it.top }
+
+        val scaled = SceneProjectEditor.scaleGroup(grouped, "scene", "rotated-pair", 1.5f, 50L)
+        val after = scaled.scenes.single().elements.map { it.transform.rotatedBounds() }
+
+        before.zip(after).forEach { (old, new) ->
+            assertEquals(originX + (old.left - originX) * 1.5f, new.left, 0.001f)
+            assertEquals(originY + (old.top - originY) * 1.5f, new.top, 0.001f)
+            assertEquals(originX + (old.right - originX) * 1.5f, new.right, 0.001f)
+            assertEquals(originY + (old.bottom - originY) * 1.5f, new.bottom, 0.001f)
+        }
+    }
+
+    @Test
+    fun scalingRotatedGroupCapsScaleAtVisibleCanvasEdges() {
+        val original = project()
+        val positioned = SceneProjectEditor.updateTransform(
+            original, "scene", "first",
+            ElementTransform(x = 760f, y = 1450f, width = 180f, height = 100f, rotationDegrees = 45f),
+            20L
+        )
+        val positionedBoth = SceneProjectEditor.updateTransform(
+            positioned, "scene", "second",
+            ElementTransform(x = 900f, y = 1600f, width = 100f, height = 80f, rotationDegrees = 30f),
+            30L
+        )
+        val grouped = SceneProjectEditor.groupElements(
+            positionedBoth, "scene", setOf("first", "second"), 40L, groupId = "edge-pair"
+        )
+
+        val scaled = SceneProjectEditor.scaleGroup(grouped, "scene", "edge-pair", 3f, 50L)
+        val bounds = scaled.scenes.single().elements.map { it.transform.rotatedBounds() }
+
+        assertTrue(bounds.all { it.left >= -0.001f && it.top >= -0.001f })
+        assertTrue(bounds.all { it.right <= 1080.001f && it.bottom <= 1920.001f })
+    }
+
+    @Test
     fun ungroupingClearsOnlyTheRequestedGroup() {
         val original = project()
         val grouped = SceneProjectEditor.groupElements(
