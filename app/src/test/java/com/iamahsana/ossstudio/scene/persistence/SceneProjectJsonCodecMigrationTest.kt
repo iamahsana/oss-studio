@@ -40,7 +40,7 @@ class SceneProjectJsonCodecMigrationTest {
             .put("schemaVersion", 3)
             .put("activeSceneId", "landscape")
             .put("scenes", JSONObject(legacyV1()).getJSONArray("scenes"))
-            .put("sources", org.json.JSONArray().put(JSONObject()
+            .put("sources", JSONObject(legacyV1()).getJSONArray("sources").put(JSONObject()
                 .put("id", "badge-source")
                 .put("type", "EXTENSION")
                 .put("name", "Community Badge")
