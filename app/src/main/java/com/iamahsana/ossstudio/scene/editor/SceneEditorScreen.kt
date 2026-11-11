@@ -1120,8 +1120,12 @@ fun SceneEditorScreen(
                 // ungroup action available even when transient selection state
                 // is cleared during recomposition or restored from persistence.
                 ?: scene.elements.mapNotNull { it.groupId }.distinct().singleOrNull()
+            val selectedElements = scene.elements.filter { it.id in selectedElementIds }
+            // Only enable grouping when every selected ID resolves in this scene.
+            // Set.all() on an empty/partial result can otherwise expose a misleading action.
             val canGroup = selectedElementIds.size >= 2 &&
-                scene.elements.filter { it.id in selectedElementIds }.all { it.groupId == null }
+                selectedElements.size == selectedElementIds.size &&
+                selectedElements.all { it.groupId == null }
             if (canGroup || activeGroupId != null) {
                 // Keep group actions in the vertical work-area flow. A horizontal
                 // scroller can leave the only available action clipped on narrow
@@ -1131,7 +1135,9 @@ fun SceneEditorScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     if (canGroup) {
-                        OutlinedButton(onClick = {
+                        OutlinedButton(
+                            modifier = Modifier.testTag("scene-group"),
+                            onClick = {
                             // Snapshot the selected IDs before publishing the project.
                             // The parent callback may synchronously update the active
                             // project and trigger recomposition.
