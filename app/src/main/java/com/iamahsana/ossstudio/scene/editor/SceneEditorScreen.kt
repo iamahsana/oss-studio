@@ -76,6 +76,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -235,6 +237,7 @@ fun SceneEditorScreen(
     var editorPanel by remember(project.id) { mutableStateOf("layers") }
 
     fun updateTextSettings(values: Map<String, String?>) {
+        if (selectedElement?.locked == true) return
         val sourceId = selectedSource?.id ?: return
         val source = currentProject.sources.firstOrNull { it.id == sourceId } ?: return
         val settings = source.settings.toMutableMap()
@@ -614,6 +617,19 @@ fun SceneEditorScreen(
                                 Color(android.graphics.Color.parseColor(source.settings["color"] ?: "#FFFFFFFF"))
                             }.getOrDefault(Color.White)
                             val textSize = source.settings["fontSize"]?.toFloatOrNull() ?: 48f
+                            val decoration = when {
+                                source.settings["underline"] == "true" && source.settings["strikethrough"] == "true" ->
+                                    TextDecoration.combine(listOf(TextDecoration.Underline, TextDecoration.LineThrough))
+                                source.settings["underline"] == "true" -> TextDecoration.Underline
+                                source.settings["strikethrough"] == "true" -> TextDecoration.LineThrough
+                                else -> TextDecoration.None
+                            }
+                            val shadowRadius = (source.settings["shadowRadius"]?.toFloatOrNull() ?: 0f).coerceIn(0f, 32f)
+                            val shadowColor = runCatching {
+                                Color(android.graphics.Color.parseColor(source.settings["shadowColor"] ?: "#FF000000"))
+                            }.getOrDefault(Color.Black)
+                            val letterSpacing = (source.settings["letterSpacing"]?.toFloatOrNull() ?: 0f).coerceIn(-0.1f, 0.5f)
+                            val lineSpacing = (source.settings["lineSpacing"]?.toFloatOrNull() ?: 1.15f).coerceIn(1f, 2f)
                             val alignment = when (source.settings["align"]) {
                                 "left" -> TextAlign.Start
                                 "right" -> TextAlign.End
@@ -630,7 +646,17 @@ fun SceneEditorScreen(
                                     "monospace" -> FontFamily.Monospace
                                     else -> FontFamily.Default
                                 },
-                                fontSize = ((textSize * scale) / density.density).sp
+                                fontSize = ((textSize * scale) / density.density).sp,
+                                letterSpacing = (letterSpacing * textSize * scale / density.density).sp,
+                                lineHeight = (textSize * lineSpacing * scale / density.density).sp,
+                                textDecoration = decoration,
+                                style = MaterialTheme.typography.bodyLarge.copy(
+                                    shadow = if (shadowRadius > 0f) Shadow(
+                                        color = shadowColor,
+                                        offset = Offset(2f * scale, 2f * scale),
+                                        blurRadius = shadowRadius * scale
+                                    ) else null
+                                )
                             )
                         } else if (source.type == SceneSourceType.EXTENSION) {
                             val extensionElement = installedElements.firstOrNull {
@@ -660,14 +686,42 @@ fun SceneEditorScreen(
                                         Color(android.graphics.Color.parseColor(source.settings["color"] ?: "#FFFFFFFF"))
                                     }.getOrDefault(Color.White)
                                     val textSize = source.settings["fontSize"]?.toFloatOrNull() ?: 48f
+                            val decoration = when {
+                                source.settings["underline"] == "true" && source.settings["strikethrough"] == "true" ->
+                                    TextDecoration.combine(listOf(TextDecoration.Underline, TextDecoration.LineThrough))
+                                source.settings["underline"] == "true" -> TextDecoration.Underline
+                                source.settings["strikethrough"] == "true" -> TextDecoration.LineThrough
+                                else -> TextDecoration.None
+                            }
+                            val shadowRadius = (source.settings["shadowRadius"]?.toFloatOrNull() ?: 0f).coerceIn(0f, 32f)
+                            val shadowColor = runCatching {
+                                Color(android.graphics.Color.parseColor(source.settings["shadowColor"] ?: "#FF000000"))
+                            }.getOrDefault(Color.Black)
+                            val letterSpacing = (source.settings["letterSpacing"]?.toFloatOrNull() ?: 0f).coerceIn(-0.1f, 0.5f)
+                            val lineSpacing = (source.settings["lineSpacing"]?.toFloatOrNull() ?: 1.15f).coerceIn(1f, 2f)
+                                    val alignment = when (source.settings["align"]) {
+                                        "left" -> TextAlign.Start
+                                        "right" -> TextAlign.End
+                                        else -> TextAlign.Center
+                                    }
                                     Text(
                                         source.settings["text"] ?: source.displayName,
                                         color = textColor,
-                                        textAlign = TextAlign.Center,
+                                        textAlign = alignment,
                                         fontWeight = if (source.settings["bold"] == "true") FontWeight.Bold else FontWeight.Normal,
                                         fontStyle = if (source.settings["italic"] == "true") FontStyle.Italic else FontStyle.Normal,
                                         fontFamily = customFontFamily ?: FontFamily.Default,
-                                        fontSize = ((textSize * scale) / density.density).sp
+                                        fontSize = ((textSize * scale) / density.density).sp,
+                                        letterSpacing = (letterSpacing * textSize * scale / density.density).sp,
+                                        lineHeight = (textSize * lineSpacing * scale / density.density).sp,
+                                        textDecoration = decoration,
+                                        style = MaterialTheme.typography.bodyLarge.copy(
+                                            shadow = if (shadowRadius > 0f) Shadow(
+                                                color = shadowColor,
+                                                offset = Offset(2f * scale, 2f * scale),
+                                                blurRadius = shadowRadius * scale
+                                            ) else null
+                                        )
                                     )
                                 }
                                 "image", "sticker", "gif", "video", "background" -> {
@@ -1108,6 +1162,9 @@ fun SceneEditorScreen(
                                     it.typeId == selectedSource.typeId && it.kind == "text"
                             }
                         if (selectedSource.type == SceneSourceType.TEXT || selectedExtensionText) {
+                            if (selectedElement.locked) {
+                                Text("Elemen terkunci. Buka kunci untuk mengubah teks dan tipografinya.")
+                            } else {
                             OutlinedTextField(
                                 value = editingText,
                                 onValueChange = { editingText = it },
@@ -1241,6 +1298,7 @@ fun SceneEditorScreen(
                                     onCheckedChange = { updateTextSetting("strikethrough", it.toString()) }
                                 )
                             }
+                            }
                         }
                         val selectedExtensionShape = selectedSource.type == SceneSourceType.EXTENSION &&
                             installedElements.any {
@@ -1248,6 +1306,9 @@ fun SceneEditorScreen(
                                     it.typeId == selectedSource.typeId && it.kind == "shape"
                             }
                         if (selectedExtensionShape) {
+                            if (selectedElement.locked) {
+                                Text("Elemen terkunci. Buka kunci untuk mengubah bentuk dan warnanya.")
+                            } else {
                             Text("Bentuk", style = MaterialTheme.typography.labelLarge)
                             Row(
                                 modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
@@ -1294,6 +1355,7 @@ fun SceneEditorScreen(
                                 enabled = selectedSource.settings["shape"] == "rounded-rect" ||
                                     selectedSource.settings["shape"] == "roundrect"
                             )
+                            }
                         }
                         val orderedElements = scene.elements.sortedBy { it.zIndex }
                         val layerIndex = orderedElements.indexOfFirst { it.id == selectedElement.id }
