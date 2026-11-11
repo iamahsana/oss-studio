@@ -573,6 +573,55 @@ fun SceneEditorScreen(
                                 fontStyle = if (source.settings["italic"] == "true") FontStyle.Italic else FontStyle.Normal,
                                 fontSize = ((textSize * scale) / density.density).sp
                             )
+                        } else if (source.type == SceneSourceType.EXTENSION) {
+                            val extensionElement = installedElements.firstOrNull {
+                                it.extensionId == source.extensionId && it.typeId == source.typeId
+                            }
+                            val resource = extensionElement?.resolveResource()
+                            when (extensionElement?.kind) {
+                                "text" -> {
+                                    val textColor = runCatching {
+                                        Color(android.graphics.Color.parseColor(source.settings["color"] ?: "#FFFFFFFF"))
+                                    }.getOrDefault(Color.White)
+                                    val textSize = source.settings["fontSize"]?.toFloatOrNull() ?: 48f
+                                    Text(
+                                        source.settings["text"] ?: source.displayName,
+                                        color = textColor,
+                                        textAlign = TextAlign.Center,
+                                        fontWeight = if (source.settings["bold"] == "true") FontWeight.Bold else FontWeight.Normal,
+                                        fontStyle = if (source.settings["italic"] == "true") FontStyle.Italic else FontStyle.Normal,
+                                        fontSize = ((textSize * scale) / density.density).sp
+                                    )
+                                }
+                                "image", "sticker", "gif", "video" -> {
+                                    if (resource != null) {
+                                        SceneAssetImage(
+                                            filePath = resource.absolutePath,
+                                            contentDescription = source.displayName,
+                                            isVideo = extensionElement.kind == "video",
+                                            isGif = extensionElement.kind == "gif"
+                                        )
+                                    } else {
+                                        Text("Resource ekstensi tidak tersedia", color = Color.White)
+                                    }
+                                }
+                                "shape", "background" -> {
+                                    val shapeColor = runCatching {
+                                        Color(android.graphics.Color.parseColor(
+                                            source.settings["fillColor"] ?: source.settings["color"] ?: "#FFFFFFFF"
+                                        ))
+                                    }.getOrDefault(Color.White)
+                                    val shape = when (source.settings["shape"]?.lowercase()) {
+                                        "circle", "ellipse", "oval" -> RoundedCornerShape(50)
+                                        "rounded-rect", "roundrect" -> RoundedCornerShape(
+                                            (source.settings["cornerRadius"]?.toFloatOrNull() ?: 18f).coerceIn(0f, 256f).dp
+                                        )
+                                        else -> RoundedCornerShape(0.dp)
+                                    }
+                                    Box(Modifier.fillMaxSize().background(shapeColor, shape))
+                                }
+                                else -> Text("Ekstensi tidak tersedia", color = Color.White)
+                            }
                         } else {
                             Text(
                                 label,
