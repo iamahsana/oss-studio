@@ -1164,38 +1164,37 @@ fun SceneEditorScreen(
                 scene.elements.sortedBy { it.zIndex }.forEach { element ->
                     val source = currentProject.sources.firstOrNull { it.id == element.sourceId }
                     val chosen = element.id in selectedElementIds
-                    OutlinedButton(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("scene-element-item")
-                            .then(
-                                if (element.groupId != null) {
-                                    Modifier.testTag("scene-element-group-marker")
-                                } else {
-                                    Modifier
-                                }
-                            ),
-                        onClick = {
-                            if (multiSelectMode) {
-                                selectedElementIds = if (chosen) {
-                                    selectedElementIds - element.id
-                                } else {
-                                    selectedElementIds + element.id
-                                }
-                                selectedElementId = element.id
-                            } else {
-                                selectedElementId = element.id
-                                selectedElementIds = setOf(element.id)
-                            }
-                            selectedGroupId = element.groupId
-                            editingText = source?.text.orEmpty()
+                    Box(
+                        modifier = if (element.groupId != null) {
+                            Modifier.testTag("scene-element-group-marker")
+                        } else {
+                            Modifier
                         }
                     ) {
-                        Text(
-                            (if (chosen && multiSelectMode) "✓ " else "") +
-                                (source?.displayName ?: "Element") +
-                                if (element.groupId != null) " · Dalam grup" else ""
-                        )
+                        OutlinedButton(
+                            modifier = Modifier.fillMaxWidth().testTag("scene-element-item"),
+                            onClick = {
+                                if (multiSelectMode) {
+                                    selectedElementIds = if (chosen) {
+                                        selectedElementIds - element.id
+                                    } else {
+                                        selectedElementIds + element.id
+                                    }
+                                    selectedElementId = element.id
+                                } else {
+                                    selectedElementId = element.id
+                                    selectedElementIds = setOf(element.id)
+                                }
+                                selectedGroupId = element.groupId
+                                editingText = source?.text.orEmpty()
+                            }
+                        ) {
+                            Text(
+                                (if (chosen && multiSelectMode) "✓ " else "") +
+                                    (source?.displayName ?: "Element") +
+                                    if (element.groupId != null) " · Dalam grup" else ""
+                            )
+                        }
                     }
                 }
             }
