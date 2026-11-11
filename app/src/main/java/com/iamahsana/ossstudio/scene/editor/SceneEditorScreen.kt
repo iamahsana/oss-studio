@@ -1108,6 +1108,10 @@ fun SceneEditorScreen(
             val activeGroupId = selectedGroupId
                 ?: selectedGroupIds.singleOrNull()
                 ?: selectedElementGroupId
+                // If the current scene contains only one group, keep its
+                // ungroup action available even when transient selection state
+                // is cleared during recomposition or restored from persistence.
+                ?: scene.elements.mapNotNull { it.groupId }.distinct().singleOrNull()
             val canGroup = selectedElementIds.size >= 2 &&
                 scene.elements.filter { it.id in selectedElementIds }.all { it.groupId == null }
             if (canGroup || activeGroupId != null) {
