@@ -52,6 +52,8 @@ class SceneCanvasLayerController(
     private var cachedBitmaps: Map<String, Bitmap> = emptyMap()
     private var cachedMovies: Map<String, Movie> = emptyMap()
     private var cachedExtensionElements: Map<String, OssInstalledElement> = emptyMap()
+    private var cachedExtensionFonts: Map<String, Typeface> = emptyMap()
+    private var cachedFontElements: Map<String, OssInstalledElement> = emptyMap()
     private var assetSignature: String = ""
     private val assetGeneration = AtomicLong(0L)
     private val gifStartTime = SystemClock.uptimeMillis()
@@ -112,6 +114,8 @@ class SceneCanvasLayerController(
                     cachedBitmaps = decoded.bitmaps
                     cachedMovies = decoded.movies
                     cachedExtensionElements = decoded.extensions
+                    cachedExtensionFonts = decoded.fonts
+                    cachedFontElements = decoded.fontElements
                     assetSignature = assetSignature(project, scene)
                     state = State.WAITING_FOR_GL
                     waitForGl()
@@ -125,7 +129,9 @@ class SceneCanvasLayerController(
     private data class DecodedAssets(
         val bitmaps: Map<String, Bitmap>,
         val movies: Map<String, Movie>,
-        val extensions: Map<String, OssInstalledElement>
+        val extensions: Map<String, OssInstalledElement>,
+        val fonts: Map<String, Typeface>,
+        val fontElements: Map<String, OssInstalledElement>
     )
 
     private fun decodeSceneAssets(project: SceneProject, scene: Scene): DecodedAssets {
@@ -135,10 +141,29 @@ class SceneCanvasLayerController(
         val decoded = LinkedHashMap<String, Bitmap>()
         val movies = LinkedHashMap<String, Movie>()
         val extensions = LinkedHashMap<String, OssInstalledElement>()
+        val fonts = LinkedHashMap<String, Typeface>()
+        val fontElements = LinkedHashMap<String, OssInstalledElement>()
         project.sources.filter {
             it.id in usedSourceIds && it.enabled &&
-                it.type in setOf(SceneSourceType.IMAGE, SceneSourceType.GIF, SceneSourceType.VIDEO, SceneSourceType.EXTENSION)
+                it.type in setOf(SceneSourceType.IMAGE, SceneSourceType.GIF, SceneSourceType.VIDEO, SceneSourceType.EXTENSION) ||
+                    (it.type == SceneSourceType.TEXT && it.settings["fontExtensionId"] != null && it.settings["fontTypeId"] != null)
         }.forEach { source ->
+            val fontExtensionId = source.settings["fontExtensionId"]
+            val fontTypeId = source.settings["fontTypeId"]
+            if (fontExtensionId != null && fontTypeId != null) {
+                val fontElement = OssInstalledElementCatalog.find(
+                    File(appContext.filesDir, "extensions"),
+                    fontExtensionId,
+                    fontTypeId
+                )?.takeIf { it.kind == "font" }
+                if (fontElement != null) {
+                    fontElements[source.id] = fontElement
+                    fontElement.resolveResource()?.let { fontFile ->
+                        runCatching { Typeface.createFromFile(fontFile) }.getOrNull()?.let { fonts[source.id] = it }
+                    }
+                }
+            }
+            if (source.type == SceneSourceType.TEXT) return@forEach
             val extension = if (source.type == SceneSourceType.EXTENSION) {
                 val extensionId = source.extensionId ?: return@forEach
                 val typeId = source.typeId ?: return@forEach
@@ -163,7 +188,7 @@ class SceneCanvasLayerController(
                 "video" -> decodeVideoFrame(file)?.let { decoded[source.id] = it }
             }
         }
-        return DecodedAssets(decoded, movies, extensions)
+        return DecodedAssets(decoded, movies, extensions, fonts, fontElements)
     }
 
     private fun decodeBitmap(file: File): Bitmap? {
@@ -262,6 +287,8 @@ class SceneCanvasLayerController(
                     cachedBitmaps = decoded.bitmaps
                     cachedMovies = decoded.movies
                     cachedExtensionElements = decoded.extensions
+                    cachedExtensionFonts = decoded.fonts
+                    cachedFontElements = decoded.fontElements
                     assetSignature = assetSignature(project, scene)
                     drawFrame(surface)
                 }.onFailure { error ->
@@ -291,6 +318,13 @@ class SceneCanvasLayerController(
                     }
                     val resource = extension?.resolveResource()
                     "${source.id}:${source.type}:${source.enabled}:${source.extensionId}:${source.typeId}:${extension?.kind}:${resource?.length()}:${resource?.lastModified()}"
+                } else if (source.settings["fontExtensionId"] != null && source.settings["fontTypeId"] != null) {
+                    val font = cachedFontElements[source.id]?.takeIf {
+                        it.extensionId == source.settings["fontExtensionId"] &&
+                            it.typeId == source.settings["fontTypeId"]
+                    }
+                    val resource = font?.resolveResource()
+                    "${source.id}:${source.type}:font:${source.settings["fontExtensionId"]}:${source.settings["fontTypeId"]}:${resource?.length()}:${resource?.lastModified()}"
                 } else {
                     val asset = source.assetId?.let(assets::get)
                     "${source.id}:${source.type}:${source.enabled}:${source.assetId}:${asset?.sha256}:${asset?.relativePath}"
@@ -507,7 +541,7 @@ class SceneCanvasLayerController(
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = runCatching { Color.parseColor(textStyle.color) }.getOrDefault(Color.WHITE)
             textSize = size.coerceIn(8f, 512f)
-            typeface = Typeface.create(textStyle.fontFamily, typefaceStyle)
+            typeface = Typeface.create(cachedExtensionFonts[source.id] ?: Typeface.create(textStyle.fontFamily, Typeface.NORMAL), typefaceStyle)
             textAlign = alignment
             alpha = (opacity * 255f).toInt().coerceIn(0, 255)
             letterSpacing = textStyle.letterSpacing
@@ -600,6 +634,8 @@ class SceneCanvasLayerController(
             cachedBitmaps = emptyMap()
             cachedMovies = emptyMap()
             cachedExtensionElements = emptyMap()
+            cachedExtensionFonts = emptyMap()
+            cachedFontElements = emptyMap()
             assetSignature = ""
             project = null
             scene = null
