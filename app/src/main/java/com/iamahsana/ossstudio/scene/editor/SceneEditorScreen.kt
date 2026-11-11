@@ -1084,6 +1084,12 @@ fun SceneEditorScreen(
             }
             if (editorPanel == "layers") {
             Text("Elemen scene", style = MaterialTheme.typography.titleMedium)
+            // Keep the selection controls together so the complete toolbar can
+            // be brought into view as one scroll target on compact phone screens.
+            Column(
+                modifier = Modifier.fillMaxWidth().testTag("scene-selection-toolbar"),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
             // Keep the mode toggle outside the horizontal action scroller.
             // A horizontally scrollable parent was preventing reliable taps in
             // the emulator accessibility test and is also harder to use on phones.
@@ -1168,6 +1174,7 @@ fun SceneEditorScreen(
                     "Mode pemilihan aktif · Dipilih: ${selectedElementIds.size}",
                     modifier = Modifier.testTag("scene-multiselect-status")
                 )
+            }
             }
             // The lower work area already owns vertical scrolling. Keep layer
             // rows in that single scroll chain so taps and accessibility
