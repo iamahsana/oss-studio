@@ -197,7 +197,9 @@ object SceneProjectEditor {
         val sceneIndex = project.scenes.indexOfFirst { it.id == sceneId }
         require(sceneIndex >= 0) { "Scene does not exist" }
         val scene = project.scenes[sceneIndex]
-        require(scene.elements.any { it.id == elementId }) { "Element does not exist" }
+        val target = scene.elements.firstOrNull { it.id == elementId }
+            ?: throw IllegalArgumentException("Element does not exist")
+        if (target.locked) return project
         return project.copy(
             scenes = project.scenes.toMutableList().also { list ->
                 list[sceneIndex] = scene.copy(
@@ -263,7 +265,9 @@ object SceneProjectEditor {
         val sceneIndex = project.scenes.indexOfFirst { it.id == sceneId }
         require(sceneIndex >= 0) { "Scene does not exist" }
         val scene = project.scenes[sceneIndex]
-        require(scene.elements.any { it.id == elementId }) { "Element does not exist" }
+        val target = scene.elements.firstOrNull { it.id == elementId }
+            ?: throw IllegalArgumentException("Element does not exist")
+        if (target.locked) return project
         val updatedScene = scene.copy(
             elements = scene.elements.map {
                 if (it.id == elementId) it.copy(transform = transform) else it
