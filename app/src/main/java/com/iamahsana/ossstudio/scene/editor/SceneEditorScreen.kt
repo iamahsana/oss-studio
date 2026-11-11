@@ -1013,11 +1013,12 @@ fun SceneEditorScreen(
                         Slider(
                             value = selectedElement.opacity,
                             onValueChange = {
-                                applyProject(SceneProjectEditor.setElementOpacity(
+                                if (!selectedElement.locked) applyProject(SceneProjectEditor.setElementOpacity(
                                     currentProject, scene.id, selectedElement.id, it, System.currentTimeMillis()
                                 ))
                             },
-                            valueRange = 0f..1f
+                            valueRange = 0f..1f,
+                            enabled = !selectedElement.locked
                         )
                         val selectedExtensionMedia = selectedSource.type == SceneSourceType.EXTENSION &&
                             installedElements.any {
@@ -1041,7 +1042,8 @@ fun SceneEditorScreen(
                                         crop.copy(left = value.coerceAtMost(maxLeft)), System.currentTimeMillis()
                                     ))
                                 },
-                                valueRange = 0f..maxLeft
+                                valueRange = 0f..maxLeft,
+                                enabled = !selectedElement.locked
                             )
                             Text("Kanan: ${(crop.right * 100f).toInt()}%")
                             val minRight = crop.left + minGapX
@@ -1053,7 +1055,8 @@ fun SceneEditorScreen(
                                         crop.copy(right = value.coerceAtLeast(minRight)), System.currentTimeMillis()
                                     ))
                                 },
-                                valueRange = minRight..1f
+                                valueRange = minRight..1f,
+                                enabled = !selectedElement.locked
                             )
                             Text("Atas: ${(crop.top * 100f).toInt()}%")
                             val minGapY = minOf(0.01f, (crop.bottom - crop.top) / 2f)
@@ -1066,7 +1069,8 @@ fun SceneEditorScreen(
                                         crop.copy(top = value.coerceAtMost(maxTop)), System.currentTimeMillis()
                                     ))
                                 },
-                                valueRange = 0f..maxTop
+                                valueRange = 0f..maxTop,
+                                enabled = !selectedElement.locked
                             )
                             Text("Bawah: ${(crop.bottom * 100f).toInt()}%")
                             val minBottom = crop.top + minGapY
@@ -1078,9 +1082,10 @@ fun SceneEditorScreen(
                                         crop.copy(bottom = value.coerceAtLeast(minBottom)), System.currentTimeMillis()
                                     ))
                                 },
-                                valueRange = minBottom..1f
+                                valueRange = minBottom..1f,
+                                enabled = !selectedElement.locked
                             )
-                            OutlinedButton(onClick = {
+                            OutlinedButton(enabled = !selectedElement.locked, onClick = {
                                 applyProject(SceneProjectEditor.updateElementCrop(
                                     currentProject, scene.id, selectedElement.id, CropRect(), System.currentTimeMillis()
                                 ))
