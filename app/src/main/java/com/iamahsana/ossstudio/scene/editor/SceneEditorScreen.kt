@@ -1608,10 +1608,11 @@ fun SceneEditorScreen(
             val canAlignSelection = selectedElementsForAlignment.size >= 2 &&
                 selectedElementsForAlignment.none { it.locked }
             if (canAlignSelection) {
-                val left = selectedElementsForAlignment.minOf { it.transform.x }
-                val top = selectedElementsForAlignment.minOf { it.transform.y }
-                val right = selectedElementsForAlignment.maxOf { it.transform.x + it.transform.width }
-                val bottom = selectedElementsForAlignment.maxOf { it.transform.y + it.transform.height }
+                val selectionBounds = selectedElementsForAlignment.map { it.transform.rotatedBounds() }
+                val left = selectionBounds.minOf { it.left }
+                val top = selectionBounds.minOf { it.top }
+                val right = selectionBounds.maxOf { it.right }
+                val bottom = selectionBounds.maxOf { it.bottom }
                 val centerX = (left + right) / 2f
                 val centerY = (top + bottom) / 2f
                 fun alignSelection(horizontal: String? = null, vertical: String? = null) {
@@ -1619,21 +1620,25 @@ fun SceneEditorScreen(
                     val timestamp = System.currentTimeMillis()
                     selectedElementsForAlignment.forEach { selected ->
                         val transform = selected.transform
-                        val nextX = when (horizontal) {
-                            "left" -> left
-                            "center" -> centerX - transform.width / 2f
-                            "right" -> right - transform.width
-                            else -> transform.x
-                        }.coerceIn(0f, (scene.canvas.width - transform.width).coerceAtLeast(0f))
-                        val nextY = when (vertical) {
-                            "top" -> top
-                            "center" -> centerY - transform.height / 2f
-                            "bottom" -> bottom - transform.height
-                            else -> transform.y
-                        }.coerceIn(0f, (scene.canvas.height - transform.height).coerceAtLeast(0f))
+                        val bounds = transform.rotatedBounds()
+                        val deltaX = when (horizontal) {
+                            "left" -> left - bounds.left
+                            "center" -> centerX - (bounds.left + bounds.right) / 2f
+                            "right" -> right - bounds.right
+                            else -> 0f
+                        }
+                        val deltaY = when (vertical) {
+                            "top" -> top - bounds.top
+                            "center" -> centerY - (bounds.top + bounds.bottom) / 2f
+                            "bottom" -> bottom - bounds.bottom
+                            else -> 0f
+                        }
+                        val nextTransform = transform.copy(
+                            x = transform.x + deltaX,
+                            y = transform.y + deltaY
+                        ).clampedToCanvas(scene.canvas)
                         updated = SceneProjectEditor.updateTransform(
-                            updated, scene.id, selected.id,
-                            transform.copy(x = nextX, y = nextY), timestamp
+                            updated, scene.id, selected.id, nextTransform, timestamp
                         )
                     }
                     applyProject(updated)
@@ -1656,13 +1661,13 @@ fun SceneEditorScreen(
                     OutlinedButton(modifier = Modifier.testTag("scene-multi-align-bottom"), onClick = { alignSelection(vertical = "bottom") }) { Text("Bawah") }
                 }
                 if (selectedElementsForAlignment.size >= 3) {
-                    val horizontalOrder = selectedElementsForAlignment.sortedBy { it.transform.x }
-                    val verticalOrder = selectedElementsForAlignment.sortedBy { it.transform.y }
+                    val horizontalOrder = selectedElementsForAlignment.sortedBy { it.transform.rotatedBounds().left }
+                    val verticalOrder = selectedElementsForAlignment.sortedBy { it.transform.rotatedBounds().top }
                     val horizontalGap = (
-                        right - left - selectedElementsForAlignment.sumOf { it.transform.width.toDouble() }
+                        right - left - selectedElementsForAlignment.sumOf { it.transform.rotatedBounds().width.toDouble() }
                     ).toFloat() / (horizontalOrder.size - 1)
                     val verticalGap = (
-                        bottom - top - selectedElementsForAlignment.sumOf { it.transform.height.toDouble() }
+                        bottom - top - selectedElementsForAlignment.sumOf { it.transform.rotatedBounds().height.toDouble() }
                     ).toFloat() / (verticalOrder.size - 1)
                     Row(
                         modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
@@ -1676,11 +1681,14 @@ fun SceneEditorScreen(
                                 val timestamp = System.currentTimeMillis()
                                 var cursor = left
                                 horizontalOrder.forEach { item ->
+                                    val bounds = item.transform.rotatedBounds()
+                                    val nextTransform = item.transform.copy(
+                                        x = item.transform.x + cursor - bounds.left
+                                    ).clampedToCanvas(scene.canvas)
                                     updated = SceneProjectEditor.updateTransform(
-                                        updated, scene.id, item.id,
-                                        item.transform.copy(x = cursor), timestamp
+                                        updated, scene.id, item.id, nextTransform, timestamp
                                     )
-                                    cursor += item.transform.width + horizontalGap
+                                    cursor += bounds.width + horizontalGap
                                 }
                                 applyProject(updated)
                             }
@@ -1693,11 +1701,14 @@ fun SceneEditorScreen(
                                 val timestamp = System.currentTimeMillis()
                                 var cursor = top
                                 verticalOrder.forEach { item ->
+                                    val bounds = item.transform.rotatedBounds()
+                                    val nextTransform = item.transform.copy(
+                                        y = item.transform.y + cursor - bounds.top
+                                    ).clampedToCanvas(scene.canvas)
                                     updated = SceneProjectEditor.updateTransform(
-                                        updated, scene.id, item.id,
-                                        item.transform.copy(y = cursor), timestamp
+                                        updated, scene.id, item.id, nextTransform, timestamp
                                     )
-                                    cursor += item.transform.height + verticalGap
+                                    cursor += bounds.height + verticalGap
                                 }
                                 applyProject(updated)
                             }
