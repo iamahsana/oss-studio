@@ -16,6 +16,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.view.Surface
+import com.iamahsana.ossstudio.extensions.OssInstalledElementCatalog
 import com.iamahsana.ossstudio.scene.model.Scene
 import com.iamahsana.ossstudio.scene.model.SceneProject
 import com.iamahsana.ossstudio.scene.model.SceneSource
@@ -131,17 +132,29 @@ class SceneCanvasLayerController(
         val movies = LinkedHashMap<String, Movie>()
         project.sources.filter {
             it.id in usedSourceIds && it.enabled &&
-                it.type in setOf(SceneSourceType.IMAGE, SceneSourceType.GIF, SceneSourceType.VIDEO)
+                it.type in setOf(SceneSourceType.IMAGE, SceneSourceType.GIF, SceneSourceType.VIDEO, SceneSourceType.EXTENSION)
         }.forEach { source ->
-            val asset = source.assetId?.let(assets::get) ?: return@forEach
-            val file = File(appContext.filesDir, asset.relativePath)
-            if (source.type == SceneSourceType.GIF) {
-                val movie = runCatching { Movie.decodeFile(file.absolutePath) }.getOrNull()
-                if (movie != null) movies[source.id] = movie
-                else decodeBitmap(file)?.let { decoded[source.id] = it }
+            val extension = if (source.type == SceneSourceType.EXTENSION) {
+                val extensionId = source.extensionId ?: return@forEach
+                val typeId = source.typeId ?: return@forEach
+                OssInstalledElementCatalog.find(File(appContext.filesDir, "extensions"), extensionId, typeId)
+                    ?: return@forEach
+            } else null
+            val file = if (extension != null) {
+                extension.resolveResource() ?: return@forEach
             } else {
-                val bitmap = if (source.type == SceneSourceType.VIDEO) decodeVideoFrame(file) else decodeBitmap(file)
-                if (bitmap != null) decoded[source.id] = bitmap
+                val asset = source.assetId?.let(assets::get) ?: return@forEach
+                File(appContext.filesDir, asset.relativePath)
+            }
+            val kind = extension?.kind ?: source.type.name.lowercase()
+            when (kind) {
+                "gif" -> {
+                    val movie = runCatching { Movie.decodeFile(file.absolutePath) }.getOrNull()
+                    if (movie != null) movies[source.id] = movie
+                    else decodeBitmap(file)?.let { decoded[source.id] = it }
+                }
+                "image", "sticker" -> decodeBitmap(file)?.let { decoded[source.id] = it }
+                "video" -> decodeVideoFrame(file)?.let { decoded[source.id] = it }
             }
         }
         return DecodedAssets(decoded, movies)
@@ -256,11 +269,26 @@ class SceneCanvasLayerController(
         val usedSourceIds = scene.elements.filter { it.visible && shouldRenderElement(it) }
             .mapTo(mutableSetOf()) { it.sourceId }
         return project.sources
-            .filter { it.id in usedSourceIds && it.type in setOf(SceneSourceType.IMAGE, SceneSourceType.GIF, SceneSourceType.VIDEO) }
+            .filter {
+                it.id in usedSourceIds &&
+                    it.type in setOf(SceneSourceType.IMAGE, SceneSourceType.GIF, SceneSourceType.VIDEO, SceneSourceType.EXTENSION)
+            }
             .sortedBy { it.id }
             .joinToString("|") { source ->
-                val asset = source.assetId?.let(assets::get)
-                "${source.id}:${source.type}:${source.enabled}:${source.assetId}:${asset?.sha256}:${asset?.relativePath}"
+                if (source.type == SceneSourceType.EXTENSION) {
+                    val extension = if (source.extensionId != null && source.typeId != null) {
+                        OssInstalledElementCatalog.find(
+                            File(appContext.filesDir, "extensions"),
+                            source.extensionId,
+                            source.typeId
+                        )
+                    } else null
+                    val resource = extension?.resolveResource()
+                    "${source.id}:${source.type}:${source.enabled}:${source.extensionId}:${source.typeId}:${extension?.kind}:${resource?.length()}:${resource?.lastModified()}"
+                } else {
+                    val asset = source.assetId?.let(assets::get)
+                    "${source.id}:${source.type}:${source.enabled}:${source.assetId}:${asset?.sha256}:${asset?.relativePath}"
+                }
             }
     }
 
@@ -328,7 +356,7 @@ class SceneCanvasLayerController(
                             drawCachedBitmap(canvas, source.id, element.crop, destination, element.opacity)
                         SceneSourceType.CAMERA -> drawPlaceholder(canvas, destination, "Camera", element.opacity)
                         SceneSourceType.USB_VIDEO -> drawPlaceholder(canvas, destination, "USB Video", element.opacity)
-                        SceneSourceType.EXTENSION -> drawPlaceholder(canvas, destination, "Extension unavailable: ${source.displayName}", element.opacity)
+                        SceneSourceType.EXTENSION -> drawExtensionElement(canvas, source, destination, element.opacity, scaleY)
                         SceneSourceType.SHARE_SCREEN -> Unit
                     }
                     canvas.restoreToCount(save)
@@ -337,9 +365,18 @@ class SceneCanvasLayerController(
             surface.unlockCanvasAndPost(canvas)
         }
         val hasVisibleGif = currentScene.elements.any { element ->
-            element.visible && shouldRenderElement(element) &&
-                sources[element.sourceId]?.type == SceneSourceType.GIF &&
-                cachedMovies.containsKey(element.sourceId)
+            if (!element.visible || !shouldRenderElement(element)) return@any false
+            val source = sources[element.sourceId] ?: return@any false
+            if (!cachedMovies.containsKey(source.id)) return@any false
+            source.type == SceneSourceType.GIF || (
+                source.type == SceneSourceType.EXTENSION &&
+                    source.extensionId != null && source.typeId != null &&
+                    OssInstalledElementCatalog.find(
+                        File(appContext.filesDir, "extensions"),
+                        source.extensionId,
+                        source.typeId
+                    )?.kind == "gif"
+            )
         }
         if (hasVisibleGif && state == State.READY) {
             mainHandler.removeCallbacks(gifFrameRunnable)
@@ -371,12 +408,95 @@ class SceneCanvasLayerController(
         canvas.drawBitmap(bitmap, sourceRect, destination, paint)
     }
 
+    private fun drawExtensionElement(
+        canvas: Canvas,
+        source: SceneSource,
+        destination: RectF,
+        opacity: Float,
+        scaleY: Float
+    ) {
+        val extensionId = source.extensionId
+        val typeId = source.typeId
+        val element = if (extensionId != null && typeId != null) {
+            OssInstalledElementCatalog.find(
+                File(appContext.filesDir, "extensions"),
+                extensionId,
+                typeId
+            )
+        } else null
+        if (element == null) {
+            drawPlaceholder(canvas, destination, "Extension unavailable: ${source.displayName}", opacity)
+            return
+        }
+        when (element.kind) {
+            "text" -> drawText(
+                canvas, source, destination, opacity, scaleY,
+                textOverride = source.settings["text"] ?: source.displayName
+            )
+            "image", "sticker", "video" ->
+                drawCachedBitmap(canvas, source.id, com.iamahsana.ossstudio.scene.model.CropRect(), destination, opacity)
+            "gif" -> {
+                if (!drawCachedMovie(canvas, source.id, destination, opacity)) {
+                    drawCachedBitmap(canvas, source.id, com.iamahsana.ossstudio.scene.model.CropRect(), destination, opacity)
+                }
+            }
+            "shape", "background" -> drawExtensionShape(canvas, source, destination, opacity)
+            else -> drawPlaceholder(canvas, destination, "Unsupported element: ${element.kind}", opacity)
+        }
+    }
+
+    private fun drawCachedMovie(
+        canvas: Canvas,
+        sourceId: String,
+        destination: RectF,
+        opacity: Float
+    ): Boolean {
+        val movie = cachedMovies[sourceId] ?: return false
+        if (movie.width() <= 0 || movie.height() <= 0) return false
+        val layer = canvas.saveLayer(destination, Paint().apply {
+            alpha = (opacity * 255f).toInt().coerceIn(0, 255)
+        })
+        val duration = movie.duration().takeIf { it > 0 } ?: 1000
+        movie.setTime(((SystemClock.uptimeMillis() - gifStartTime) % duration).toInt())
+        canvas.save()
+        canvas.scale(destination.width() / movie.width().toFloat(), destination.height() / movie.height().toFloat())
+        movie.draw(canvas, 0f, 0f)
+        canvas.restore()
+        canvas.restoreToCount(layer)
+        return true
+    }
+
+    private fun drawExtensionShape(
+        canvas: Canvas,
+        source: SceneSource,
+        bounds: RectF,
+        opacity: Float
+    ) {
+        val color = runCatching {
+            Color.parseColor(source.settings["fillColor"] ?: source.settings["color"] ?: "#FFFFFFFF")
+        }.getOrDefault(Color.WHITE)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            this.color = color
+            alpha = (opacity * 255f).toInt().coerceIn(0, 255)
+            style = Paint.Style.FILL
+        }
+        when (source.settings["shape"]?.lowercase()) {
+            "circle", "ellipse", "oval" -> canvas.drawOval(bounds, paint)
+            "rounded-rect", "roundrect" -> {
+                val radius = (source.settings["cornerRadius"]?.toFloatOrNull() ?: 18f).coerceIn(0f, 256f)
+                canvas.drawRoundRect(bounds, radius, radius, paint)
+            }
+            else -> canvas.drawRect(bounds, paint)
+        }
+    }
+
     private fun drawText(
         canvas: Canvas,
         source: SceneSource,
         bounds: RectF,
         opacity: Float,
-        scaleY: Float
+        scaleY: Float,
+        textOverride: String? = null
     ) {
         val textStyle = SceneTextStyle.fromSettings(source.settings)
         val size = textStyle.fontSize * scaleY
@@ -401,7 +521,7 @@ class SceneCanvasLayerController(
             isUnderlineText = textStyle.underline
             isStrikeThruText = textStyle.strikethrough
         }
-        val text = source.text.orEmpty()
+        val text = textOverride ?: source.text.orEmpty()
         val lines = wrapText(text, paint, bounds.width().coerceAtLeast(1f))
         val metrics = paint.fontMetrics
         val lineHeight = (metrics.descent - metrics.ascent) * textStyle.lineSpacing
