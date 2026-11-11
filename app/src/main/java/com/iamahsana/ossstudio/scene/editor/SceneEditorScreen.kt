@@ -1121,19 +1121,30 @@ fun SceneEditorScreen(
                 ) {
                     if (canGroup) {
                         OutlinedButton(onClick = {
-                            val groupId = java.util.UUID.randomUUID().toString()
+                            // Snapshot the selected IDs before publishing the project.
+                            // The parent callback may synchronously update the active
+                            // project and trigger recomposition.
+                            val idsToGroup = selectedElementIds.toSet()
                             val updated = SceneProjectEditor.groupElements(
-                                currentProject, scene.id, selectedElementIds,
-                                System.currentTimeMillis(), groupId = groupId
+                                currentProject, scene.id, idsToGroup,
+                                System.currentTimeMillis()
                             )
-                            // Keep every member selected after grouping. This makes
-                            // the group selection recoverable from the scene model itself,
-                            // even if the transient selectedGroupId state is recomposed.
-                            selectedGroupId = groupId
+                            val persistedGroupId = updated.scenes
+                                .first { it.id == scene.id }
+                                .elements
+                                .filter { it.id in idsToGroup }
+                                .mapNotNull { it.groupId }
+                                .distinct()
+                                .singleOrNull()
+                                ?: error("Grouping did not persist a single group ID")
                             multiSelectMode = false
-                            selectedElementId = selectedElementIds.firstOrNull()
+                            selectedElementId = idsToGroup.firstOrNull()
+                            selectedElementIds = idsToGroup
                             editorPanel = "layers"
                             applyProject(updated)
+                            // Read the ID back from the actual updated model rather
+                            // than relying on a separately generated transient value.
+                            selectedGroupId = persistedGroupId
                         }) { Text("Kelompokkan (" + selectedElementIds.size + ")") }
                     }
                     if (activeGroupId != null) {
