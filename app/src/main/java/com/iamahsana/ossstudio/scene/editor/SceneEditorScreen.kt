@@ -578,7 +578,8 @@ fun SceneEditorScreen(
                                 it.extensionId == source.extensionId && it.typeId == source.typeId
                             }
                             val resource = extensionElement?.resolveResource()
-                            when (extensionElement?.kind) {
+                            val extensionKind = extensionElement?.kind
+                            when (extensionKind) {
                                 "text" -> {
                                     val textColor = runCatching {
                                         Color(android.graphics.Color.parseColor(source.settings["color"] ?: "#FFFFFFFF"))
@@ -598,8 +599,8 @@ fun SceneEditorScreen(
                                         SceneAssetImage(
                                             filePath = resource.absolutePath,
                                             contentDescription = source.displayName,
-                                            isVideo = extensionElement.kind == "video",
-                                            isGif = extensionElement.kind == "gif"
+                                            isVideo = extensionKind == "video",
+                                            isGif = extensionKind == "gif"
                                         )
                                     } else {
                                         Text("Resource ekstensi tidak tersedia", color = Color.White)
