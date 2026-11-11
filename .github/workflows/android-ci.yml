@@ -9,7 +9,7 @@ on:
 
 concurrency:
   group: oss-android-ci-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 permissions:
   contents: read
