@@ -5,6 +5,7 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.performClick
@@ -143,8 +144,10 @@ class MainActivitySmokeTest {
         }
         composeRule.onNodeWithText("Kelompokkan (2)").performClick()
         composeRule.waitUntil("group membership is persisted on both selected layers", 5_000L) {
-            composeRule.onAllNodesWithText(" · Dalam grup", substring = true)
-                .fetchSemanticsNodes().size == 2
+            composeRule.onAllNodesWithTag("scene-element-item").fetchSemanticsNodes().count { node ->
+                node.config.getOrNull(SemanticsProperties.Text)
+                    ?.any { it.text.contains("Dalam grup") } == true
+            } == 2
         }
         composeRule.waitUntil("group selection exposes the ungroup action", 5_000L) {
             composeRule.onAllNodesWithTag("scene-ungroup").fetchSemanticsNodes().isNotEmpty()
