@@ -1099,9 +1099,12 @@ fun SceneEditorScreen(
                 .filter { it.id in selectedElementIds }
                 .mapNotNull { it.groupId }
                 .distinct()
+            val selectedElementGroupId = selectedElementId?.let { selectedId ->
+                scene.elements.firstOrNull { it.id == selectedId }?.groupId
+            }
             val activeGroupId = selectedGroupId?.takeIf { groupId ->
                 scene.elements.any { it.groupId == groupId }
-            } ?: selectedGroupIds.singleOrNull()
+            } ?: selectedGroupIds.singleOrNull() ?: selectedElementGroupId
             val canGroup = selectedElementIds.size >= 2 &&
                 scene.elements.filter { it.id in selectedElementIds }.all { it.groupId == null }
             if (canGroup || activeGroupId != null) {
