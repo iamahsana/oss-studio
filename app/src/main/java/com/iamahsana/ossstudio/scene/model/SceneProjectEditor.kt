@@ -347,6 +347,49 @@ object SceneProjectEditor {
         )
     }
 
+    fun scaleGroup(
+        project: SceneProject,
+        sceneId: String,
+        groupId: String,
+        scaleFactor: Float,
+        nowEpochMillis: Long
+    ): SceneProject {
+        require(groupId.isNotBlank()) { "Group ID must not be blank" }
+        require(scaleFactor.isFinite() && scaleFactor > 0f) { "Group scale must be positive and finite" }
+        val sceneIndex = project.scenes.indexOfFirst { it.id == sceneId }
+        require(sceneIndex >= 0) { "Scene does not exist" }
+        val scene = project.scenes[sceneIndex]
+        val members = scene.elements.filter { it.groupId == groupId }
+        require(members.isNotEmpty()) { "Group does not exist" }
+        val movable = members.filterNot { it.locked }
+        if (movable.isEmpty()) return project
+        val originX = members.minOf { it.transform.x }
+        val originY = members.minOf { it.transform.y }
+        val right = members.maxOf { it.transform.x + it.transform.width }
+        val bottom = members.maxOf { it.transform.y + it.transform.height }
+        val minScale = movable.maxOf { maxOf(16f / it.transform.width, 16f / it.transform.height) }
+        val maxScaleX = if (right > originX) (scene.canvas.width - originX) / (right - originX) else 2f
+        val maxScaleY = if (bottom > originY) (scene.canvas.height - originY) / (bottom - originY) else 2f
+        val boundedScale = scaleFactor.coerceIn(minScale, minOf(maxScaleX, maxScaleY).coerceAtLeast(minScale))
+        val updatedScene = scene.copy(
+            elements = scene.elements.map { element ->
+                if (element.groupId == groupId && !element.locked) {
+                    val transform = element.transform
+                    element.copy(transform = transform.copy(
+                        x = originX + (transform.x - originX) * boundedScale,
+                        y = originY + (transform.y - originY) * boundedScale,
+                        width = transform.width * boundedScale,
+                        height = transform.height * boundedScale
+                    ))
+                } else element
+            }
+        )
+        return project.copy(
+            scenes = project.scenes.toMutableList().also { it[sceneIndex] = updatedScene },
+            updatedAtEpochMillis = nextTimestamp(project, nowEpochMillis)
+        )
+    }
+
     fun ungroupElements(
         project: SceneProject,
         sceneId: String,
