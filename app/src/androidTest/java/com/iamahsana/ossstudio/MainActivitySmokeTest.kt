@@ -142,8 +142,13 @@ class MainActivitySmokeTest {
             composeRule.onAllNodesWithText("Mode pemilihan aktif · Dipilih: 2").fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithText("Kelompokkan (2)").performClick()
-        composeRule.onNodeWithText("Pisahkan grup").assertExists()
-        composeRule.onNodeWithText("Pisahkan grup").performClick()
+        composeRule.waitUntil("group selection exposes the ungroup action", 5_000L) {
+            composeRule.onAllNodesWithTag("scene-ungroup").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithTag("scene-ungroup").assertIsDisplayed().performClick()
+        composeRule.waitUntil("ungrouping removes the split-group action", 5_000L) {
+            composeRule.onAllNodesWithTag("scene-ungroup").fetchSemanticsNodes().isEmpty()
+        }
         assertTrue("Ungrouping should remove the split-group action", composeRule.onAllNodesWithText("Pisahkan grup").fetchSemanticsNodes().isEmpty())
     }
 
