@@ -147,7 +147,7 @@ class MainActivitySmokeTest {
         // Group controls and layer rows share one vertical work-area scroll.
         // Return to the selection toolbar before asserting its ungroup action;
         // otherwise the correct control can be outside the visible semantics tree.
-        composeRule.onNodeWithTag("scene-multiselect-toggle").performScrollTo()
+        composeRule.onNodeWithTag("scene-selection-toolbar").performScrollTo()
         composeRule.waitUntil("group selection exposes the ungroup action", 5_000L) {
             composeRule.onAllNodesWithTag("scene-ungroup").fetchSemanticsNodes().isNotEmpty()
         }
