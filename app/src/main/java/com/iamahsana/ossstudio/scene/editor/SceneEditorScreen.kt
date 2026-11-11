@@ -1147,10 +1147,11 @@ fun SceneEditorScreen(
                             selectedElementId = idsToGroup.firstOrNull()
                             selectedElementIds = idsToGroup
                             editorPanel = "layers"
-                            applyProject(updated)
-                            // Read the ID back from the actual updated model rather
-                            // than relying on a separately generated transient value.
+                            // Publish the group selection before notifying the parent.
+                            // The parent may synchronously replace the project and trigger
+                            // recomposition; the action must already have a stable group ID.
                             selectedGroupId = persistedGroupId
+                            applyProject(updated)
                         }) { Text("Kelompokkan (" + selectedElementIds.size + ")") }
                     }
                     if (activeGroupId != null) {
