@@ -219,3 +219,35 @@ private fun isSafeRelativeAssetPath(path: String): Boolean {
 
 private val NAMESPACED_EXTENSION_ID = Regex("^[a-z][a-z0-9]*(?:[.-][a-z0-9]+){1,5}$")
 private val NAMESPACED_TYPE_ID = Regex("^[a-z][a-z0-9]*(?:[.-][a-z0-9]+){1,7}$")
+
+/** Axis-aligned canvas bounds occupied by an element after rotation around its center. */
+data class ElementBounds(
+    val left: Float,
+    val top: Float,
+    val right: Float,
+    val bottom: Float
+) {
+    val width: Float get() = right - left
+    val height: Float get() = bottom - top
+}
+
+/**
+ * Returns the axis-aligned bounding box of this rotated element in canvas pixels.
+ * The element's stored x/y remain the unrotated top-left anchor used by rendering.
+ */
+fun ElementTransform.rotatedBounds(): ElementBounds {
+    val radians = Math.toRadians(rotationDegrees.toDouble())
+    val cosine = kotlin.math.abs(kotlin.math.cos(radians)).toFloat()
+    val sine = kotlin.math.abs(kotlin.math.sin(radians)).toFloat()
+    val halfWidth = (width * cosine + height * sine) / 2f
+    val halfHeight = (width * sine + height * cosine) / 2f
+    val centerX = x + width / 2f
+    val centerY = y + height / 2f
+    return ElementBounds(
+        left = centerX - halfWidth,
+        top = centerY - halfHeight,
+        right = centerX + halfWidth,
+        bottom = centerY + halfHeight
+    )
+}
+
