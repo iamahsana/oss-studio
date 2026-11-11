@@ -612,7 +612,11 @@ fun SceneEditorScreen(
                                 textAlign = alignment,
                                 fontWeight = if (source.settings["bold"] == "true") FontWeight.Bold else FontWeight.Normal,
                                 fontStyle = if (source.settings["italic"] == "true") FontStyle.Italic else FontStyle.Normal,
-                                fontFamily = customFontFamily ?: FontFamily.Default,
+                                fontFamily = customFontFamily ?: when (source.settings["fontFamily"]) {
+                                    "serif" -> FontFamily.Serif
+                                    "monospace" -> FontFamily.Monospace
+                                    else -> FontFamily.Default
+                                },
                                 fontSize = ((textSize * scale) / density.density).sp
                             )
                         } else if (source.type == SceneSourceType.EXTENSION) {
