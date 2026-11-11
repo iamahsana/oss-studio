@@ -116,11 +116,14 @@ class SceneCanvasLayerController(
             val result = runCatching { decodeSceneAssets(project, scene) }
             mainHandler.post {
                 if (state != State.LOADING_ASSETS) {
-                    result.getOrNull()?.bitmaps?.values?.forEach { if (!it.isRecycled) it.recycle() }
+                    result.getOrNull()?.let { decoded ->
+                        decoded.bitmaps.values.forEach { if (!it.isRecycled) it.recycle() }
+                        decoded.videoDecoders.values.forEach { it.release() }
+                    }
                     return@post
                 }
                 result.onSuccess { decoded ->
-                    cachedBitmaps = decoded.bitmaps
+                    cachedBitmaps = decoded.bitmaps.filterKeys { !decoded.videoDecoders.containsKey(it) }
                     cachedMovies = decoded.movies
                     cachedExtensionElements = decoded.extensions
                     cachedExtensionFonts = decoded.fonts
@@ -228,9 +231,14 @@ class SceneCanvasLayerController(
 
         init {
             require(file.isFile) { "Video asset is missing" }
-            retriever.setDataSource(file.absolutePath)
-            durationMs = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
-                ?.toLongOrNull()?.coerceAtLeast(1L) ?: 1L
+            try {
+                retriever.setDataSource(file.absolutePath)
+                durationMs = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
+                    ?.toLongOrNull()?.coerceAtLeast(1L) ?: 1L
+            } catch (error: Exception) {
+                runCatching { retriever.release() }
+                throw error
+            }
         }
 
         fun frameAt(positionMs: Long): Bitmap? = runCatching {
@@ -303,11 +311,15 @@ class SceneCanvasLayerController(
             val result = runCatching { decodeSceneAssets(project, scene) }
             mainHandler.post {
                 if (state != State.READY || generation != assetGeneration.get()) {
-                    result.getOrNull()?.bitmaps?.values?.forEach { if (!it.isRecycled) it.recycle() }
+                    result.getOrNull()?.let { decoded ->
+                        decoded.bitmaps.values.forEach { if (!it.isRecycled) it.recycle() }
+                        decoded.videoDecoders.values.forEach { it.release() }
+                    }
                     return@post
                 }
                 result.onSuccess { decoded ->
                     cachedBitmaps.values.forEach { if (!it.isRecycled) it.recycle() }
+                    cachedVideoFrames.values.forEach { if (!it.isRecycled) it.recycle() }
                     val oldVideoDecoders = cachedVideoDecoders
                     cachedBitmaps = decoded.bitmaps.filterKeys { !decoded.videoDecoders.containsKey(it) }
                     cachedMovies = decoded.movies
@@ -725,7 +737,7 @@ class SceneCanvasLayerController(
             project = null
             scene = null
             state = State.STOPPED
-            assetExecutor.shutdownNow()
+            assetExecutor.shutdown()
         } else {
             state = State.FAILED
             throw IllegalStateException("Scene overlay cleanup is incomplete")
