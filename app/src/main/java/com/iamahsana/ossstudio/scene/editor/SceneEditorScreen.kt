@@ -137,6 +137,8 @@ fun SceneEditorScreen(
     var selectedElementId by remember(project.id) { mutableStateOf<String?>(null) }
     var multiSelectMode by remember(project.id) { mutableStateOf(false) }
     var selectedElementIds by remember(project.id) { mutableStateOf<Set<String>>(emptySet()) }
+    val latestSelectedElementIds = rememberUpdatedState(selectedElementIds)
+    val latestMultiSelectMode = rememberUpdatedState(multiSelectMode)
     val history = remember(project.id) { SceneProjectHistory(project) }
     var historyVersion by remember(project.id) { mutableStateOf(0) }
     var showCanvasSettings by remember(project.id) { mutableStateOf(false) }
@@ -1765,11 +1767,12 @@ fun SceneEditorScreen(
                         OutlinedButton(
                             modifier = Modifier.weight(1f).testTag("scene-element-item"),
                             onClick = {
-                                if (multiSelectMode) {
-                                    selectedElementIds = if (element.id in selectedElementIds) {
-                                        selectedElementIds - element.id
+                                if (latestMultiSelectMode.value) {
+                                    val currentSelection = latestSelectedElementIds.value
+                                    selectedElementIds = if (element.id in currentSelection) {
+                                        currentSelection - element.id
                                     } else {
-                                        selectedElementIds + element.id
+                                        currentSelection + element.id
                                     }
                                     selectedElementId = element.id
                                 } else {
