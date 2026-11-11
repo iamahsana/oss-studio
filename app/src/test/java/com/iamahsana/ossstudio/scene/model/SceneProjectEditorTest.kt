@@ -586,4 +586,40 @@ class SceneProjectEditorTest {
         )
     }
 
+    @Test
+    fun rotatedBoundsCenterAlignmentUsesVisualCentersOnVerticalAxis() {
+        val transforms = listOf(
+            ElementTransform(x = 120f, y = 120f, width = 140f, height = 40f, rotationDegrees = 90f),
+            ElementTransform(x = 320f, y = 240f, width = 80f, height = 120f, rotationDegrees = 15f),
+            ElementTransform(x = 520f, y = 180f, width = 100f, height = 60f, rotationDegrees = 0f)
+        )
+        val aligned = alignTransformsByRotatedBounds(
+            transforms, horizontal = false, alignment = ElementBoundsAlignment.CENTER,
+            canvas = CanvasSize.DEFAULT_PORTRAIT
+        )
+        val centers = aligned.map { transform ->
+            val bounds = transform.rotatedBounds()
+            (bounds.top + bounds.bottom) / 2f
+        }
+        assertEquals(centers[0], centers[1], 0.001f)
+        assertEquals(centers[1], centers[2], 0.001f)
+    }
+
+    @Test
+    fun rotatedBoundsDistributionCreatesEqualVisualGapsOnVerticalAxis() {
+        val transforms = listOf(
+            ElementTransform(x = 120f, y = 80f, width = 140f, height = 40f, rotationDegrees = 90f),
+            ElementTransform(x = 320f, y = 440f, width = 80f, height = 120f, rotationDegrees = 15f),
+            ElementTransform(x = 520f, y = 240f, width = 100f, height = 60f, rotationDegrees = 0f)
+        )
+        val distributed = distributeTransformsByRotatedBounds(
+            transforms, horizontal = false, canvas = CanvasSize.DEFAULT_PORTRAIT
+        )!!
+        val ordered = distributed.map { it.rotatedBounds() }.sortedBy { it.top }
+        val firstGap = ordered[1].top - ordered[0].bottom
+        val secondGap = ordered[2].top - ordered[1].bottom
+        assertEquals(firstGap, secondGap, 0.001f)
+        assertTrue(ordered.all { it.top >= 0f && it.bottom <= 1920f })
+    }
+
 }
