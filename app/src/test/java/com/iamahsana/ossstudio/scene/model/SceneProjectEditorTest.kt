@@ -429,4 +429,41 @@ class SceneProjectEditorTest {
         assertEquals(CanvasSize.DEFAULT_PORTRAIT, original.scenes.single().canvas)
     }
 
+
+    @Test
+    fun rotatedBoundsAtZeroDegreesMatchOriginalElementRectangle() {
+        val bounds = ElementTransform(x = 10f, y = 20f, width = 100f, height = 40f)
+            .rotatedBounds()
+        assertEquals(10f, bounds.left, 0.001f)
+        assertEquals(20f, bounds.top, 0.001f)
+        assertEquals(110f, bounds.right, 0.001f)
+        assertEquals(60f, bounds.bottom, 0.001f)
+    }
+
+    @Test
+    fun rotatedBoundsAtNinetyDegreesSwapWidthAndHeightAroundCenter() {
+        val bounds = ElementTransform(
+            x = 10f, y = 20f, width = 100f, height = 40f, rotationDegrees = 90f
+        ).rotatedBounds()
+        assertEquals(40f, bounds.left, 0.001f)
+        assertEquals(-10f, bounds.top, 0.001f)
+        assertEquals(80f, bounds.right, 0.001f)
+        assertEquals(90f, bounds.bottom, 0.001f)
+        assertEquals(40f, bounds.width, 0.001f)
+        assertEquals(100f, bounds.height, 0.001f)
+    }
+
+    @Test
+    fun rotatedBoundsHandleArbitraryAnglesAndNegativeCoordinates() {
+        val bounds = ElementTransform(
+            x = -20f, y = 15f, width = 120f, height = 60f, rotationDegrees = 45f
+        ).rotatedBounds()
+        assertTrue(bounds.left < -20f)
+        assertTrue(bounds.top < 15f)
+        assertTrue(bounds.right > 100f)
+        assertTrue(bounds.bottom > 75f)
+        assertEquals(bounds.width, bounds.right - bounds.left, 0.001f)
+        assertEquals(bounds.height, bounds.bottom - bounds.top, 0.001f)
+    }
+
 }
