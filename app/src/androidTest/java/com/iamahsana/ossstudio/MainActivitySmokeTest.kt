@@ -143,11 +143,11 @@ class MainActivitySmokeTest {
         composeRule.waitUntil("multi-select state reflects both selected layers", 5_000L) {
             composeRule.onAllNodesWithText("Mode pemilihan aktif · Dipilih: 2").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithText("Kelompokkan (2)").performClick()
-        // Group controls and layer rows share one vertical work-area scroll.
-        // Return to the selection toolbar before asserting its ungroup action;
-        // otherwise the correct control can be outside the visible semantics tree.
+        // Bring the grouping action into the visible work area before tapping it.
+        // Otherwise Compose can dispatch a click against an off-screen control
+        // after the layer list has been scrolled to the second selected row.
         composeRule.onNodeWithTag("scene-selection-toolbar").performScrollTo()
+        composeRule.onNodeWithText("Kelompokkan (2)").assertIsDisplayed().performClick()
         composeRule.waitUntil("group selection exposes the ungroup action", 5_000L) {
             composeRule.onAllNodesWithTag("scene-ungroup").fetchSemanticsNodes().isNotEmpty()
         }
