@@ -181,11 +181,14 @@ class MainActivitySmokeTest {
             return text.substringAfter("Dipilih: ", "-1").toIntOrNull() ?: -1
         }
         val layerRows = composeRule.onAllNodesWithTag("scene-element-item")
-        layerRows[0].performScrollTo().performClick()
+        layerRows[0].performScrollTo().assertIsDisplayed().assertHasClickAction()
+            .performTouchInput { click() }
         composeRule.waitUntil("first layer becomes selected", 5_000L) { selectedLayerCount() == 1 }
-        composeRule.onAllNodesWithTag("scene-element-item")[1].performScrollTo().performClick()
+        composeRule.onAllNodesWithTag("scene-element-item")[1].performScrollTo()
+            .assertIsDisplayed().assertHasClickAction().performTouchInput { click() }
         composeRule.waitUntil("second layer becomes selected", 5_000L) { selectedLayerCount() == 2 }
-        composeRule.onAllNodesWithTag("scene-element-item")[2].performScrollTo().performClick()
+        composeRule.onAllNodesWithTag("scene-element-item")[2].performScrollTo()
+            .assertIsDisplayed().assertHasClickAction().performTouchInput { click() }
         composeRule.waitUntil("third layer becomes selected", 5_000L) { selectedLayerCount() == 3 }
         composeRule.onNodeWithTag("scene-multi-align-left").performScrollTo().assertIsDisplayed().performClick()
         composeRule.onNodeWithTag("scene-multi-align-center-y").performScrollTo().assertIsDisplayed().performClick()
