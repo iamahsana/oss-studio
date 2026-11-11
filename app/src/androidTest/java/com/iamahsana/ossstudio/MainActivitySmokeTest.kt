@@ -106,6 +106,7 @@ class MainActivitySmokeTest {
         composeRule.onNodeWithTag("scene-resize-handle-bottom-start", useUnmergedTree = true).assertExists().assertIsDisplayed()
         composeRule.onNodeWithTag("scene-panel-properties").performScrollTo().performClick()
         composeRule.onNodeWithTag("scene-properties-panel").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-transform-rotation").performScrollTo().assertIsDisplayed().assertIsEnabled()
         composeRule.onNodeWithTag("text-letter-spacing").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithTag("text-line-spacing").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithTag("text-reset-formatting").performScrollTo().assertIsDisplayed().performClick()
