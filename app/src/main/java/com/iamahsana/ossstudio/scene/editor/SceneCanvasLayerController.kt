@@ -564,7 +564,7 @@ class SceneCanvasLayerController(
                 drawCachedBitmap(canvas, source.id, crop, destination, opacity)
             "gif" -> {
                 if (!drawCachedMovie(canvas, source.id, destination, opacity)) {
-                    drawCachedBitmap(canvas, source.id, com.iamahsana.ossstudio.scene.model.CropRect(), destination, opacity)
+                    drawCachedBitmap(canvas, source.id, crop, destination, opacity)
                 }
             }
             "shape" -> drawExtensionShape(canvas, source, destination, opacity)
