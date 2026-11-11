@@ -1082,7 +1082,9 @@ fun SceneEditorScreen(
                     }
                 }
             }
-            if (editorPanel == "layers") {
+            // Keep multi-selection and group controls mounted while a property panel is open.
+            // Selection state must not disappear just because the user switches workspace tabs.
+            if (editorPanel == "layers" || multiSelectMode || selectedElementIds.size >= 2 || selectedGroupId != null) {
             Text("Elemen scene", style = MaterialTheme.typography.titleMedium)
             // Keep the selection controls together so the complete toolbar can
             // be brought into view as one scroll target on compact phone screens.
