@@ -87,6 +87,9 @@ import androidx.compose.ui.unit.sp
 import com.iamahsana.ossstudio.extensions.OssInstalledElement
 import com.iamahsana.ossstudio.extensions.OssInstalledElementCatalog
 import com.iamahsana.ossstudio.scene.model.ElementTransform
+import com.iamahsana.ossstudio.scene.model.ElementBoundsAlignment
+import com.iamahsana.ossstudio.scene.model.alignTransformsByRotatedBounds
+import com.iamahsana.ossstudio.scene.model.distributeTransformsByRotatedBounds
 import com.iamahsana.ossstudio.scene.model.clampedToCanvas
 import com.iamahsana.ossstudio.scene.model.rotatedBounds
 import com.iamahsana.ossstudio.scene.model.SceneProject
@@ -1608,41 +1611,54 @@ fun SceneEditorScreen(
             val canAlignSelection = selectedElementsForAlignment.size >= 2 &&
                 selectedElementsForAlignment.none { it.locked }
             if (canAlignSelection) {
-                val selectionBounds = selectedElementsForAlignment.map { it.transform.rotatedBounds() }
-                val left = selectionBounds.minOf { it.left }
-                val top = selectionBounds.minOf { it.top }
-                val right = selectionBounds.maxOf { it.right }
-                val bottom = selectionBounds.maxOf { it.bottom }
-                val centerX = (left + right) / 2f
-                val centerY = (top + bottom) / 2f
                 fun alignSelection(horizontal: String? = null, vertical: String? = null) {
                     var updated = currentProject
                     val timestamp = System.currentTimeMillis()
-                    selectedElementsForAlignment.forEach { selected ->
-                        val transform = selected.transform
-                        val bounds = transform.rotatedBounds()
-                        val deltaX = when (horizontal) {
-                            "left" -> left - bounds.left
-                            "center" -> centerX - (bounds.left + bounds.right) / 2f
-                            "right" -> right - bounds.right
-                            else -> 0f
+                    val original = selectedElementsForAlignment.map { it.transform }
+                    val aligned = original.mapIndexed { index, transform ->
+                        var result = transform
+                        if (horizontal != null) {
+                            result = alignTransformsByRotatedBounds(
+                                original, true,
+                                when (horizontal) {
+                                    "left" -> ElementBoundsAlignment.START
+                                    "center" -> ElementBoundsAlignment.CENTER
+                                    else -> ElementBoundsAlignment.END
+                                }, scene.canvas
+                            )[index]
                         }
-                        val deltaY = when (vertical) {
-                            "top" -> top - bounds.top
-                            "center" -> centerY - (bounds.top + bounds.bottom) / 2f
-                            "bottom" -> bottom - bounds.bottom
-                            else -> 0f
+                        if (vertical != null) {
+                            result = alignTransformsByRotatedBounds(
+                                if (horizontal == null) original else original.mapIndexed { i, item ->
+                                    if (i == index) result else item
+                                },
+                                false,
+                                when (vertical) {
+                                    "top" -> ElementBoundsAlignment.START
+                                    "center" -> ElementBoundsAlignment.CENTER
+                                    else -> ElementBoundsAlignment.END
+                                }, scene.canvas
+                            )[index]
                         }
-                        val nextTransform = transform.copy(
-                            x = transform.x + deltaX,
-                            y = transform.y + deltaY
-                        ).clampedToCanvas(scene.canvas)
+                        result
+                    }
+                    selectedElementsForAlignment.zip(aligned).forEach { (selected, transform) ->
                         updated = SceneProjectEditor.updateTransform(
-                            updated, scene.id, selected.id, nextTransform, timestamp
+                            updated, scene.id, selected.id, transform, timestamp
                         )
                     }
                     applyProject(updated)
                 }
+                val horizontalDistribution = if (selectedElementsForAlignment.size >= 3) {
+                    distributeTransformsByRotatedBounds(
+                        selectedElementsForAlignment.map { it.transform }, true, scene.canvas
+                    )
+                } else null
+                val verticalDistribution = if (selectedElementsForAlignment.size >= 3) {
+                    distributeTransformsByRotatedBounds(
+                        selectedElementsForAlignment.map { it.transform }, false, scene.canvas
+                    )
+                } else null
                 Text("Ratakan pilihan", style = MaterialTheme.typography.labelLarge)
                 Row(
                     modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
@@ -1661,56 +1677,40 @@ fun SceneEditorScreen(
                     OutlinedButton(modifier = Modifier.testTag("scene-multi-align-bottom"), onClick = { alignSelection(vertical = "bottom") }) { Text("Bawah") }
                 }
                 if (selectedElementsForAlignment.size >= 3) {
-                    val horizontalOrder = selectedElementsForAlignment.sortedBy { it.transform.rotatedBounds().left }
-                    val verticalOrder = selectedElementsForAlignment.sortedBy { it.transform.rotatedBounds().top }
-                    val horizontalGap = (
-                        right - left - selectedElementsForAlignment.sumOf { it.transform.rotatedBounds().width.toDouble() }
-                    ).toFloat() / (horizontalOrder.size - 1)
-                    val verticalGap = (
-                        bottom - top - selectedElementsForAlignment.sumOf { it.transform.rotatedBounds().height.toDouble() }
-                    ).toFloat() / (verticalOrder.size - 1)
                     Row(
                         modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         OutlinedButton(
                             modifier = Modifier.testTag("scene-distribute-horizontal"),
-                            enabled = horizontalGap >= 0f,
+                            enabled = horizontalDistribution != null,
                             onClick = {
-                                var updated = currentProject
-                                val timestamp = System.currentTimeMillis()
-                                var cursor = left
-                                horizontalOrder.forEach { item ->
-                                    val bounds = item.transform.rotatedBounds()
-                                    val nextTransform = item.transform.copy(
-                                        x = item.transform.x + cursor - bounds.left
-                                    ).clampedToCanvas(scene.canvas)
-                                    updated = SceneProjectEditor.updateTransform(
-                                        updated, scene.id, item.id, nextTransform, timestamp
-                                    )
-                                    cursor += bounds.width + horizontalGap
+                                horizontalDistribution?.let { transforms ->
+                                    var updated = currentProject
+                                    val timestamp = System.currentTimeMillis()
+                                    selectedElementsForAlignment.zip(transforms).forEach { (item, transform) ->
+                                        updated = SceneProjectEditor.updateTransform(
+                                            updated, scene.id, item.id, transform, timestamp
+                                        )
+                                    }
+                                    applyProject(updated)
                                 }
-                                applyProject(updated)
                             }
                         ) { Text("Sebar horizontal") }
                         OutlinedButton(
                             modifier = Modifier.testTag("scene-distribute-vertical"),
-                            enabled = verticalGap >= 0f,
+                            enabled = verticalDistribution != null,
                             onClick = {
-                                var updated = currentProject
-                                val timestamp = System.currentTimeMillis()
-                                var cursor = top
-                                verticalOrder.forEach { item ->
-                                    val bounds = item.transform.rotatedBounds()
-                                    val nextTransform = item.transform.copy(
-                                        y = item.transform.y + cursor - bounds.top
-                                    ).clampedToCanvas(scene.canvas)
-                                    updated = SceneProjectEditor.updateTransform(
-                                        updated, scene.id, item.id, nextTransform, timestamp
-                                    )
-                                    cursor += bounds.height + verticalGap
+                                verticalDistribution?.let { transforms ->
+                                    var updated = currentProject
+                                    val timestamp = System.currentTimeMillis()
+                                    selectedElementsForAlignment.zip(transforms).forEach { (item, transform) ->
+                                        updated = SceneProjectEditor.updateTransform(
+                                            updated, scene.id, item.id, transform, timestamp
+                                        )
+                                    }
+                                    applyProject(updated)
                                 }
-                                applyProject(updated)
                             }
                         ) { Text("Sebar vertikal") }
                     }
