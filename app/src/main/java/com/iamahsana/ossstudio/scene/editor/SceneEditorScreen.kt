@@ -39,6 +39,9 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.runtime.produceState
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -106,9 +109,19 @@ fun SceneEditorScreen(
     onProjectChange: (SceneProject) -> Unit
 ) {
     var currentProject by remember(project.id) { mutableStateOf(project) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var extensionCatalogRevision by remember(context.filesDir) { mutableStateOf(0) }
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) extensionCatalogRevision++
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
     val installedElements by produceState(
         initialValue = emptyList<OssInstalledElement>(),
-        key1 = context.filesDir
+        key1 = context.filesDir,
+        key2 = extensionCatalogRevision
     ) {
         value = withContext(Dispatchers.IO) {
             OssInstalledElementCatalog.listInstalled(File(context.filesDir, "extensions"))
