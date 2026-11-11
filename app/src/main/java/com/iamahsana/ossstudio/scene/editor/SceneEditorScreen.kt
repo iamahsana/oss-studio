@@ -447,8 +447,7 @@ fun SceneEditorScreen(
                     }
                 }
                 scene.elements.sortedBy { it.zIndex }.filter { it.visible }.forEach { element ->
-                    val source = currentProject.sources.firstOrNull { it.id == element.sourceId } ?: return@forEach
-                    val transform = element.transform
+                    val source = currentProject.sources.firstOrNull { it.id == element.sourceId } ?: return@forEach                    val transform = element.transform
                     Box(
                         modifier = Modifier
                             .offset {
@@ -897,8 +896,7 @@ fun SceneEditorScreen(
                                     applyProject(SceneProjectEditor.updateElementCrop(
                                         currentProject, scene.id, selectedElement.id,
                                         crop.copy(right = value.coerceAtLeast(minRight)), System.currentTimeMillis()
-                                    ))
-                                },
+                                    ))                                },
                                 valueRange = minRight..1f
                             )
                             Text("Atas: ${(crop.top * 100f).toInt()}%")
@@ -1133,9 +1131,11 @@ fun SceneEditorScreen(
                     modifier = Modifier.testTag("scene-multiselect-status")
                 )
             }
+            // The lower work area already owns vertical scrolling. Keep layer
+            // rows in that single scroll chain so taps and accessibility
+            // actions are not trapped by a nested, bounded scroll container.
             Column(
-                modifier = Modifier.fillMaxWidth().heightIn(max = 280.dp)
-                    .verticalScroll(rememberScrollState()),
+                modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 scene.elements.sortedBy { it.zIndex }.forEach { element ->
