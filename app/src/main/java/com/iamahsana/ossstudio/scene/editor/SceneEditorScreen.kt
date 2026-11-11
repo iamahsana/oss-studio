@@ -1794,6 +1794,24 @@ fun SceneEditorScreen(
                                 ))
                             }
                         ) { Text("↓") }
+                        TextButton(
+                            modifier = Modifier.testTag("scene-layer-send-back-" + element.id),
+                            enabled = layerPosition > 0,
+                            onClick = {
+                                applyProject(SceneProjectEditor.moveElement(
+                                    currentProject, scene.id, element.id, 0, System.currentTimeMillis()
+                                ))
+                            }
+                        ) { Text("Paling bawah") }
+                        TextButton(
+                            modifier = Modifier.testTag("scene-layer-bring-front-" + element.id),
+                            enabled = layerPosition < layerCount - 1,
+                            onClick = {
+                                applyProject(SceneProjectEditor.moveElement(
+                                    currentProject, scene.id, element.id, layerCount - 1, System.currentTimeMillis()
+                                ))
+                            }
+                        ) { Text("Paling atas") }
                     }
                 }
             }
