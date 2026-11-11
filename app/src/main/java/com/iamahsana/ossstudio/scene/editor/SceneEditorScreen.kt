@@ -1121,9 +1121,12 @@ fun SceneEditorScreen(
             val canGroup = selectedElementIds.size >= 2 &&
                 scene.elements.filter { it.id in selectedElementIds }.all { it.groupId == null }
             if (canGroup || activeGroupId != null) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                // Keep group actions in the vertical work-area flow. A horizontal
+                // scroller can leave the only available action clipped on narrow
+                // phone layouts, making grouping appear unavailable to touch users.
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     if (canGroup) {
                         OutlinedButton(onClick = {
