@@ -143,8 +143,10 @@ class MainActivitySmokeTest {
             composeRule.onAllNodesWithText("Mode pemilihan aktif · Dipilih: 2").fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithText("Kelompokkan (2)").performClick()
+        // Assert the structural marker rather than matching text inside the
+        // merged OutlinedButton semantics tree, which can differ across API levels.
         composeRule.waitUntil("group membership is persisted on both selected layers", 5_000L) {
-            composeRule.onAllNodesWithText("Dalam grup", substring = true, useUnmergedTree = true)
+            composeRule.onAllNodesWithTag("scene-element-group-marker", useUnmergedTree = true)
                 .fetchSemanticsNodes().size == 2
         }
         composeRule.waitUntil("group selection exposes the ungroup action", 5_000L) {
