@@ -57,6 +57,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -239,7 +240,15 @@ fun SceneEditorScreen(
     val selectedSource = currentProject.sources.firstOrNull { it.id == selectedElement?.sourceId }
     var editingText by remember(selectedElementId) { mutableStateOf(selectedSource?.text ?: selectedSource?.settings?.get("text").orEmpty()) }
     var confirmRemoveSource by remember(selectedElementId) { mutableStateOf(false) }
-    var editorPanel by remember(project.id) { mutableStateOf("layers") }
+    var editorPanel by remember(project.id) { mutableStateOf("elements") }
+    val toolRailScrollState = rememberScrollState()
+    LaunchedEffect(editorPanel, toolRailScrollState.maxValue) {
+        if (editorPanel == "properties" || editorPanel == "layers") {
+            toolRailScrollState.animateScrollTo(toolRailScrollState.maxValue)
+        } else {
+            toolRailScrollState.animateScrollTo(0)
+        }
+    }
     fun updateTextSettings(values: Map<String, String?>) {
         if (selectedElement?.locked == true) return
         val sourceId = selectedSource?.id ?: return
@@ -915,7 +924,7 @@ fun SceneEditorScreen(
                 }
             }
             Row(
-                modifier = Modifier.fillMaxWidth().height(220.dp).horizontalScroll(rememberScrollState()),
+                modifier = Modifier.fillMaxWidth().height(220.dp).horizontalScroll(toolRailScrollState),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
             Surface(
