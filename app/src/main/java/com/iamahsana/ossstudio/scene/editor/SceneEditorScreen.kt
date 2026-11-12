@@ -998,24 +998,19 @@ fun SceneEditorScreen(
                 color = MaterialTheme.colorScheme.surfaceVariant
             ) {
                 Column(
-                    modifier = Modifier.fillMaxSize().padding(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier = Modifier.fillMaxSize().padding(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
+                    Text("Panel editor", style = MaterialTheme.typography.titleSmall)
                     OutlinedButton(
-                        modifier = Modifier.testTag("scene-panel-layers"),
+                        modifier = Modifier.fillMaxWidth().testTag("scene-panel-layers"),
                         onClick = { editorPanel = "layers" }
                     ) { Text("Lapisan") }
                     OutlinedButton(
-                        modifier = Modifier.testTag("scene-panel-properties"),
+                        modifier = Modifier.fillMaxWidth().testTag("scene-panel-properties"),
                         enabled = selectedElement != null && selectedSource != null,
                         onClick = { editorPanel = "properties" }
                     ) { Text("Properti") }
-                    OutlinedButton(onClick = { openCanvasSettings() }) { Text("Canvas") }
-                }
                 }
             }
             if (editorPanel == "properties" && selectedElement != null && selectedSource != null) {
