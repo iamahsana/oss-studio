@@ -6,7 +6,6 @@ import androidx.compose.ui.test.click
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.SemanticsActions
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.hasText
@@ -19,6 +18,7 @@ import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.test.swipeUp
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onAllNodesWithTag
 import android.content.Context
@@ -191,7 +191,7 @@ class MainActivitySmokeTest {
             if (!allVisible) {
                 composeRule.onNodeWithTag("scene-editor-scroll")
                     .performSemanticsAction(SemanticsActions.ScrollBy) { scrollBy ->
-                        scrollBy(Offset(0f, 900f))
+                        scrollBy(0f, 900f)
                     }
             }
         }
