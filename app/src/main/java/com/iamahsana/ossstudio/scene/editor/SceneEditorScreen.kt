@@ -2281,6 +2281,7 @@ private fun sceneColorWithAlpha(color: String, alpha: Float): String {
     return "#${alphaHex}${normalized.drop(3)}".uppercase()
 }
 
+@Composable
 private fun SceneAnimatedGif(filePath: String, contentDescription: String, crop: CropRect) {
     val context = LocalContext.current
     val drawable = produceState<Drawable?>(initialValue = null, key1 = filePath) {
