@@ -1290,7 +1290,7 @@ fun SceneEditorScreen(
                             enabled = !selectedElement.locked
                         )
                         Row(
-                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             OutlinedButton(
