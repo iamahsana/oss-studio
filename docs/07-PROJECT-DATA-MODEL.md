@@ -4,7 +4,8 @@
 - **Project:** stable ID, name, created/updated timestamps, active scene ID, project version. Canvas orientation is not an independent per-project preference; it is derived from the selected LIVE output configuration.
 - **Scene:** stable ID, project ID, name, canonical logical width/height derived from the selected LIVE orientation, background, ordered element references.
 - **SceneElement:** stable ID, source ID, extension ID/version requirement, transform, crop, opacity, visibility, lock state, z-order, grouping metadata.
-- **Source:** stable ID, source type, extension ID/version, configuration, asset reference, enabled state, lifecycle state.
+- **Source:** stable ID, source type, extension ID/version/element type requirement, configuration, asset reference, enabled state, lifecycle state.
+- **Extension requirement:** stable extension ID, semantic version, and namespaced element type ID. It is serialized on the source and copied to every scene element that uses that source; the project codec writes schema v3 and continues reading schema v1/v2 with no extension requirement.
 - **Asset:** stable ID, local URI/path, MIME type, size, checksum, dimensions/duration where applicable, provenance/license metadata.
 - **DestinationProfile:** stable ID, platform label, endpoint reference, secret reference, stream settings, enabled state.
 - **ExtensionRecord:** extension ID, version, source/provenance, license, declared capabilities, permissions, compatibility, enabled state.

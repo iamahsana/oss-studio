@@ -34,6 +34,59 @@ class OssPackArchiveValidatorTest {
         } finally { archive.delete() }
     }
 
+    @Test
+    fun readsNamespacedElementTypesFromTheDeclarativeManifest() {
+        val archive = createPackage(
+            byteArrayOf(1, 4, 9),
+            elementTypes = listOf("element.text", "element.image"),
+            capabilities = listOf("text-element", "image-element")
+        )
+        try {
+            val manifest = OssPackArchiveValidator.validate(archive).manifest
+            assertEquals(listOf("element.text", "element.image"), manifest.elementTypes)
+        } finally {
+            archive.delete()
+        }
+    }
+
+    @Test
+    fun rejectsUnnamespacedAndDuplicateElementTypes() {
+        val unnamespaced = createPackage(
+            byteArrayOf(1, 2, 3),
+            elementTypes = listOf("text"),
+            capabilities = listOf("text-element")
+        )
+        val duplicate = createPackage(
+            byteArrayOf(4, 5, 6),
+            elementTypes = listOf("element.text", "element.text"),
+            capabilities = listOf("text-element")
+        )
+        try {
+            assertTrue(runCatching { OssPackArchiveValidator.validate(unnamespaced) }
+                .exceptionOrNull()?.message.orEmpty().contains("namespaced"))
+            assertTrue(runCatching { OssPackArchiveValidator.validate(duplicate) }
+                .exceptionOrNull()?.message.orEmpty().contains("duplikat"))
+        } finally {
+            unnamespaced.delete()
+            duplicate.delete()
+        }
+    }
+
+    @Test
+    fun rejectsElementTypesWithoutADeclaredElementCapability() {
+        val archive = createPackage(
+            byteArrayOf(7, 8, 9),
+            elementTypes = listOf("element.text"),
+            capabilities = listOf("scene-overlay")
+        )
+        try {
+            val error = runCatching { OssPackArchiveValidator.validate(archive) }.exceptionOrNull()
+            assertTrue(error?.message.orEmpty().contains("kapabilitas scene element"))
+        } finally {
+            archive.delete()
+        }
+    }
+
     @Test fun installerPublishesOnlyVerifiedFiles() {
         val payload = byteArrayOf(8, 7, 6, 5)
         val archive = createPackage(payload)
@@ -146,9 +199,18 @@ class OssPackArchiveValidatorTest {
         } finally { archive.delete() }
     }
 
-    private fun createPackage(payload: ByteArray, manifestHashOverride: String? = null, id: String = "com.example.overlay"): File {
+    private fun createPackage(
+        payload: ByteArray,
+        manifestHashOverride: String? = null,
+        id: String = "com.example.overlay",
+        elementTypes: List<String> = emptyList(),
+        capabilities: List<String> = listOf("scene-overlay")
+    ): File {
         val hash = manifestHashOverride ?: sha256(payload)
-        val manifest = """{"format":"oss-extension","formatVersion":1,"payloadType":"declarative","id":"$id","name":"Example Overlay","version":"1.0.0","minOssVersion":"0.1.0","capabilities":["scene-overlay"],"files":[{"path":"assets/icon.png","sha256":"$hash","byteSize":""" + payload.size + "}]} "
+        val capabilityJson = capabilities.joinToString(",") { "\"$it\"" }
+        val elementTypesField = if (elementTypes.isEmpty()) "" else
+            ",\"elementTypes\":[" + elementTypes.joinToString(",") { "\"$it\"" } + "]"
+        val manifest = """{"format":"oss-extension","formatVersion":1,"payloadType":"declarative","id":"$id","name":"Example Overlay","version":"1.0.0","minOssVersion":"0.1.0","capabilities":[$capabilityJson]$elementTypesField,"files":[{"path":"assets/icon.png","sha256":"$hash","byteSize":""" + payload.size + "}]} "
         return createRawPackage(manifest.trim(), "assets/icon.png" to payload)
     }
 

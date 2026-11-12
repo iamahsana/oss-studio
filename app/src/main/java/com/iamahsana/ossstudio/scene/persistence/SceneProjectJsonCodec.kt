@@ -9,7 +9,7 @@ import org.json.JSONObject
  * use v2 so old projects are upgraded only after a successful decode.
  */
 object SceneProjectJsonCodec {
-    private const val CURRENT_SCHEMA_VERSION = 2
+    private const val CURRENT_SCHEMA_VERSION = 3
     private const val MIN_SUPPORTED_SCHEMA_VERSION = 1
 
     fun encode(p: SceneProject): String = JSONObject().apply {
@@ -44,6 +44,7 @@ object SceneProjectJsonCodec {
             put("cl",e.crop.left);put("ct",e.crop.top);put("cr",e.crop.right);put("cb",e.crop.bottom)
             put("opacity",e.opacity);put("visible",e.visible);put("locked",e.locked);put("z",e.zIndex)
             put("group",e.groupId ?: JSONObject.NULL)
+            put("extension", extensionToJson(e.extensionRequirement))
         }) } })
     }
     private fun sceneFromJson(o: JSONObject): Scene {
@@ -51,7 +52,8 @@ object SceneProjectJsonCodec {
             SceneElement(e.getString("id"),e.getString("source"),
                 ElementTransform(e.getDouble("x").toFloat(),e.getDouble("y").toFloat(),e.getDouble("w").toFloat(),e.getDouble("h").toFloat(),e.getDouble("rotation").toFloat()),
                 CropRect(e.getDouble("cl").toFloat(),e.getDouble("ct").toFloat(),e.getDouble("cr").toFloat(),e.getDouble("cb").toFloat()),
-                e.getDouble("opacity").toFloat(),e.getBoolean("visible"),e.getBoolean("locked"),e.getInt("z"),e.opt("group").nullableString())
+                e.getDouble("opacity").toFloat(),e.getBoolean("visible"),e.getBoolean("locked"),e.getInt("z"),
+                e.opt("group").nullableString(), extensionFromJson(e.opt("extension")))
         }
         return Scene(o.getString("id"),o.getString("projectId"),o.getString("name"),
             CanvasSize(o.getInt("w"),o.getInt("h"),CanvasOrientation.valueOf(o.getString("orientation"))),
@@ -61,12 +63,14 @@ object SceneProjectJsonCodec {
         put("id",s.id);put("type",s.type.name);put("name",s.displayName);put("enabled",s.enabled)
         put("asset",s.assetId ?: JSONObject.NULL);put("text",s.text ?: JSONObject.NULL)
         put("settings",JSONObject().apply { s.settings.forEach { (k,v)->put(k,v) } })
+        put("extension", extensionToJson(s.extensionRequirement))
     }
     private fun sourceFromJson(o: JSONObject): SceneSource {
         val settings=o.getJSONObject("settings")
         return SceneSource(o.getString("id"),SceneSourceType.valueOf(o.getString("type")),o.getString("name"),
             o.getBoolean("enabled"),o.opt("asset").nullableString(),o.opt("text").nullableString(),
-            buildMap { settings.keys().forEach { put(it,settings.getString(it)) } })
+            buildMap { settings.keys().forEach { put(it,settings.getString(it)) } },
+            extensionFromJson(o.opt("extension")))
     }
     private fun assetToJson(a: SceneAsset)=JSONObject().apply {
         put("id",a.id);put("path",a.relativePath);put("mime",a.mimeType);put("size",a.byteSize);put("sha",a.sha256)
@@ -74,6 +78,23 @@ object SceneProjectJsonCodec {
     }
     private fun assetFromJson(o: JSONObject)=SceneAsset(o.getString("id"),o.getString("path"),o.getString("mime"),
         o.getLong("size"),o.getString("sha"),o.opt("license").nullableString(),o.opt("provenance").nullableString())
+    private fun extensionToJson(requirement: ExtensionRequirement?): Any =
+        requirement?.let {
+            JSONObject().apply {
+                put("id", it.extensionId)
+                put("version", it.version)
+                put("elementTypeId", it.elementTypeId)
+            }
+        } ?: JSONObject.NULL
+
+    private fun extensionFromJson(value: Any?): ExtensionRequirement? {
+        val json = value.nullableObject() ?: return null
+        return ExtensionRequirement(json.getString("id"), json.getString("version"), json.getString("elementTypeId"))
+    }
+
+    private fun Any?.nullableObject(): JSONObject? =
+        if (this == null || this === JSONObject.NULL) null else this as JSONObject
+
     private fun Any?.nullableString(): String? = if (this == null || this === JSONObject.NULL) null else this as String
     private fun <T> JSONArray.objects(decode:(JSONObject)->T): List<T> = (0 until length()).map { decode(getJSONObject(it)) }
 }

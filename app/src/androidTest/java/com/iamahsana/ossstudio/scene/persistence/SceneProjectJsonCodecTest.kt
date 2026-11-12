@@ -21,7 +21,61 @@ class SceneProjectJsonCodecTest {
         assertEquals(p,SceneProjectJsonCodec.decode(SceneProjectJsonCodec.encode(p)))
     }
 
-    @Test fun readsLegacySchemaV1AndWritesCurrentSchemaV2() {
+    @Test
+    fun roundTripsExtensionRequirementsOnSourcesAndElements() {
+        val requirement = ExtensionRequirement("com.example.text", "2.1.0", "element.text")
+        val source = SceneSource(
+            id = "source",
+            type = SceneSourceType.TEXT,
+            displayName = "Community text",
+            text = "Hello",
+            extensionRequirement = requirement
+        )
+        val scene = Scene(
+            id = "main",
+            projectId = "extension-project",
+            name = "Main",
+            elements = listOf(
+                SceneElement("element", source.id, zIndex = 0, extensionRequirement = requirement)
+            )
+        )
+        val project = SceneProject(
+            id = "extension-project",
+            name = "Extension project",
+            createdAtEpochMillis = 1L,
+            updatedAtEpochMillis = 1L,
+            activeSceneId = scene.id,
+            scenes = listOf(scene),
+            sources = listOf(source)
+        )
+        assertEquals(project, SceneProjectJsonCodec.decode(SceneProjectJsonCodec.encode(project)))
+    }
+
+    @Test
+    fun readsSchemaV2WithoutExtensionMetadata() {
+        val source = SceneSource("source", SceneSourceType.TEXT, "Text", text = "Hello")
+        val scene = Scene(
+            id = "main",
+            projectId = "schema-v2",
+            name = "Main",
+            elements = listOf(SceneElement("element", source.id, zIndex = 0))
+        )
+        val project = SceneProject(
+            id = "schema-v2",
+            name = "Schema v2",
+            createdAtEpochMillis = 1L,
+            updatedAtEpochMillis = 1L,
+            activeSceneId = scene.id,
+            scenes = listOf(scene),
+            sources = listOf(source)
+        )
+        val legacy = JSONObject(SceneProjectJsonCodec.encode(project)).put("schemaVersion", 2)
+        legacy.getJSONArray("sources").getJSONObject(0).remove("extension")
+        legacy.getJSONArray("scenes").getJSONObject(0).getJSONArray("elements").getJSONObject(0).remove("extension")
+        assertEquals(project, SceneProjectJsonCodec.decode(legacy.toString()))
+    }
+
+    @Test fun readsLegacySchemaV1AndWritesCurrentSchemaV3() {
         val project=SceneProject(id="legacy",name="Legacy",createdAtEpochMillis=1,updatedAtEpochMillis=2)
         val legacy=JSONObject(SceneProjectJsonCodec.encode(project))
             .put("schemaVersion",1)
@@ -32,7 +86,7 @@ class SceneProjectJsonCodecTest {
 
         assertEquals(project.id,decoded.id)
         assertEquals(project.name,decoded.name)
-        assertEquals(2,rewritten.getInt("schemaVersion"))
+        assertEquals(3,rewritten.getInt("schemaVersion"))
     }
 
     @Test fun rejectsUnsupportedFutureDocumentSchemaBeforeDecoding() {

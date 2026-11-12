@@ -13,7 +13,7 @@ import java.util.zip.ZipInputStream
 data class OssPackFile(val path: String, val sha256: String, val byteSize: Long)
 data class OssPackManifest(
     val id: String, val name: String, val version: String, val minOssVersion: String,
-    val capabilities: Set<String>, val files: List<OssPackFile>
+    val capabilities: Set<String>, val elementTypes: List<String>, val files: List<OssPackFile>
 )
 data class OssPackValidationResult(val manifest: OssPackManifest, val totalUncompressedBytes: Long, val manifestSha256: String)
 
@@ -26,7 +26,20 @@ object OssPackArchiveValidator {
     const val MAX_ENTRIES = 128
     private const val MAX_COMPRESSION_RATIO = 200L
     private const val MANIFEST_NAME = "manifest.json"
-    private val supportedCapabilities = setOf("scene-overlay", "media-source", "text-widget")
+    private const val MAX_ELEMENT_TYPES = 32
+    private val supportedCapabilities = setOf(
+        "scene-overlay", "media-source", "text-widget",
+        "scene-element", "text-element", "image-element", "shape-element",
+        "sticker-element", "emoji-element", "drawing-element", "gif-element",
+        "video-source", "template-pack", "share-screen-source", "camera-source",
+        "font-family", "text-effect", "image-effect", "object-effect"
+    )
+    private val elementCapabilities = setOf(
+        "scene-element", "text-element", "image-element", "shape-element",
+        "sticker-element", "emoji-element", "drawing-element", "gif-element",
+        "video-source", "template-pack", "share-screen-source", "camera-source"
+    )
+    private val elementTypeIdPattern = Regex("""^[a-z][a-z0-9]*(?:[.-][a-z0-9]+){1,7}$""")
     private val allowedExtensions = setOf("json", "png", "jpg", "jpeg", "webp", "gif", "ttf", "otf", "mp3", "wav", "ogg")
     private val forbiddenExtensions = setOf("apk", "dex", "jar", "so", "class", "js", "mjs", "cjs", "html", "htm", "wasm", "sh", "bat", "ps1", "py")
 
@@ -115,6 +128,29 @@ object OssPackArchiveValidator {
                 require(add(capability)) { "Kapabilitas duplikat: $capability" }
             }
         }
+        val rawElementTypes = json.opt("elementTypes")
+        val elementTypesJson = when (rawElementTypes) {
+            null, JSONObject.NULL -> JSONArray()
+            is JSONArray -> rawElementTypes
+            else -> throw IllegalArgumentException("elementTypes harus berupa array")
+        }
+        require(elementTypesJson.length() <= MAX_ELEMENT_TYPES) { "Terlalu banyak elementTypes dalam manifest" }
+        val elementTypes = (0 until elementTypesJson.length()).map { index ->
+            val typeId = elementTypesJson.optString(index).trim()
+            require(elementTypeIdPattern.matches(typeId)) {
+                "Element type ID harus namespaced dan stabil: $typeId"
+            }
+            typeId
+        }
+        require(elementTypes.distinct().size == elementTypes.size) {
+            "Manifest memiliki element type ID duplikat"
+        }
+        if (elementTypes.isNotEmpty()) {
+            require(capabilities.any { it in elementCapabilities }) {
+                "Manifest elementTypes harus mendeklarasikan kapabilitas scene element yang didukung"
+            }
+        }
+
         val filesJson = json.optJSONArray("files") ?: throw IllegalArgumentException("Manifest harus memiliki daftar files")
         require(filesJson.length() in 1..MAX_ENTRIES) { "Daftar file manifest tidak valid" }
         val files = (0 until filesJson.length()).map { index ->
@@ -128,7 +164,7 @@ object OssPackArchiveValidator {
             require(size in 1..MAX_ENTRY_BYTES) { "Ukuran file manifest tidak valid" }
             OssPackFile(path, hash, size)
         }
-        return OssPackManifest(id, name, version, minOssVersion, capabilities, files)
+        return OssPackManifest(id, name, version, minOssVersion, capabilities, elementTypes, files)
     }
 
     private fun JSONObject.requiredString(key: String): String {

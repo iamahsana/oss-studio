@@ -41,6 +41,34 @@ class SceneProjectEditorTest {
     }
 
     @Test
+    fun addingAndDuplicatingExtensionBackedElementsPreservesTheirVersionRequirement() {
+        val requirement = ExtensionRequirement("com.example.text", "1.2.0", "element.text")
+        val source = SceneSource(
+            id = "community-text",
+            type = SceneSourceType.TEXT,
+            displayName = "Community text",
+            text = "Hello",
+            extensionRequirement = requirement
+        )
+        val scene = Scene(id = "extension-scene", projectId = "extension-project", name = "Extension scene")
+        val original = SceneProject(
+            id = "extension-project",
+            name = "Extension project",
+            createdAtEpochMillis = 1L,
+            updatedAtEpochMillis = 1L,
+            activeSceneId = scene.id,
+            scenes = listOf(scene),
+            sources = listOf(source)
+        )
+        val added = SceneProjectEditor.addElement(original, scene.id, source.id, 2L)
+        assertEquals(requirement, added.scenes.single().elements.single().extensionRequirement)
+        val duplicated = SceneProjectEditor.duplicateElement(
+            added, scene.id, added.scenes.single().elements.single().id, 3L
+        )
+        assertEquals(requirement, duplicated.scenes.single().elements.last().extensionRequirement)
+    }
+
+    @Test
     fun moveElementReordersAndNormalizesLayerIndices() {
         val updated = SceneProjectEditor.moveElement(project(), "scene", "second", 0, 20L)
         assertEquals(listOf("second", "first"), updated.scenes.single().elements.map { it.id })

@@ -19,7 +19,7 @@ Example manifest:
       "version": "1.0.0",
       "minOssVersion": "0.1.0",
       "capabilities": ["scene-element", "text-element"],
-      "elementTypes": ["text"],
+      "elementTypes": ["element.text"],
       "permissions": [],
       "dependencies": [],
       "files": [
@@ -40,7 +40,9 @@ Example manifest:
 - Paths must be normalized relative paths; traversal, absolute paths, backslashes and duplicate paths are rejected.
 - Every payload file must be declared in the manifest with its exact byte size and SHA-256 digest.
 - Only JSON, common image formats (including GIF), fonts and audio resources are accepted as extension payload resources.
-- A package may declare a host-provided capability such as text-element, image-element, shape-element, sticker-element, emoji-element, drawing-element, gif-element, video-source, template-pack, or share-screen-source; the manifest does not provide executable implementation code.
+- A package may declare a host-provided capability such as scene-element, text-element, image-element, shape-element, sticker-element, emoji-element, drawing-element, gif-element, video-source, camera-source, template-pack, or share-screen-source; the manifest does not provide executable implementation code.
+- Optional `elementTypes` contains at most 32 unique, stable, namespaced IDs (for example `element.text`). A package declaring element types must also declare at least one supported scene-element capability.
+- Core persists the package ID, semantic version, and element type ID on both the source and every scene element that uses it. The project codec reads schema v1/v2 documents without these fields and writes schema v3 with the extension requirement when present.
 - Video media selected by a user is a managed project asset, not executable extension payload. The video-source extension declares the required trusted Core capability.
 - Share Screen extension declares a trusted, permission-gated Core capture capability; an extension cannot access MediaProjection or compositor internals directly.
 - Templates, sticker packs, emoji packs, fonts, text presets, shapes and effects are resource/configuration extensions and are installed only on demand.

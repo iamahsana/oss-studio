@@ -212,13 +212,18 @@ object SceneProjectEditor {
         sourceId: String,
         nowEpochMillis: Long
     ): SceneProject {
-        require(project.sources.any { it.id == sourceId }) { "Source does not exist" }
+        val source = project.sources.firstOrNull { it.id == sourceId }
+            ?: throw IllegalArgumentException("Source does not exist")
         val sceneIndex = project.scenes.indexOfFirst { it.id == sceneId }
         require(sceneIndex >= 0) { "Scene does not exist" }
         val scene = project.scenes[sceneIndex]
         val nextZ = (scene.elements.maxOfOrNull { it.zIndex } ?: -1) + 1
         val updatedScene = scene.copy(
-            elements = scene.elements + SceneElement(sourceId = sourceId, zIndex = nextZ)
+            elements = scene.elements + SceneElement(
+                sourceId = sourceId,
+                zIndex = nextZ,
+                extensionRequirement = source.extensionRequirement
+            )
         )
         return project.copy(
             scenes = project.scenes.toMutableList().also { it[sceneIndex] = updatedScene },

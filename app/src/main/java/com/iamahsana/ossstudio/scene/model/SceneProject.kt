@@ -74,6 +74,14 @@ data class SceneProject(
         require(scenes.all { scene -> scene.elements.all { it.sourceId in sourceIds } }) {
             "Every scene element must reference a source in this project"
         }
+        val sourcesById = sources.associateBy { it.id }
+        require(scenes.all { scene ->
+            scene.elements.all { element ->
+                element.extensionRequirement == sourcesById.getValue(element.sourceId).extensionRequirement
+            }
+        }) {
+            "Scene element extension requirement must match its source"
+        }
         require(activeSceneId == null || scenes.any { it.id == activeSceneId }) {
             "Active scene must belong to this project"
         }
@@ -114,7 +122,8 @@ data class SceneElement(
     val visible: Boolean = true,
     val locked: Boolean = false,
     val zIndex: Int,
-    val groupId: String? = null
+    val groupId: String? = null,
+    val extensionRequirement: ExtensionRequirement? = null
 ) {
     init {
         require(id.isNotBlank())
@@ -156,6 +165,23 @@ data class CropRect(
     }
 }
 
+data class ExtensionRequirement(
+    val extensionId: String,
+    val version: String,
+    val elementTypeId: String
+) {
+    init {
+        require(IDENTIFIER.matches(extensionId)) { "Extension ID must be a stable namespaced identifier" }
+        require(VERSION.matches(version)) { "Extension version must be semantic version" }
+        require(IDENTIFIER.matches(elementTypeId)) { "Extension element type must be a stable namespaced identifier" }
+    }
+
+    companion object {
+        private val IDENTIFIER = Regex("""^[a-z][a-z0-9]*(?:[.-][a-z0-9]+){1,7}$""")
+        private val VERSION = Regex("""^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?$""")
+    }
+}
+
 data class SceneSource(
     val id: String = UUID.randomUUID().toString(),
     val type: SceneSourceType,
@@ -163,7 +189,8 @@ data class SceneSource(
     val enabled: Boolean = true,
     val assetId: String? = null,
     val text: String? = null,
-    val settings: Map<String, String> = emptyMap()
+    val settings: Map<String, String> = emptyMap(),
+    val extensionRequirement: ExtensionRequirement? = null
 ) {
     init {
         require(id.isNotBlank())

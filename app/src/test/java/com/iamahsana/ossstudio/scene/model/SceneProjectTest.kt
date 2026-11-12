@@ -97,6 +97,44 @@ class SceneProjectTest {
     }
 
     @Test
+    fun extensionRequirementsUseStableIdsAndMustMatchTheirSource() {
+        val requirement = ExtensionRequirement("com.example.text", "1.2.0", "element.text")
+        val source = SceneSource(
+            id = "text-source",
+            type = SceneSourceType.TEXT,
+            displayName = "Community text",
+            text = "Hello",
+            extensionRequirement = requirement
+        )
+        val element = SceneElement(
+            id = "text-element",
+            sourceId = source.id,
+            zIndex = 0,
+            extensionRequirement = requirement
+        )
+        val scene = Scene(id = "main", projectId = "extension-project", name = "Main", elements = listOf(element))
+        val project = SceneProject(
+            id = "extension-project",
+            name = "Extension project",
+            createdAtEpochMillis = 1L,
+            updatedAtEpochMillis = 1L,
+            activeSceneId = scene.id,
+            scenes = listOf(scene),
+            sources = listOf(source)
+        )
+        assertEquals(requirement, project.scenes.single().elements.single().extensionRequirement)
+        assertThrows(IllegalArgumentException::class.java) {
+            ExtensionRequirement("text", "1.2.0", "element.text")
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            ExtensionRequirement("com.example.text", "latest", "element.text")
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            project.copy(scenes = listOf(scene.copy(elements = listOf(element.copy(extensionRequirement = null)))))
+        }
+    }
+
+    @Test
     fun sceneCannotBelongToAnotherProject() {
         assertThrows(IllegalArgumentException::class.java) {
             SceneProject(
