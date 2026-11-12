@@ -130,6 +130,8 @@ class MainActivitySmokeTest {
         composeRule.onNodeWithTag("text-shadow-offset-x").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithTag("text-shadow-offset-y").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithTag("text-outline-width").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("text-outline-width").performTouchInput { click(center) }
+        composeRule.onNodeWithTag("scene-text-outline-layer", useUnmergedTree = true).assertExists()
         composeRule.onNodeWithTag("text-letter-spacing").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithTag("text-line-spacing").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithTag("text-reset-formatting").performScrollTo().assertIsDisplayed().performClick()
