@@ -301,7 +301,7 @@ fun SceneEditorScreen(
         val added = SceneProjectEditor.addElement(withSource, activeScene.id, source.id, timestamp)
         val newElementId = added.scenes.first { it.id == activeScene.id }.elements.last().id
         val updated = if (element.kind == "background") {
-            SceneProjectEditor.updateTransform(
+            val fullCanvas = SceneProjectEditor.updateTransform(
                 added,
                 activeScene.id,
                 newElementId,
@@ -313,6 +313,8 @@ fun SceneEditorScreen(
                 ),
                 timestamp
             )
+            // Backgrounds must render beneath every existing scene element.
+            SceneProjectEditor.moveElement(fullCanvas, activeScene.id, newElementId, 0, timestamp)
         } else added
         selectedElementId = newElementId
         selectedElementIds = setOf(newElementId)
