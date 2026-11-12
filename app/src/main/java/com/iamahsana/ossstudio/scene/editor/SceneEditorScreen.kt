@@ -1595,7 +1595,7 @@ fun SceneEditorScreen(
                                         "fontSize", "color", "align", "bold", "italic",
                                         "fontExtensionId", "fontTypeId", "fontFamily",
                                         "outlineWidth", "outlineColor", "shadowRadius", "shadowColor",
-                                        "letterSpacing", "lineSpacing", "underline", "strikethrough"
+                                        "shadowDx", "shadowDy", "letterSpacing", "lineSpacing", "underline", "strikethrough"
                                     ).associateWith { null })
                                 }
                             ) { Text("Reset gaya teks") }
