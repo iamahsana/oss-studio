@@ -23,6 +23,7 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -30,6 +31,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -138,7 +140,6 @@ fun SceneEditorScreen(
         }
     }
     var selectedElementId by remember(project.id) { mutableStateOf<String?>(null) }
-    val editorScrollState = rememberScrollState()
     var multiSelectMode by remember(project.id) { mutableStateOf(false) }
     var selectedElementIds by remember(project.id) { mutableStateOf<Set<String>>(emptySet()) }
     val history = remember(project.id) { SceneProjectHistory(project) }
@@ -244,13 +245,6 @@ fun SceneEditorScreen(
     var editingText by remember(selectedElementId) { mutableStateOf(selectedSource?.text ?: selectedSource?.settings?.get("text").orEmpty()) }
     var confirmRemoveSource by remember(selectedElementId) { mutableStateOf(false) }
     var editorPanel by remember(project.id) { mutableStateOf("layers") }
-    LaunchedEffect(selectedElementId, editorPanel, scene?.elements?.size) {
-        if (selectedElementId != null && editorPanel == "layers" && !multiSelectMode) {
-            withFrameNanos { }
-            editorScrollState.animateScrollTo(editorScrollState.maxValue)
-        }
-    }
-
     fun updateTextSettings(values: Map<String, String?>) {
         if (selectedElement?.locked == true) return
         val sourceId = selectedSource?.id ?: return
@@ -326,7 +320,6 @@ fun SceneEditorScreen(
     Column(
         modifier = Modifier.fillMaxSize()
             .padding(horizontal = 8.dp, vertical = 6.dp)
-            .verticalScroll(editorScrollState)
             .testTag("scene-editor-scroll"),
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
@@ -338,7 +331,11 @@ fun SceneEditorScreen(
             Text(currentProject.name, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
             Text("Autosave", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             OutlinedButton(enabled = historyVersion >= 0 && history.canUndo, onClick = {
                 history.endGroup()
                 restoreHistory(history.undo())
@@ -347,6 +344,10 @@ fun SceneEditorScreen(
                 history.endGroup()
                 restoreHistory(history.redo())
             }) { Text("Redo") }
+            OutlinedButton(onClick = { openCanvasSettings() }) { Text("Canvas") }
+            Row(verticalAlignment = Alignment.CenterVertically) { Text("Snap"); Switch(checked = snapEnabled, onCheckedChange = { snapEnabled = it }) }
+            Row(verticalAlignment = Alignment.CenterVertically) { Text("Grid"); Switch(checked = gridVisible, onCheckedChange = { gridVisible = it }) }
+            Row(verticalAlignment = Alignment.CenterVertically) { Text("Safe area"); Switch(checked = safeAreaVisible, onCheckedChange = { safeAreaVisible = it }) }
         }
         if (scene == null) {
             Text("Project ini belum memiliki scene.")
@@ -372,37 +373,6 @@ fun SceneEditorScreen(
                     selectedElementId = null
                 }) { Text("＋ Scene") }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = { openCanvasSettings() }) {
-                    Text("Pengaturan canvas")
-                }
-            }
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Snap grid")
-                    Switch(checked = snapEnabled, onCheckedChange = { snapEnabled = it })
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Grid")
-                    Switch(checked = gridVisible, onCheckedChange = { gridVisible = it })
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Safe area")
-                    Switch(checked = safeAreaVisible, onCheckedChange = { safeAreaVisible = it })
-                }
-            }
             Text(scene.name, style = MaterialTheme.typography.titleMedium)
             Text(
                 "${scene.canvas.width} × ${scene.canvas.height} px",
@@ -422,9 +392,14 @@ fun SceneEditorScreen(
                 OutlinedButton(onClick = { viewportZoom = (viewportZoom + 0.25f).coerceAtMost(4f) }, enabled = viewportZoom < 4f) { Text("＋") }
                 TextButton(onClick = { viewportZoom = 1f; viewportPanX = 0f; viewportPanY = 0f }) { Text("Reset") }
             }
-            BoxWithConstraints(
-                modifier = Modifier.fillMaxWidth()
-                    .aspectRatio(scene.canvas.width.toFloat() / scene.canvas.height.toFloat())
+            BoxWithConstraints(modifier = Modifier.fillMaxWidth().weight(1f)) {
+                val canvasRatio = scene.canvas.width.toFloat() / scene.canvas.height.toFloat()
+                val canvasWidth = minOf(maxWidth, maxHeight * canvasRatio)
+                val canvasHeight = canvasWidth / canvasRatio
+                BoxWithConstraints(
+                modifier = Modifier.align(Alignment.Center)
+                    .width(canvasWidth)
+                    .height(canvasHeight)
                     .clip(RoundedCornerShape(12.dp))
                     .background(Color(0xFF17191D))
                     .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
@@ -480,7 +455,7 @@ fun SceneEditorScreen(
                         transformOrigin = TransformOrigin.Center
                     }
                     .testTag("scene-canvas")
-            ) {
+                ) {
                 val scale = constraints.maxWidth.toFloat() / scene.canvas.width.toFloat()
                 val density = LocalDensity.current
                 if (gridVisible || safeAreaVisible) {
@@ -942,19 +917,20 @@ fun SceneEditorScreen(
                 if (scene.elements.none { it.visible }) {
                     Text("Canvas kosong", color = Color.White, modifier = Modifier.align(Alignment.Center))
                 }
+                }
             }
-            Text(
-                "Geser elemen untuk mengatur posisi. Canvas ini adalah area komposisi scene, bukan preview LIVE terpisah.",
-                style = MaterialTheme.typography.bodySmall
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth().height(220.dp).horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
             mediaStatus?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
             Surface(
-                modifier = Modifier.fillMaxWidth().testTag("scene-element-insertion-shelf"),
+                modifier = Modifier.width(260.dp).height(220.dp).testTag("scene-element-insertion-shelf"),
                 shape = RoundedCornerShape(14.dp),
                 color = MaterialTheme.colorScheme.surfaceVariant
             ) {
                 Column(
-                    modifier = Modifier.fillMaxWidth().padding(10.dp),
+                    modifier = Modifier.fillMaxSize().padding(10.dp).verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text("Tambah elemen", style = MaterialTheme.typography.titleSmall)
@@ -992,12 +968,16 @@ fun SceneEditorScreen(
                 }
             }
             Surface(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.width(220.dp).height(220.dp),
                 shape = RoundedCornerShape(14.dp),
                 color = MaterialTheme.colorScheme.surfaceVariant
             ) {
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(8.dp),
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     OutlinedButton(
@@ -1011,14 +991,15 @@ fun SceneEditorScreen(
                     ) { Text("Properti") }
                     OutlinedButton(onClick = { openCanvasSettings() }) { Text("Canvas") }
                 }
+                }
             }
             if (editorPanel == "properties" && selectedElement != null && selectedSource != null) {
                 Surface(
-                    modifier = Modifier.fillMaxWidth().testTag("scene-properties-panel"),
+                    modifier = Modifier.width(340.dp).height(220.dp).testTag("scene-properties-panel"),
                     shape = RoundedCornerShape(16.dp),
                     color = MaterialTheme.colorScheme.surfaceVariant
                 ) {
-                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(Modifier.fillMaxSize().padding(14.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("Elemen dipilih: ${selectedSource.displayName}", style = MaterialTheme.typography.titleSmall)
                         val elementTransform = selectedElement.transform
                         Text("Balik elemen", style = MaterialTheme.typography.labelLarge)
@@ -1632,6 +1613,15 @@ fun SceneEditorScreen(
                 }
             }
             if (editorPanel == "layers") {
+            Surface(
+                modifier = Modifier.width(340.dp).height(220.dp).testTag("scene-layers-panel"),
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant
+            ) {
+            Column(
+                modifier = Modifier.fillMaxSize().padding(12.dp).verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
             Text("Elemen scene", style = MaterialTheme.typography.titleMedium)
             // Keep the mode toggle outside the horizontal action scroller.
             // A horizontally scrollable parent was preventing reliable taps in
@@ -1916,6 +1906,9 @@ fun SceneEditorScreen(
                         }
                     }
                 }
+            }
+            }
+            }
             }
             }
         }
