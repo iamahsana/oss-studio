@@ -58,6 +58,11 @@ class LiveSessionController(
     private var screenReady = false
     private var stopping = false
     private var cleanupIncomplete = false
+
+    /** True only after the previous session has finished every teardown stage. */
+    val isCleanupComplete: Boolean
+        get() = !cleanupIncomplete && !stopping
+
     private val pendingStopCallbacks =
         mutableListOf<(LiveSessionLifecycleCoordinator.ShutdownResult) -> Unit>()
     private var sessionId: String? = null
