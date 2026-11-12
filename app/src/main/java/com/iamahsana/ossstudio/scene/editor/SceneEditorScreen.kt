@@ -813,6 +813,40 @@ fun SceneEditorScreen(
                         if (element.id == selectedElementId && !element.locked) {
                             Box(
                                 modifier = Modifier
+                                    .align(Alignment.TopCenter)
+                                    .offset(y = 4.dp)
+                                    .size(20.dp)
+                                    .testTag("scene-rotation-handle")
+                                    .clip(RoundedCornerShape(50))
+                                    .background(MaterialTheme.colorScheme.tertiary)
+                                    .pointerInput(element.id, scale, scene.id) {
+                                        detectDragGestures(
+                                            onDragEnd = { history.endGroup(); historyVersion++ },
+                                            onDragCancel = { history.endGroup(); historyVersion++ }
+                                        ) { change, amount ->
+                                            change.consume()
+                                            val latest = latestProject.value
+                                            val latestTransform = latest.scenes
+                                                .firstOrNull { it.id == scene.id }
+                                                ?.elements?.firstOrNull { it.id == element.id }?.transform
+                                                ?: transform
+                                            val updated = SceneProjectEditor.updateTransform(
+                                                latest,
+                                                scene.id,
+                                                element.id,
+                                                latestTransform.copy(
+                                                    rotationDegrees = latestTransform.rotationDegrees + amount.x / scale
+                                                ),
+                                                System.currentTimeMillis()
+                                            )
+                                            applyProject(updated, "rotate:${element.id}")
+                                        }
+                                    }
+                            )
+                        }
+                        if (element.id == selectedElementId && !element.locked) {
+                            Box(
+                                modifier = Modifier
                                     .align(Alignment.TopStart)
                                     .size(18.dp)
                                     .testTag("scene-resize-handle-top-start")
