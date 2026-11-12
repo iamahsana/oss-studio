@@ -2222,7 +2222,7 @@ private fun SceneAssetImage(
         Image(
             bitmap = bitmap.asImageBitmap(),
             contentDescription = contentDescription,
-            contentScale = ContentScale.Crop,
+            contentScale = ContentScale.FillBounds,
             modifier = Modifier.fillMaxSize().graphicsLayer {
                 val cropWidth = (crop.right - crop.left).coerceAtLeast(0.001f)
                 val cropHeight = (crop.bottom - crop.top).coerceAtLeast(0.001f)
@@ -2301,7 +2301,7 @@ private fun SceneAnimatedGif(filePath: String, contentDescription: String, crop:
         AndroidView(
             factory = {
                 ImageView(it).apply {
-                    scaleType = ImageView.ScaleType.CENTER_CROP
+                    scaleType = ImageView.ScaleType.FIT_XY
                     this.contentDescription = contentDescription
                     setImageDrawable(drawable)
                 }
