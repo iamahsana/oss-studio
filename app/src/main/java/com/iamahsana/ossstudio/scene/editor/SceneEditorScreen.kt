@@ -314,7 +314,8 @@ fun SceneEditorScreen(
     Column(
         modifier = Modifier.fillMaxSize()
             .padding(horizontal = 8.dp, vertical = 6.dp)
-            .verticalScroll(rememberScrollState()),
+            .verticalScroll(rememberScrollState())
+            .testTag("scene-editor-scroll"),
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Row(
