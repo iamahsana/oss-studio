@@ -136,6 +136,7 @@ class MainActivitySmokeTest {
         }
         composeRule.onAllNodesWithTag("scene-canvas-element", useUnmergedTree = true)[0].performClick()
         composeRule.onNodeWithTag("scene-resize-handle", useUnmergedTree = true).performScrollTo().assertExists().assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-panel-properties").performScrollTo().performClick()
         composeRule.onNodeWithTag("scene-flip-horizontal").performScrollTo().assertIsDisplayed().performClick()
         composeRule.onNodeWithText("Balik horizontal ✓").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithTag("scene-flip-horizontal").performScrollTo().performClick()
