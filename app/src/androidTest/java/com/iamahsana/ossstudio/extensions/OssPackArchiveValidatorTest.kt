@@ -49,6 +49,26 @@ class OssPackArchiveValidatorTest {
         } finally { archive.delete() }
     }
 
+    @Test fun acceptsResourceFreeTextAndShapeElements() {
+        val manifest = """{"format":"oss-extension","formatVersion":1,"payloadType":"declarative","id":"com.example.textonly","name":"Text Only","version":"1.0.0","minOssVersion":"0.1.0","capabilities":["scene-overlay"],"files":[],"elements":[{"typeId":"com.example.textonly.title","name":"Title","kind":"text","defaults":{"text":"LIVE"}},{"typeId":"com.example.textonly.panel","name":"Panel","kind":"shape"}]}"""
+        val archive = createRawPackage(manifest)
+        try {
+            val result = OssPackArchiveValidator.validate(archive)
+            assertTrue(result.manifest.files.isEmpty())
+            assertEquals(2, result.manifest.elements.size)
+        } finally { archive.delete() }
+    }
+    @Test fun acceptsDeclaredVideoResources() {
+        val payload = byteArrayOf(0, 0, 0, 24, 102, 116, 121, 112)
+        val manifest = """{"format":"oss-extension","formatVersion":1,"payloadType":"declarative","id":"com.example.video","name":"Video","version":"1.0.0","minOssVersion":"0.1.0","capabilities":["scene-overlay"],"files":[{"path":"assets/clip.mp4","sha256":"${sha256(payload)}","byteSize":${payload.size}}],"elements":[{"typeId":"com.example.video.clip","name":"Clip","kind":"video","resourcePath":"assets/clip.mp4"}]}"""
+        val archive = createRawPackage(manifest, "assets/clip.mp4" to payload)
+        try {
+            val result = OssPackArchiveValidator.validate(archive)
+            assertEquals("video", result.manifest.elements.single().kind)
+            assertEquals("assets/clip.mp4", result.manifest.elements.single().resourcePath)
+        } finally { archive.delete() }
+    }
+
     @Test fun rejectsElementTypeIdsOutsideExtensionNamespace() {
         val payload = byteArrayOf(1, 2, 3)
         val manifest = """{"format":"oss-extension","formatVersion":1,"payloadType":"declarative","id":"com.example.overlay","name":"Example","version":"1.0.0","minOssVersion":"0.1.0","capabilities":["scene-overlay"],"files":[{"path":"assets/icon.png","sha256":"${sha256(payload)}","byteSize":3}],"elements":[{"typeId":"com.other.badge","name":"Badge","kind":"sticker","resourcePath":"assets/icon.png"}]}"""
@@ -100,6 +120,32 @@ class OssPackArchiveValidatorTest {
             File(installed, "assets/badge.png").writeBytes(byteArrayOf(9, 9, 9))
             val error = runCatching { OssPackArchiveValidator.readInstalledManifest(installed) }.exceptionOrNull()
             assertTrue(error?.message.orEmpty().contains("resource"))
+        } finally {
+            archive.delete()
+            root.deleteRecursively()
+        }
+    }
+
+    @Test fun installedElementCatalogListsAndResolvesOnlyVerifiedPackageResources() {
+        val payload = byteArrayOf(4, 3, 2, 1)
+        val manifest = """{"format":"oss-extension","formatVersion":1,"payloadType":"declarative","id":"com.example.catalog","name":"Catalog","version":"1.0.0","minOssVersion":"0.1.0","capabilities":["scene-overlay"],"files":[{"path":"assets/badge.png","sha256":"${sha256(payload)}","byteSize":4}],"elements":[{"typeId":"com.example.catalog.badge","name":"Badge","kind":"sticker","resourcePath":"assets/badge.png","defaults":{"opacity":0.9}},{"typeId":"com.example.catalog.title","name":"Title","kind":"text","defaults":{"text":"LIVE"}}]}"""
+        val archive = createRawPackage(manifest, "assets/badge.png" to payload)
+        val root = File(context.cacheDir, "extensions-element-catalog-" + System.nanoTime())
+        try {
+            OssPackInstaller.install(archive, root)
+            val elements = OssInstalledElementCatalog.listInstalled(root)
+            assertEquals(2, elements.size)
+            val badge = OssInstalledElementCatalog.find(root, "com.example.catalog", "com.example.catalog.badge")
+            assertNotNull(badge)
+            assertEquals("sticker", badge?.kind)
+            assertEquals("0.9", badge?.defaults?.get("opacity"))
+            assertArrayEquals(payload, badge?.resolveResource()?.readBytes())
+            val title = OssInstalledElementCatalog.find(root, "com.example.catalog", "com.example.catalog.title")
+            assertNotNull(title)
+            assertEquals(null, title?.resolveResource())
+
+            File(root, "com.example.catalog/assets/badge.png").writeBytes(byteArrayOf(9, 9, 9))
+            assertTrue(OssInstalledElementCatalog.listInstalled(root).isEmpty())
         } finally {
             archive.delete()
             root.deleteRecursively()

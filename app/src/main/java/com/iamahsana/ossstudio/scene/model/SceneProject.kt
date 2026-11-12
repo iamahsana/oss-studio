@@ -133,7 +133,9 @@ data class ElementTransform(
     val y: Float = 0f,
     val width: Float = 320f,
     val height: Float = 180f,
-    val rotationDegrees: Float = 0f
+    val rotationDegrees: Float = 0f,
+    val flipHorizontal: Boolean = false,
+    val flipVertical: Boolean = false
 ) {
     init {
         require(x.isFinite() && y.isFinite())
@@ -219,3 +221,119 @@ private fun isSafeRelativeAssetPath(path: String): Boolean {
 
 private val NAMESPACED_EXTENSION_ID = Regex("^[a-z][a-z0-9]*(?:[.-][a-z0-9]+){1,5}$")
 private val NAMESPACED_TYPE_ID = Regex("^[a-z][a-z0-9]*(?:[.-][a-z0-9]+){1,7}$")
+
+/** Axis-aligned canvas bounds occupied by an element after rotation around its center. */
+data class ElementBounds(
+    val left: Float,
+    val top: Float,
+    val right: Float,
+    val bottom: Float
+) {
+    val width: Float get() = right - left
+    val height: Float get() = bottom - top
+}
+
+/**
+ * Returns the axis-aligned bounding box of this rotated element in canvas pixels.
+ * The element's stored x/y remain the unrotated top-left anchor used by rendering.
+ */
+fun ElementTransform.rotatedBounds(): ElementBounds {
+    val radians = Math.toRadians(rotationDegrees.toDouble())
+    val cosine = kotlin.math.abs(kotlin.math.cos(radians)).toFloat()
+    val sine = kotlin.math.abs(kotlin.math.sin(radians)).toFloat()
+    val halfWidth = (width * cosine + height * sine) / 2f
+    val halfHeight = (width * sine + height * cosine) / 2f
+    val centerX = x + width / 2f
+    val centerY = y + height / 2f
+    return ElementBounds(
+        left = centerX - halfWidth,
+        top = centerY - halfHeight,
+        right = centerX + halfWidth,
+        bottom = centerY + halfHeight
+    )
+}
+
+/**
+ * Moves an element so its rotated visual footprint fits inside the canvas.
+ * If the rotated footprint is larger than an axis, that axis is centered.
+ */
+fun ElementTransform.clampedToCanvas(canvas: CanvasSize): ElementTransform {
+    val bounds = rotatedBounds()
+    val deltaX = when {
+        bounds.width > canvas.width -> canvas.width / 2f - (bounds.left + bounds.right) / 2f
+        bounds.left < 0f -> -bounds.left
+        bounds.right > canvas.width -> canvas.width - bounds.right
+        else -> 0f
+    }
+    val deltaY = when {
+        bounds.height > canvas.height -> canvas.height / 2f - (bounds.top + bounds.bottom) / 2f
+        bounds.top < 0f -> -bounds.top
+        bounds.bottom > canvas.height -> canvas.height - bounds.bottom
+        else -> 0f
+    }
+    return copy(x = x + deltaX, y = y + deltaY)
+}
+
+
+
+enum class ElementBoundsAlignment { START, CENTER, END }
+
+/**
+ * Aligns elements by their rotated visual bounds, preserving each element's size and rotation.
+ * The returned list keeps the same order as the input list.
+ */
+fun alignTransformsByRotatedBounds(
+    transforms: List<ElementTransform>,
+    horizontal: Boolean,
+    alignment: ElementBoundsAlignment,
+    canvas: CanvasSize
+): List<ElementTransform> {
+    if (transforms.isEmpty()) return transforms
+    val bounds = transforms.map { it.rotatedBounds() }
+    val start = if (horizontal) bounds.minOf { it.left } else bounds.minOf { it.top }
+    val end = if (horizontal) bounds.maxOf { it.right } else bounds.maxOf { it.bottom }
+    val center = (start + end) / 2f
+    return transforms.mapIndexed { index, transform ->
+        val current = bounds[index]
+        val currentStart = if (horizontal) current.left else current.top
+        val currentEnd = if (horizontal) current.right else current.bottom
+        val delta = when (alignment) {
+            ElementBoundsAlignment.START -> start - currentStart
+            ElementBoundsAlignment.CENTER -> center - (currentStart + currentEnd) / 2f
+            ElementBoundsAlignment.END -> end - currentEnd
+        }
+        (if (horizontal) transform.copy(x = transform.x + delta)
+        else transform.copy(y = transform.y + delta)).clampedToCanvas(canvas)
+    }
+}
+
+/**
+ * Evenly distributes rotated visual bounds along one axis. Returns null when the
+ * selected elements cannot fit without overlapping; input order is preserved.
+ */
+fun distributeTransformsByRotatedBounds(
+    transforms: List<ElementTransform>,
+    horizontal: Boolean,
+    canvas: CanvasSize
+): List<ElementTransform>? {
+    if (transforms.size < 2) return transforms
+    val ordered = transforms.mapIndexed { index, transform -> index to transform.rotatedBounds() }
+        .sortedBy { (_, bounds) -> if (horizontal) bounds.left else bounds.top }
+    val start = if (horizontal) ordered.minOf { it.second.left } else ordered.minOf { it.second.top }
+    val end = if (horizontal) ordered.maxOf { it.second.right } else ordered.maxOf { it.second.bottom }
+    val totalExtent = ordered.sumOf { (_, bounds) ->
+        (if (horizontal) bounds.width else bounds.height).toDouble()
+    }.toFloat()
+    val gap = (end - start - totalExtent) / (ordered.size - 1)
+    if (gap < -0.001f) return null
+    val result = transforms.toMutableList()
+    var cursor = start
+    ordered.forEach { (index, bounds) ->
+        val transform = transforms[index]
+        val delta = cursor - (if (horizontal) bounds.left else bounds.top)
+        result[index] = (if (horizontal) transform.copy(x = transform.x + delta)
+        else transform.copy(y = transform.y + delta)).clampedToCanvas(canvas)
+        cursor += (if (horizontal) bounds.width else bounds.height) + gap
+    }
+    return result
+}

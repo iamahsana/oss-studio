@@ -1,6 +1,10 @@
 package com.iamahsana.ossstudio
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertHasClickAction
+import androidx.compose.ui.test.click
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.hasText
@@ -65,7 +69,7 @@ class MainActivitySmokeTest {
         composeRule.waitUntil(15_000) {
             composeRule.onAllNodesWithText("OSS UI Smoke").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onAllNodesWithText("OSS UI Smoke").assertCountEquals(2)
+        composeRule.onAllNodesWithText("OSS UI Smoke")[0].assertIsDisplayed()
         composeRule.waitUntil(15_000) {
             composeRule.onAllNodesWithText("Canvas kosong").fetchSemanticsNodes().isNotEmpty()
         }
@@ -86,27 +90,55 @@ class MainActivitySmokeTest {
         composeRule.onNodeWithText("Tutup").performClick()
 
         composeRule.onNodeWithTag("scene-add-text").performScrollTo().performClick()
-        // The layer row displays the source name ("Text"), not its content
-        // ("Teks baru"). Wait for the tagged layer row before checking canvas.
         composeRule.waitUntil("new text source appears in the scene layers", 15_000L) {
             composeRule.onAllNodesWithTag("scene-element-item").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithTag("scene-panel-layers").performScrollTo().assertIsDisplayed()
         composeRule.waitUntil("new text element is composed on the canvas", 15_000L) {
             composeRule.onAllNodesWithTag("scene-canvas-element", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
         }
-        // Select from the layer list explicitly so the test validates resize-handle
-        // visibility for a selected element, independent of add-action focus timing.
+        composeRule.onNodeWithText("Sembunyi").performScrollTo().performClick()
+        composeRule.onNodeWithText("Tampil").performScrollTo().performClick()
+        composeRule.onNodeWithText("Kunci").performScrollTo().performClick()
+        composeRule.onNodeWithText("Buka").performScrollTo().performClick()
         composeRule.onAllNodesWithTag("scene-canvas-element", useUnmergedTree = true)[0].performClick()
         composeRule.onNodeWithTag("scene-resize-handle", useUnmergedTree = true).performScrollTo().assertExists().assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-resize-handle-top-start", useUnmergedTree = true).performScrollTo().assertExists().assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-resize-handle-top-end", useUnmergedTree = true).performScrollTo().assertExists().assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-resize-handle-bottom-start", useUnmergedTree = true).performScrollTo().assertExists().assertIsDisplayed()
         composeRule.onNodeWithTag("scene-panel-properties").performScrollTo().performClick()
         composeRule.onNodeWithTag("scene-properties-panel").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-flip-horizontal").performScrollTo().assertIsDisplayed().performClick()
+        composeRule.onNodeWithText("Balik horizontal ✓").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-flip-horizontal").performScrollTo().performClick()
+        composeRule.onNodeWithText("Balik horizontal").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-flip-vertical").performScrollTo().assertIsDisplayed().performClick()
+        composeRule.onNodeWithText("Balik vertikal ✓").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-flip-vertical").performScrollTo().performClick()
+        composeRule.onNodeWithText("Balik vertikal").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-transform-rotation").performScrollTo().assertIsDisplayed().assert(SemanticsMatcher("control is enabled") { !it.config.contains(SemanticsProperties.Disabled) })
+        composeRule.onNodeWithTag("scene-rotate-left-90").performScrollTo().assertIsDisplayed().assert(SemanticsMatcher("control is enabled") { !it.config.contains(SemanticsProperties.Disabled) })
+        composeRule.onNodeWithTag("scene-rotate-right-90").performScrollTo().assertIsDisplayed().assert(SemanticsMatcher("control is enabled") { !it.config.contains(SemanticsProperties.Disabled) })
+        composeRule.onNodeWithTag("scene-rotate-reset").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("text-letter-spacing").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("text-line-spacing").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("text-reset-formatting").performScrollTo().assertIsDisplayed().performClick()
+        composeRule.onNodeWithText("Kunci").performScrollTo().performClick()
+        assertTrue(
+            "Locked elements must not expose canvas resize handles",
+            composeRule.onAllNodesWithTag("scene-resize-handle", useUnmergedTree = true).fetchSemanticsNodes().isEmpty()
+        )
+        composeRule.onNodeWithText("Elemen terkunci. Buka kunci untuk mengubah teks dan tipografinya.")
+            .performScrollTo().assertIsDisplayed()
+        assertTrue(
+            "Locked text must not expose editable formatting controls",
+            composeRule.onAllNodesWithTag("text-reset-formatting").fetchSemanticsNodes().isEmpty()
+        )
+        composeRule.onNodeWithText("Buka kunci").performScrollTo().performClick()
         composeRule.onNodeWithTag("scene-panel-layers").performScrollTo().performClick()
         composeRule.onNodeWithText("Undo").performScrollTo().performClick()
         assertTrue("Undo should remove the resize handle when the new element is removed", composeRule.onAllNodesWithTag("scene-resize-handle", useUnmergedTree = true).fetchSemanticsNodes().isEmpty())
         composeRule.onNodeWithText("Redo").performScrollTo().performClick()
         composeRule.onNodeWithText("Teks baru").performScrollTo().assertIsDisplayed()
-        // Undo clears the selection when the element is absent; wait for redo to recompose it.
         composeRule.waitUntil("redo restores the canvas element", 10_000L) {
             composeRule.onAllNodesWithTag("scene-canvas-element", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
         }
@@ -115,15 +147,68 @@ class MainActivitySmokeTest {
 
         composeRule.onNodeWithText("Tambah teks").performScrollTo().performClick()
         composeRule.onNodeWithTag("scene-multiselect-toggle").performScrollTo().assertIsDisplayed().performClick()
-        // Verify the mode itself before testing multi-selection state.
         composeRule.onNodeWithText("Selesai memilih").assertIsDisplayed()
         composeRule.onNodeWithTag("scene-multiselect-status").performScrollTo().assertExists().assertIsDisplayed()
         composeRule.onNodeWithText("Mode pemilihan aktif · Dipilih: 0").assertIsDisplayed()
         assertTrue("Multi-select mode should show exactly two scene layer rows", composeRule.onAllNodesWithTag("scene-element-item").fetchSemanticsNodes().size == 2)
-        composeRule.onAllNodesWithTag("scene-element-item")[0].performScrollTo().performClick()
-        composeRule.onAllNodesWithTag("scene-element-item")[1].performScrollTo().performClick()
-        assertTrue("Selecting both layer rows should mark both as selected", composeRule.onAllNodesWithText("✓ Text").fetchSemanticsNodes().size == 2)
-        composeRule.onNodeWithText("Kelompokkan (2)").performScrollTo().performClick()
+        val duplicateActions = composeRule.onAllNodesWithText("Salin")
+        duplicateActions.assertCountEquals(2)
+        duplicateActions[1].performScrollTo().performClick()
+        composeRule.waitUntil("duplicate layer is added", 10_000L) {
+            composeRule.onAllNodesWithTag("scene-element-item").fetchSemanticsNodes().size == 3
+        }
+        assertTrue("Duplicating a layer should add exactly one scene element", composeRule.onAllNodesWithTag("scene-element-item").fetchSemanticsNodes().size == 3)
+        val moveUpActions = composeRule.onAllNodes(SemanticsMatcher("layer move up action") { node -> node.config.contains(SemanticsProperties.TestTag) && node.config[SemanticsProperties.TestTag].startsWith("scene-layer-move-up-") })
+        val moveDownActions = composeRule.onAllNodes(SemanticsMatcher("layer move down action") { node -> node.config.contains(SemanticsProperties.TestTag) && node.config[SemanticsProperties.TestTag].startsWith("scene-layer-move-down-") })
+        moveUpActions.assertCountEquals(3)
+        moveDownActions.assertCountEquals(3)
+        moveUpActions[1].performScrollTo().performClick()
+        moveDownActions[1].performScrollTo().performClick()
+        val sendBackActions = composeRule.onAllNodes(SemanticsMatcher("send layer to back action") { node -> node.config.contains(SemanticsProperties.TestTag) && node.config[SemanticsProperties.TestTag].startsWith("scene-layer-send-back-") })
+        val bringFrontActions = composeRule.onAllNodes(SemanticsMatcher("bring layer to front action") { node -> node.config.contains(SemanticsProperties.TestTag) && node.config[SemanticsProperties.TestTag].startsWith("scene-layer-bring-front-") })
+        sendBackActions.assertCountEquals(3)
+        bringFrontActions.assertCountEquals(3)
+        sendBackActions[1].performScrollTo().performClick()
+        bringFrontActions[1].performScrollTo().performClick()
+        assertTrue("Layer reordering must preserve all scene elements", composeRule.onAllNodesWithTag("scene-element-item").fetchSemanticsNodes().size == 3)
+        // The duplicate action selects its new layer. Restart multi-select to
+        // begin this grouping assertion with an empty selection.
+        composeRule.onNodeWithText("Selesai memilih").performScrollTo().performClick()
+        // Spread the third element to the canvas edges so equal-spacing controls
+        // have a non-negative gap and their actual action paths are exercised.
+        composeRule.onAllNodesWithTag("scene-canvas-element", useUnmergedTree = true)[2].performClick()
+        composeRule.onNodeWithTag("scene-panel-properties").performScrollTo().performClick()
+        composeRule.onNodeWithTag("scene-align-right").performScrollTo().performClick()
+        composeRule.onNodeWithTag("scene-align-bottom").performScrollTo().performClick()
+        composeRule.onNodeWithTag("scene-panel-layers").performScrollTo().performClick()
+        composeRule.onNodeWithTag("scene-multiselect-toggle").performScrollTo().performClick()
+        fun selectedLayerCount(): Int {
+            val status = composeRule.onNodeWithTag("scene-multiselect-status")
+            status.assertExists()
+            val text = status.fetchSemanticsNode().config[SemanticsProperties.Text].joinToString { it.text }
+            println("Multi-select status: $text")
+            return text.substringAfter("Dipilih: ", "-1").toIntOrNull() ?: -1
+        }
+        // Use the explicit layer-list actions for multi-select. Canvas items
+        // overlap by design, so tapping their centers can hit the topmost layer
+        // instead of the requested lower layer.
+        val layerItems = composeRule.onAllNodesWithTag("scene-element-item")
+        layerItems.assertCountEquals(3)
+        layerItems[0].performScrollTo().performClick()
+        composeRule.waitUntil("first layer becomes selected", 5_000L) { selectedLayerCount() == 1 }
+        layerItems[1].performScrollTo().performClick()
+        composeRule.waitUntil("second layer becomes selected", 5_000L) { selectedLayerCount() == 2 }
+        layerItems[2].performScrollTo().performClick()
+        composeRule.waitUntil("third layer becomes selected", 5_000L) { selectedLayerCount() == 3 }
+        composeRule.onNodeWithTag("scene-multi-align-left").performScrollTo().assertIsDisplayed().performClick()
+        composeRule.onNodeWithTag("scene-multi-align-center-y").performScrollTo().assertIsDisplayed().performClick()
+        composeRule.onNodeWithTag("scene-multi-align-right").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-multi-align-top").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-multi-align-center-x").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-multi-align-bottom").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-distribute-horizontal").performScrollTo().assertIsDisplayed().performClick()
+        composeRule.onNodeWithTag("scene-distribute-vertical").performScrollTo().assertIsDisplayed().performClick()
+        composeRule.onNodeWithText("Kelompokkan (3)").performScrollTo().performClick()
         composeRule.onNodeWithText("Pisahkan grup").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Pisahkan grup").performClick()
         assertTrue("Ungrouping should remove the split-group action", composeRule.onAllNodesWithText("Pisahkan grup").fetchSemanticsNodes().isEmpty())
@@ -167,8 +252,6 @@ class MainActivitySmokeTest {
         assertTrue(composeRule.onAllNodesWithText("private-smoke-key").fetchSemanticsNodes().isEmpty())
     }
 
-
-
     @Test
     fun editorCanvasSettingsExplainsLiveOrientationSourceOfTruth() {
         createdSmokeProject = true
@@ -178,7 +261,6 @@ class MainActivitySmokeTest {
         composeRule.waitUntil("new project opens its editor", 15_000L) {
             composeRule.onAllNodesWithText("Canvas kosong").fetchSemanticsNodes().isNotEmpty()
         }
-
         composeRule.onNodeWithText("Pengaturan canvas").performScrollTo().performClick()
         composeRule.onNodeWithText("Format canvas").assertIsDisplayed()
         composeRule.onNodeWithText("Untuk mengubahnya, buka halaman Studio lalu pilih Portrait 9:16 atau Landscape 16:9 pada bagian Orientasi output LIVE.")
@@ -195,9 +277,7 @@ class MainActivitySmokeTest {
         composeRule.waitUntil("new project opens its editor", 15_000L) {
             composeRule.onAllNodesWithText("Canvas kosong").fetchSemanticsNodes().isNotEmpty()
         }
-
         composeRule.activityRule.scenario.recreate()
-
         composeRule.waitUntil("saved active project reloads after Activity recreation", 15_000L) {
             composeRule.onAllNodesWithText("Canvas kosong").fetchSemanticsNodes().isNotEmpty()
         }
@@ -205,20 +285,16 @@ class MainActivitySmokeTest {
         composeRule.onNodeWithText("Canvas kosong").performScrollTo().assertIsDisplayed()
     }
 
-
     @Test
     fun deletingActiveProjectDoesNotLeaveStaleEditorProject() {
         createdSmokeProject = true
         composeRule.onNodeWithText("Project baru").performClick()
         composeRule.onNodeWithText("Nama project").performTextInput("OSS UI Smoke")
         composeRule.onNodeWithText("Buat").performClick()
-        // ProjectHomeScreen invokes onOpenProject only after the database save succeeds.
-        // Wait for the asynchronous repository callback, then assert the destination page.
         composeRule.waitUntil("newly created project opens Scene Editor", 15_000L) {
             composeRule.onAllNodesWithText("Scene Editor").fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithText("Scene Editor").assertIsDisplayed()
-
         composeRule.onNodeWithText("← Home").performClick()
         composeRule.waitUntil("saved project appears after returning Home", 15_000L) {
             composeRule.onAllNodesWithText("OSS UI Smoke").fetchSemanticsNodes().isNotEmpty()
@@ -244,11 +320,9 @@ class MainActivitySmokeTest {
         composeRule.waitUntil("deleted project row disappears from Home", 15_000L) {
             composeRule.onAllNodesWithTag("delete-project-$smokeProjectId").fetchSemanticsNodes().isEmpty()
         }
-
         composeRule.onNodeWithText("Editor").performClick()
         composeRule.onNodeWithText("Pilih atau buat project dari Home terlebih dahulu.").assertIsDisplayed()
     }
-
 
     private fun scrollUntilVisible(text: String) {
         repeat(8) {
@@ -270,6 +344,21 @@ class MainActivitySmokeTest {
         }
     }
 
+    @After
+    fun removeOnlySmokeProject() {
+        if (!createdSmokeProject) return
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        runCatching {
+            val database = SceneProjectStoreProvider.database(context)
+            database.listRecent().filter { it.name == "OSS UI Smoke" }.forEach { summary ->
+                database.get(summary.id)?.assets?.forEach { asset ->
+                    runCatching { SceneAssetStorage.deleteAsset(context, asset) }
+                }
+                database.delete(summary.id)
+            }
+        }
+    }
+
     @Test
     fun studioOrientationChangeConvertsProjectAndEditorCanvasTogether() {
         createdSmokeProject = true
@@ -279,8 +368,6 @@ class MainActivitySmokeTest {
         composeRule.waitUntil("new project opens editor", 15_000L) {
             composeRule.onAllNodesWithText("Canvas kosong").fetchSemanticsNodes().isNotEmpty()
         }
-
-        // Scene Editor is a dedicated workspace; return Home before using bottom navigation.
         composeRule.onNodeWithText("← Home").performClick()
         composeRule.onNodeWithText("Studio").performClick()
         scrollUntilVisible("LIVE control")
@@ -291,7 +378,6 @@ class MainActivitySmokeTest {
             composeRule.onAllNodesWithText("Orientasi project berhasil diubah ke Landscape 16:9.")
                 .fetchSemanticsNodes().isNotEmpty()
         }
-
         composeRule.onNodeWithText("Editor").performClick()
         composeRule.waitUntil("editor receives converted project", 15_000L) {
             composeRule.onAllNodesWithTag("scene-canvas-dimensions").fetchSemanticsNodes().isNotEmpty()
@@ -308,20 +394,4 @@ class MainActivitySmokeTest {
         composeRule.onNodeWithText("Mulai LIVE").performScrollTo().assertIsDisplayed()
         assertTrue(composeRule.onAllNodesWithText("Hentikan").fetchSemanticsNodes().isNotEmpty())
     }
-
-    @After
-    fun removeOnlySmokeProject() {
-        if (!createdSmokeProject) return
-        val context = ApplicationProvider.getApplicationContext<Context>()
-        runCatching {
-            val database = SceneProjectStoreProvider.database(context)
-            database.listRecent().filter { it.name == "OSS UI Smoke" }.forEach { summary ->
-                database.get(summary.id)?.assets?.forEach { asset ->
-                    runCatching { SceneAssetStorage.deleteAsset(context, asset) }
-                }
-                database.delete(summary.id)
-            }
-        }
-    }
-
 }

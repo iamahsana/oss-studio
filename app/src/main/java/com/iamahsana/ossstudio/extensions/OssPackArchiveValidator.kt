@@ -35,7 +35,7 @@ object OssPackArchiveValidator {
     private const val MAX_COMPRESSION_RATIO = 200L
     private const val MANIFEST_NAME = "manifest.json"
     private val supportedCapabilities = setOf("scene-overlay", "media-source", "text-widget")
-    private val allowedExtensions = setOf("json", "png", "jpg", "jpeg", "webp", "gif", "ttf", "otf", "mp3", "wav", "ogg")
+    private val allowedExtensions = setOf("json", "png", "jpg", "jpeg", "webp", "gif", "ttf", "otf", "mp3", "wav", "ogg", "mp4", "webm")
     private val supportedElementKinds = setOf("text", "image", "sticker", "shape", "background", "font", "gif", "video")
     private val forbiddenExtensions = setOf("apk", "dex", "jar", "so", "class", "js", "mjs", "cjs", "html", "htm", "wasm", "sh", "bat", "ps1", "py")
 
@@ -155,7 +155,7 @@ object OssPackArchiveValidator {
             }
         }
         val filesJson = json.optJSONArray("files") ?: throw IllegalArgumentException("Manifest harus memiliki daftar files")
-        require(filesJson.length() in 1..MAX_ENTRIES) { "Daftar file manifest tidak valid" }
+        require(filesJson.length() in 0..MAX_ENTRIES) { "Daftar file manifest tidak valid" }
         val files = (0 until filesJson.length()).map { index ->
             val item = filesJson.optJSONObject(index) ?: throw IllegalArgumentException("Entri file manifest tidak valid")
             val path = validatePath(item.requiredString("path"))
@@ -204,6 +204,9 @@ object OssPackArchiveValidator {
         require(elements.map { it.typeId }.distinct().size == elements.size) { "typeId elemen duplikat" }
         require(elements.isEmpty() || "scene-overlay" in capabilities) {
             "Paket dengan elemen scene wajib memiliki kapabilitas scene-overlay"
+        }
+        require(files.isNotEmpty() || elements.isNotEmpty()) {
+            "Paket harus memiliki resource atau elemen deklaratif"
         }
         return OssPackManifest(id, name, version, minOssVersion, capabilities, files, elements)
     }

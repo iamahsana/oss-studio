@@ -22,6 +22,7 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -39,6 +40,9 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.runtime.produceState
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -54,6 +58,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -73,11 +79,22 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.iamahsana.ossstudio.extensions.OssInstalledElement
+import com.iamahsana.ossstudio.extensions.OssInstalledElementCatalog
+import com.iamahsana.ossstudio.scene.model.ElementTransform
+import com.iamahsana.ossstudio.scene.model.ElementBoundsAlignment
+import com.iamahsana.ossstudio.scene.model.alignTransformsByRotatedBounds
+import com.iamahsana.ossstudio.scene.model.distributeTransformsByRotatedBounds
+import com.iamahsana.ossstudio.scene.model.clampedToCanvas
+import com.iamahsana.ossstudio.scene.model.rotatedBounds
 import com.iamahsana.ossstudio.scene.model.SceneProject
 import com.iamahsana.ossstudio.scene.model.Scene
 import com.iamahsana.ossstudio.scene.model.CropRect
@@ -102,7 +119,26 @@ fun SceneEditorScreen(
     onProjectChange: (SceneProject) -> Unit
 ) {
     var currentProject by remember(project.id) { mutableStateOf(project) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var extensionCatalogRevision by remember(context.filesDir) { mutableStateOf(0) }
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) extensionCatalogRevision++
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    val installedElements by produceState(
+        initialValue = emptyList<OssInstalledElement>(),
+        key1 = context.filesDir,
+        key2 = extensionCatalogRevision
+    ) {
+        value = withContext(Dispatchers.IO) {
+            OssInstalledElementCatalog.listInstalled(File(context.filesDir, "extensions"))
+        }
+    }
     var selectedElementId by remember(project.id) { mutableStateOf<String?>(null) }
+    val editorScrollState = rememberScrollState()
     var multiSelectMode by remember(project.id) { mutableStateOf(false) }
     var selectedElementIds by remember(project.id) { mutableStateOf<Set<String>>(emptySet()) }
     val history = remember(project.id) { SceneProjectHistory(project) }
@@ -205,14 +241,30 @@ fun SceneEditorScreen(
     var viewportPanY by remember(project.id, scene?.id) { mutableStateOf(0f) }
     val selectedElement = scene?.elements?.firstOrNull { it.id == selectedElementId }
     val selectedSource = currentProject.sources.firstOrNull { it.id == selectedElement?.sourceId }
-    var editingText by remember(selectedElementId) { mutableStateOf(selectedSource?.text.orEmpty()) }
+    var editingText by remember(selectedElementId) { mutableStateOf(selectedSource?.text ?: selectedSource?.settings?.get("text").orEmpty()) }
     var confirmRemoveSource by remember(selectedElementId) { mutableStateOf(false) }
     var editorPanel by remember(project.id) { mutableStateOf("layers") }
+    LaunchedEffect(selectedElementId, editorPanel, scene?.elements?.size) {
+        if (selectedElementId != null && editorPanel == "layers" && !multiSelectMode) {
+            withFrameNanos { }
+            editorScrollState.animateScrollTo(editorScrollState.maxValue)
+        }
+    }
+
+    fun updateTextSettings(values: Map<String, String?>) {
+        if (selectedElement?.locked == true) return
+        val sourceId = selectedSource?.id ?: return
+        val source = currentProject.sources.firstOrNull { it.id == sourceId } ?: return
+        val settings = source.settings.toMutableMap()
+        values.forEach { (key, value) ->
+            if (value == null) settings.remove(key) else settings[key] = value
+        }
+        val updatedSource = source.copy(settings = settings)
+        applyProject(SceneProjectEditor.updateSource(currentProject, updatedSource, System.currentTimeMillis()))
+    }
 
     fun updateTextSetting(key: String, value: String) {
-        val source = selectedSource ?: return
-        val updatedSource = source.copy(settings = source.settings + (key to value))
-        applyProject(SceneProjectEditor.updateSource(currentProject, updatedSource, System.currentTimeMillis()))
+        updateTextSettings(mapOf(key to value))
     }
 
     fun addSource(type: SceneSourceType, text: String? = null) {
@@ -235,10 +287,47 @@ fun SceneEditorScreen(
         applyProject(updated)
     }
 
+    fun addExtensionElement(element: OssInstalledElement) {
+        val activeScene = scene ?: return
+        if (element.kind !in setOf("text", "image", "sticker", "shape", "background", "gif", "video")) return
+        val source = SceneSource(
+            type = SceneSourceType.EXTENSION,
+            displayName = element.name,
+            settings = element.defaults + ("extensionKind" to element.kind),
+            extensionId = element.extensionId,
+            typeId = element.typeId
+        )
+        val timestamp = System.currentTimeMillis()
+        val withSource = SceneProjectEditor.addSource(currentProject, source, timestamp)
+        val added = SceneProjectEditor.addElement(withSource, activeScene.id, source.id, timestamp)
+        val newElementId = added.scenes.first { it.id == activeScene.id }.elements.last().id
+        val updated = if (element.kind == "background") {
+            val fullCanvas = SceneProjectEditor.updateTransform(
+                added,
+                activeScene.id,
+                newElementId,
+                ElementTransform(
+                    x = 0f,
+                    y = 0f,
+                    width = activeScene.canvas.width.toFloat(),
+                    height = activeScene.canvas.height.toFloat()
+                ),
+                timestamp
+            )
+            // Backgrounds must render beneath every existing scene element.
+            SceneProjectEditor.moveElement(fullCanvas, activeScene.id, newElementId, 0, timestamp)
+        } else added
+        selectedElementId = newElementId
+        selectedElementIds = setOf(newElementId)
+        editorPanel = "layers"
+        applyProject(updated)
+    }
+
     Column(
         modifier = Modifier.fillMaxSize()
             .padding(horizontal = 8.dp, vertical = 6.dp)
-            .verticalScroll(rememberScrollState()),
+            .verticalScroll(editorScrollState)
+            .testTag("scene-editor-scroll"),
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Row(
@@ -452,7 +541,15 @@ fun SceneEditorScreen(
                                 else Modifier.border(1.dp, Color(0xFF777777))
                             )
                             .background(if (element.id == selectedElementId) Color(0x553B82F6) else Color(0x33222222))
-                            .clickable { selectedElementId = element.id }
+                            .clickable {
+                                selectedElementId = element.id
+                                selectedElementIds = if (multiSelectMode) {
+                                    if (element.id in selectedElementIds) selectedElementIds - element.id
+                                    else selectedElementIds + element.id
+                                } else {
+                                    setOf(element.id)
+                                }
+                            }
                             .testTag("scene-canvas-element")
                             .then(
                                 if (element.locked) Modifier else Modifier.pointerInput(element.id, scale, snapEnabled) {
@@ -466,16 +563,12 @@ fun SceneEditorScreen(
                                             change.consume()
                                             val nextX = dragX + amount.x / scale
                                             val nextY = dragY + amount.y / scale
-                                            dragX = clampSceneCoordinate(
-                                                if (snapEnabled) snapSceneCoordinate(nextX) else nextX,
-                                                scene.canvas.width.toFloat(),
-                                                transform.width
-                                            )
-                                            dragY = clampSceneCoordinate(
-                                                if (snapEnabled) snapSceneCoordinate(nextY) else nextY,
-                                                scene.canvas.height.toFloat(),
-                                                transform.height
-                                            )
+                                            val candidate = transform.copy(
+                                                x = if (snapEnabled) snapSceneCoordinate(nextX) else nextX,
+                                                y = if (snapEnabled) snapSceneCoordinate(nextY) else nextY
+                                            ).clampedToCanvas(scene.canvas)
+                                            dragX = candidate.x
+                                            dragY = candidate.y
                                             val latest = latestProject.value
                                             val latestTransform = latest.scenes
                                                 .firstOrNull { it.id == scene.id }
@@ -501,7 +594,14 @@ fun SceneEditorScreen(
                             ),
                         contentAlignment = Alignment.Center
                     ) {
-                        Box(Modifier.fillMaxSize().graphicsLayer { alpha = element.opacity }, contentAlignment = Alignment.Center) {
+                        Box(
+                            Modifier.fillMaxSize().graphicsLayer {
+                                alpha = element.opacity
+                                scaleX = if (transform.flipHorizontal) -1f else 1f
+                                scaleY = if (transform.flipVertical) -1f else 1f
+                            },
+                            contentAlignment = Alignment.Center
+                        ) {
                         val label = when (source.type) {
                             SceneSourceType.TEXT -> source.text.orEmpty()
                             SceneSourceType.SHARE_SCREEN -> "Share Screen"
@@ -526,10 +626,39 @@ fun SceneEditorScreen(
                                 Text(label, color = Color.White, textAlign = TextAlign.Center)
                             }
                         } else if (source.type == SceneSourceType.TEXT) {
+                            val customFontFamily = remember(
+                                source.id,
+                                source.settings["fontExtensionId"],
+                                source.settings["fontTypeId"]
+                            ) {
+                                val font = installedElements.firstOrNull {
+                                    it.kind == "font" &&
+                                        it.extensionId == source.settings["fontExtensionId"] &&
+                                        it.typeId == source.settings["fontTypeId"]
+                                }
+                                font?.resolveResource()?.let { file ->
+                                    runCatching {
+                                        FontFamily(android.graphics.Typeface.createFromFile(file))
+                                    }.getOrNull()
+                                }
+                            }
                             val textColor = runCatching {
                                 Color(android.graphics.Color.parseColor(source.settings["color"] ?: "#FFFFFFFF"))
                             }.getOrDefault(Color.White)
                             val textSize = source.settings["fontSize"]?.toFloatOrNull() ?: 48f
+                            val decoration = when {
+                                source.settings["underline"] == "true" && source.settings["strikethrough"] == "true" ->
+                                    TextDecoration.combine(listOf(TextDecoration.Underline, TextDecoration.LineThrough))
+                                source.settings["underline"] == "true" -> TextDecoration.Underline
+                                source.settings["strikethrough"] == "true" -> TextDecoration.LineThrough
+                                else -> TextDecoration.None
+                            }
+                            val shadowRadius = (source.settings["shadowRadius"]?.toFloatOrNull() ?: 0f).coerceIn(0f, 32f)
+                            val shadowColor = runCatching {
+                                Color(android.graphics.Color.parseColor(source.settings["shadowColor"] ?: "#FF000000"))
+                            }.getOrDefault(Color.Black)
+                            val letterSpacing = (source.settings["letterSpacing"]?.toFloatOrNull() ?: 0f).coerceIn(-0.1f, 0.5f)
+                            val lineSpacing = (source.settings["lineSpacing"]?.toFloatOrNull() ?: 1.15f).coerceIn(1f, 2f)
                             val alignment = when (source.settings["align"]) {
                                 "left" -> TextAlign.Start
                                 "right" -> TextAlign.End
@@ -541,8 +670,119 @@ fun SceneEditorScreen(
                                 textAlign = alignment,
                                 fontWeight = if (source.settings["bold"] == "true") FontWeight.Bold else FontWeight.Normal,
                                 fontStyle = if (source.settings["italic"] == "true") FontStyle.Italic else FontStyle.Normal,
-                                fontSize = ((textSize * scale) / density.density).sp
+                                fontFamily = customFontFamily ?: when (source.settings["fontFamily"]) {
+                                    "serif" -> FontFamily.Serif
+                                    "monospace" -> FontFamily.Monospace
+                                    else -> FontFamily.Default
+                                },
+                                fontSize = ((textSize * scale) / density.density).sp,
+                                letterSpacing = (letterSpacing * textSize * scale / density.density).sp,
+                                lineHeight = (textSize * lineSpacing * scale / density.density).sp,
+                                textDecoration = decoration,
+                                style = MaterialTheme.typography.bodyLarge.copy(
+                                    shadow = if (shadowRadius > 0f) Shadow(
+                                        color = shadowColor,
+                                        offset = Offset(2f * scale, 2f * scale),
+                                        blurRadius = shadowRadius * scale
+                                    ) else null
+                                )
                             )
+                        } else if (source.type == SceneSourceType.EXTENSION) {
+                            val extensionElement = installedElements.firstOrNull {
+                                it.extensionId == source.extensionId && it.typeId == source.typeId
+                            }
+                            val resource = extensionElement?.resolveResource()
+                            val extensionKind = extensionElement?.kind
+                            when (extensionKind) {
+                                "text" -> {
+                                    val customFontFamily = remember(
+                                        source.id,
+                                        source.settings["fontExtensionId"],
+                                        source.settings["fontTypeId"]
+                                    ) {
+                                        val font = installedElements.firstOrNull {
+                                            it.kind == "font" &&
+                                                it.extensionId == source.settings["fontExtensionId"] &&
+                                                it.typeId == source.settings["fontTypeId"]
+                                        }
+                                        font?.resolveResource()?.let { file ->
+                                            runCatching {
+                                                FontFamily(android.graphics.Typeface.createFromFile(file))
+                                            }.getOrNull()
+                                        }
+                                    }
+                                    val textColor = runCatching {
+                                        Color(android.graphics.Color.parseColor(source.settings["color"] ?: "#FFFFFFFF"))
+                                    }.getOrDefault(Color.White)
+                                    val textSize = source.settings["fontSize"]?.toFloatOrNull() ?: 48f
+                            val decoration = when {
+                                source.settings["underline"] == "true" && source.settings["strikethrough"] == "true" ->
+                                    TextDecoration.combine(listOf(TextDecoration.Underline, TextDecoration.LineThrough))
+                                source.settings["underline"] == "true" -> TextDecoration.Underline
+                                source.settings["strikethrough"] == "true" -> TextDecoration.LineThrough
+                                else -> TextDecoration.None
+                            }
+                            val shadowRadius = (source.settings["shadowRadius"]?.toFloatOrNull() ?: 0f).coerceIn(0f, 32f)
+                            val shadowColor = runCatching {
+                                Color(android.graphics.Color.parseColor(source.settings["shadowColor"] ?: "#FF000000"))
+                            }.getOrDefault(Color.Black)
+                            val letterSpacing = (source.settings["letterSpacing"]?.toFloatOrNull() ?: 0f).coerceIn(-0.1f, 0.5f)
+                            val lineSpacing = (source.settings["lineSpacing"]?.toFloatOrNull() ?: 1.15f).coerceIn(1f, 2f)
+                                    val alignment = when (source.settings["align"]) {
+                                        "left" -> TextAlign.Start
+                                        "right" -> TextAlign.End
+                                        else -> TextAlign.Center
+                                    }
+                                    Text(
+                                        source.settings["text"] ?: source.displayName,
+                                        color = textColor,
+                                        textAlign = alignment,
+                                        fontWeight = if (source.settings["bold"] == "true") FontWeight.Bold else FontWeight.Normal,
+                                        fontStyle = if (source.settings["italic"] == "true") FontStyle.Italic else FontStyle.Normal,
+                                        fontFamily = customFontFamily ?: FontFamily.Default,
+                                        fontSize = ((textSize * scale) / density.density).sp,
+                                        letterSpacing = (letterSpacing * textSize * scale / density.density).sp,
+                                        lineHeight = (textSize * lineSpacing * scale / density.density).sp,
+                                        textDecoration = decoration,
+                                        style = MaterialTheme.typography.bodyLarge.copy(
+                                            shadow = if (shadowRadius > 0f) Shadow(
+                                                color = shadowColor,
+                                                offset = Offset(2f * scale, 2f * scale),
+                                                blurRadius = shadowRadius * scale
+                                            ) else null
+                                        )
+                                    )
+                                }
+                                "image", "sticker", "gif", "video", "background" -> {
+                                    if (resource != null) {
+                                        SceneAssetImage(
+                                            filePath = resource.absolutePath,
+                                            contentDescription = source.displayName,
+                                            isVideo = extensionKind == "video",
+                                            isGif = extensionKind == "gif",
+                                            crop = element.crop
+                                        )
+                                    } else {
+                                        Text("Resource ekstensi tidak tersedia", color = Color.White)
+                                    }
+                                }
+                                "shape" -> {
+                                    val shapeColor = runCatching {
+                                        Color(android.graphics.Color.parseColor(
+                                            source.settings["fillColor"] ?: source.settings["color"] ?: "#FFFFFFFF"
+                                        ))
+                                    }.getOrDefault(Color.White)
+                                    val shape = when (source.settings["shape"]?.lowercase()) {
+                                        "circle", "ellipse", "oval" -> RoundedCornerShape(50)
+                                        "rounded-rect", "roundrect" -> RoundedCornerShape(
+                                            (source.settings["cornerRadius"]?.toFloatOrNull() ?: 18f).coerceIn(0f, 256f).dp
+                                        )
+                                        else -> RoundedCornerShape(0.dp)
+                                    }
+                                    Box(Modifier.fillMaxSize().background(shapeColor, shape))
+                                }
+                                else -> Text("Ekstensi tidak tersedia", color = Color.White)
+                            }
                         } else {
                             Text(
                                 label,
@@ -576,7 +816,7 @@ fun SceneEditorScreen(
                                                 latestProject.value,
                                                 scene.id,
                                                 element.id,
-                                                transform.copy(width = resizeWidth, height = resizeHeight),
+                                                transform.copy(width = resizeWidth, height = resizeHeight).clampedToCanvas(scene.canvas),
                                                 System.currentTimeMillis()
                                             )
                                             applyProject(updated, "resize:${element.id}")
@@ -619,7 +859,7 @@ fun SceneEditorScreen(
                                                     y = resizeY,
                                                     width = resizeWidth,
                                                     height = resizeHeight
-                                                ),
+                                                ).clampedToCanvas(scene.canvas),
                                                 System.currentTimeMillis()
                                             )
                                             applyProject(updated, "resize:${element.id}")
@@ -654,7 +894,7 @@ fun SceneEditorScreen(
                                                 latestProject.value,
                                                 scene.id,
                                                 element.id,
-                                                transform.copy(y = resizeY, width = resizeWidth, height = resizeHeight),
+                                                transform.copy(y = resizeY, width = resizeWidth, height = resizeHeight).clampedToCanvas(scene.canvas),
                                                 System.currentTimeMillis()
                                             )
                                             applyProject(updated, "resize:${element.id}")
@@ -689,7 +929,7 @@ fun SceneEditorScreen(
                                                 latestProject.value,
                                                 scene.id,
                                                 element.id,
-                                                transform.copy(x = resizeX, width = resizeWidth, height = resizeHeight),
+                                                transform.copy(x = resizeX, width = resizeWidth, height = resizeHeight).clampedToCanvas(scene.canvas),
                                                 System.currentTimeMillis()
                                             )
                                             applyProject(updated, "resize:${element.id}")
@@ -735,6 +975,20 @@ fun SceneEditorScreen(
                             onClick = { addSource(SceneSourceType.SHARE_SCREEN) }
                         ) { Text("Share Screen") }
                     }
+                    val insertableExtensions = installedElements.filter {
+                        it.kind in setOf("text", "image", "sticker", "shape", "background", "gif", "video")
+                    }
+                    if (insertableExtensions.isNotEmpty()) {
+                        Text("Elemen ekstensi", style = MaterialTheme.typography.labelLarge)
+                        insertableExtensions.forEach { extensionElement ->
+                            OutlinedButton(
+                                modifier = Modifier.fillMaxWidth().testTag("scene-add-extension-element"),
+                                onClick = { addExtensionElement(extensionElement) }
+                            ) {
+                                Text("${extensionElement.name} · ${extensionElement.kind}")
+                            }
+                        }
+                    }
                 }
             }
             Surface(
@@ -767,6 +1021,32 @@ fun SceneEditorScreen(
                     Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("Elemen dipilih: ${selectedSource.displayName}", style = MaterialTheme.typography.titleSmall)
                         val elementTransform = selectedElement.transform
+                        Text("Balik elemen", style = MaterialTheme.typography.labelLarge)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            OutlinedButton(
+                                modifier = Modifier.weight(1f).testTag("scene-flip-horizontal"),
+                                enabled = !selectedElement.locked,
+                                onClick = {
+                                    applyProject(SceneProjectEditor.updateTransform(
+                                        currentProject, scene.id, selectedElement.id,
+                                        elementTransform.copy(flipHorizontal = !elementTransform.flipHorizontal), System.currentTimeMillis()
+                                    ))
+                                }
+                            ) { Text(if (elementTransform.flipHorizontal) "Balik horizontal ✓" else "Balik horizontal") }
+                            OutlinedButton(
+                                modifier = Modifier.weight(1f).testTag("scene-flip-vertical"),
+                                enabled = !selectedElement.locked,
+                                onClick = {
+                                    applyProject(SceneProjectEditor.updateTransform(
+                                        currentProject, scene.id, selectedElement.id,
+                                        elementTransform.copy(flipVertical = !elementTransform.flipVertical), System.currentTimeMillis()
+                                    ))
+                                }
+                            ) { Text(if (elementTransform.flipVertical) "Balik vertikal ✓" else "Balik vertikal") }
+                        }
                         Text("Posisi horizontal: ${elementTransform.x.toInt()} px")
                         Slider(
                             modifier = Modifier.testTag("scene-transform-x"),
@@ -828,27 +1108,150 @@ fun SceneEditorScreen(
                         Text("Rotasi: ${elementTransform.rotationDegrees.toInt()}°")
                         Slider(
                             modifier = Modifier.testTag("scene-transform-rotation"),
-                            value = elementTransform.rotationDegrees.coerceIn(-180f, 180f),
+                            value = ((elementTransform.rotationDegrees % 360f) + 360f) % 360f,
                             onValueChange = { value ->
                                 if (!selectedElement.locked) applyProject(SceneProjectEditor.updateTransform(
                                     currentProject, scene.id, selectedElement.id,
                                     elementTransform.copy(rotationDegrees = value), System.currentTimeMillis()
                                 ))
                             },
-                            valueRange = -180f..180f,
+                            valueRange = 0f..360f,
+                            // 359 intermediate steps provide one-degree rotation increments.
+                            steps = 359,
                             enabled = !selectedElement.locked
                         )
+                        Row(
+                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            OutlinedButton(
+                                modifier = Modifier.testTag("scene-rotate-left-90"),
+                                enabled = !selectedElement.locked,
+                                onClick = {
+                                    val next = ((elementTransform.rotationDegrees - 90f) % 360f + 360f) % 360f
+                                    applyProject(SceneProjectEditor.updateTransform(
+                                        currentProject, scene.id, selectedElement.id,
+                                        elementTransform.copy(rotationDegrees = next), System.currentTimeMillis()
+                                    ))
+                                }
+                            ) { Text("Putar -90°") }
+                            OutlinedButton(
+                                modifier = Modifier.testTag("scene-rotate-right-90"),
+                                enabled = !selectedElement.locked,
+                                onClick = {
+                                    val next = ((elementTransform.rotationDegrees + 90f) % 360f + 360f) % 360f
+                                    applyProject(SceneProjectEditor.updateTransform(
+                                        currentProject, scene.id, selectedElement.id,
+                                        elementTransform.copy(rotationDegrees = next), System.currentTimeMillis()
+                                    ))
+                                }
+                            ) { Text("Putar +90°") }
+                            OutlinedButton(
+                                modifier = Modifier.testTag("scene-rotate-reset"),
+                                enabled = !selectedElement.locked && elementTransform.rotationDegrees != 0f,
+                                onClick = {
+                                    applyProject(SceneProjectEditor.updateTransform(
+                                        currentProject, scene.id, selectedElement.id,
+                                        elementTransform.copy(rotationDegrees = 0f), System.currentTimeMillis()
+                                    ))
+                                }
+                            ) { Text("Reset") }
+                        }
+                        Text("Perataan ke canvas", style = MaterialTheme.typography.labelLarge)
+                        Row(
+                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            OutlinedButton(
+                                modifier = Modifier.testTag("scene-align-left"),
+                                enabled = !selectedElement.locked,
+                                onClick = {
+                                    applyProject(SceneProjectEditor.updateTransform(
+                                        currentProject, scene.id, selectedElement.id,
+                                        elementTransform.copy(x = elementTransform.x - elementTransform.rotatedBounds().left), System.currentTimeMillis()
+                                    ))
+                                }
+                            ) { Text("Kiri") }
+                            OutlinedButton(
+                                modifier = Modifier.testTag("scene-align-center-horizontal"),
+                                enabled = !selectedElement.locked,
+                                onClick = {
+                                    applyProject(SceneProjectEditor.updateTransform(
+                                        currentProject, scene.id, selectedElement.id,
+                                        elementTransform.copy(x = elementTransform.x + (scene.canvas.width - elementTransform.rotatedBounds().width) / 2f - elementTransform.rotatedBounds().left),
+                                        System.currentTimeMillis()
+                                    ))
+                                }
+                            ) { Text("Tengah") }
+                            OutlinedButton(
+                                modifier = Modifier.testTag("scene-align-right"),
+                                enabled = !selectedElement.locked,
+                                onClick = {
+                                    applyProject(SceneProjectEditor.updateTransform(
+                                        currentProject, scene.id, selectedElement.id,
+                                        elementTransform.copy(x = elementTransform.x + scene.canvas.width - elementTransform.rotatedBounds().right),
+                                        System.currentTimeMillis()
+                                    ))
+                                }
+                            ) { Text("Kanan") }
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            OutlinedButton(
+                                modifier = Modifier.testTag("scene-align-top"),
+                                enabled = !selectedElement.locked,
+                                onClick = {
+                                    applyProject(SceneProjectEditor.updateTransform(
+                                        currentProject, scene.id, selectedElement.id,
+                                        elementTransform.copy(y = elementTransform.y - elementTransform.rotatedBounds().top), System.currentTimeMillis()
+                                    ))
+                                }
+                            ) { Text("Atas") }
+                            OutlinedButton(
+                                modifier = Modifier.testTag("scene-align-center-vertical"),
+                                enabled = !selectedElement.locked,
+                                onClick = {
+                                    applyProject(SceneProjectEditor.updateTransform(
+                                        currentProject, scene.id, selectedElement.id,
+                                        elementTransform.copy(y = elementTransform.y + (scene.canvas.height - elementTransform.rotatedBounds().height) / 2f - elementTransform.rotatedBounds().top),
+                                        System.currentTimeMillis()
+                                    ))
+                                }
+                            ) { Text("Tengah") }
+                            OutlinedButton(
+                                modifier = Modifier.testTag("scene-align-bottom"),
+                                enabled = !selectedElement.locked,
+                                onClick = {
+                                    applyProject(SceneProjectEditor.updateTransform(
+                                        currentProject, scene.id, selectedElement.id,
+                                        elementTransform.copy(y = elementTransform.y + scene.canvas.height - elementTransform.rotatedBounds().bottom),
+                                        System.currentTimeMillis()
+                                    ))
+                                }
+                            ) { Text("Bawah") }
+                        }
                         Text("Opacity: ${(selectedElement.opacity * 100f).toInt()}%")
                         Slider(
                             value = selectedElement.opacity,
                             onValueChange = {
-                                applyProject(SceneProjectEditor.setElementOpacity(
+                                if (!selectedElement.locked) applyProject(SceneProjectEditor.setElementOpacity(
                                     currentProject, scene.id, selectedElement.id, it, System.currentTimeMillis()
                                 ))
                             },
-                            valueRange = 0f..1f
+                            valueRange = 0f..1f,
+                            enabled = !selectedElement.locked
                         )
-                        if (selectedSource.type in setOf(SceneSourceType.IMAGE, SceneSourceType.GIF, SceneSourceType.VIDEO)) {
+                        val selectedExtensionMedia = selectedSource.type == SceneSourceType.EXTENSION &&
+                            installedElements.any {
+                                it.extensionId == selectedSource.extensionId &&
+                                    it.typeId == selectedSource.typeId &&
+                                    it.kind in setOf("image", "sticker", "gif", "video", "background")
+                            }
+                        if (selectedSource.type in setOf(SceneSourceType.IMAGE, SceneSourceType.GIF, SceneSourceType.VIDEO) ||
+                            selectedExtensionMedia
+                        ) {
                             val crop = selectedElement.crop
                             Text("Crop media", style = MaterialTheme.typography.labelLarge)
                             Text("Kiri: ${(crop.left * 100f).toInt()}%")
@@ -862,7 +1265,8 @@ fun SceneEditorScreen(
                                         crop.copy(left = value.coerceAtMost(maxLeft)), System.currentTimeMillis()
                                     ))
                                 },
-                                valueRange = 0f..maxLeft
+                                valueRange = 0f..maxLeft,
+                                enabled = !selectedElement.locked
                             )
                             Text("Kanan: ${(crop.right * 100f).toInt()}%")
                             val minRight = crop.left + minGapX
@@ -874,7 +1278,8 @@ fun SceneEditorScreen(
                                         crop.copy(right = value.coerceAtLeast(minRight)), System.currentTimeMillis()
                                     ))
                                 },
-                                valueRange = minRight..1f
+                                valueRange = minRight..1f,
+                                enabled = !selectedElement.locked
                             )
                             Text("Atas: ${(crop.top * 100f).toInt()}%")
                             val minGapY = minOf(0.01f, (crop.bottom - crop.top) / 2f)
@@ -887,7 +1292,8 @@ fun SceneEditorScreen(
                                         crop.copy(top = value.coerceAtMost(maxTop)), System.currentTimeMillis()
                                     ))
                                 },
-                                valueRange = 0f..maxTop
+                                valueRange = 0f..maxTop,
+                                enabled = !selectedElement.locked
                             )
                             Text("Bawah: ${(crop.bottom * 100f).toInt()}%")
                             val minBottom = crop.top + minGapY
@@ -899,9 +1305,10 @@ fun SceneEditorScreen(
                                         crop.copy(bottom = value.coerceAtLeast(minBottom)), System.currentTimeMillis()
                                     ))
                                 },
-                                valueRange = minBottom..1f
+                                valueRange = minBottom..1f,
+                                enabled = !selectedElement.locked
                             )
-                            OutlinedButton(onClick = {
+                            OutlinedButton(enabled = !selectedElement.locked, onClick = {
                                 applyProject(SceneProjectEditor.updateElementCrop(
                                     currentProject, scene.id, selectedElement.id, CropRect(), System.currentTimeMillis()
                                 ))
@@ -918,7 +1325,15 @@ fun SceneEditorScreen(
                                 }
                             )
                         }
-                        if (selectedSource.type == SceneSourceType.TEXT) {
+                        val selectedExtensionText = selectedSource.type == SceneSourceType.EXTENSION &&
+                            installedElements.any {
+                                it.extensionId == selectedSource.extensionId &&
+                                    it.typeId == selectedSource.typeId && it.kind == "text"
+                            }
+                        if (selectedSource.type == SceneSourceType.TEXT || selectedExtensionText) {
+                            if (selectedElement.locked) {
+                                Text("Elemen terkunci. Buka kunci untuk mengubah teks dan tipografinya.")
+                            } else {
                             OutlinedTextField(
                                 value = editingText,
                                 onValueChange = { editingText = it },
@@ -926,7 +1341,11 @@ fun SceneEditorScreen(
                                 label = { Text("Isi teks") }
                             )
                             Button(onClick = {
-                                val updatedSource = selectedSource.copy(text = editingText)
+                                val updatedSource = if (selectedSource.type == SceneSourceType.TEXT) {
+                                    selectedSource.copy(text = editingText)
+                                } else {
+                                    selectedSource.copy(settings = selectedSource.settings + ("text" to editingText))
+                                }
                                 applyProject(SceneProjectEditor.updateSource(currentProject, updatedSource, System.currentTimeMillis()))
                             }) { Text("Terapkan teks") }
                             val fontSize = selectedSource.settings["fontSize"]?.toFloatOrNull() ?: 48f
@@ -960,6 +1379,30 @@ fun SceneEditorScreen(
                                     checked = selectedSource.settings["italic"] == "true",
                                     onCheckedChange = { updateTextSetting("italic", it.toString()) }
                                 )
+                            }
+                            val availableExtensionFonts = installedElements.filter { it.kind == "font" }
+                            if (availableExtensionFonts.isNotEmpty()) {
+                                Text("Font ekstensi", style = MaterialTheme.typography.labelLarge)
+                                availableExtensionFonts.forEach { font ->
+                                    OutlinedButton(
+                                        modifier = Modifier.fillMaxWidth().testTag("scene-select-extension-font"),
+                                        onClick = {
+                                            updateTextSettings(mapOf(
+                                                "fontExtensionId" to font.extensionId,
+                                                "fontTypeId" to font.typeId
+                                            ))
+                                        }
+                                    ) { Text(font.name) }
+                                }
+                                OutlinedButton(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    onClick = {
+                                        updateTextSettings(mapOf(
+                                            "fontExtensionId" to null,
+                                            "fontTypeId" to null
+                                        ))
+                                    }
+                                ) { Text("Gunakan font bawaan") }
                             }
                             Text("Jenis huruf", style = MaterialTheme.typography.labelLarge)
                             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -1023,6 +1466,75 @@ fun SceneEditorScreen(
                                     checked = selectedSource.settings["strikethrough"] == "true",
                                     onCheckedChange = { updateTextSetting("strikethrough", it.toString()) }
                                 )
+                            }
+                            OutlinedButton(
+                                modifier = Modifier.fillMaxWidth().testTag("text-reset-formatting"),
+                                onClick = {
+                                    updateTextSettings(listOf(
+                                        "fontSize", "color", "align", "bold", "italic",
+                                        "fontExtensionId", "fontTypeId", "fontFamily",
+                                        "outlineWidth", "outlineColor", "shadowRadius", "shadowColor",
+                                        "letterSpacing", "lineSpacing", "underline", "strikethrough"
+                                    ).associateWith { null })
+                                }
+                            ) { Text("Reset gaya teks") }
+                            }
+                        }
+                        val selectedExtensionShape = selectedSource.type == SceneSourceType.EXTENSION &&
+                            installedElements.any {
+                                it.extensionId == selectedSource.extensionId &&
+                                    it.typeId == selectedSource.typeId && it.kind == "shape"
+                            }
+                        if (selectedExtensionShape) {
+                            if (selectedElement.locked) {
+                                Text("Elemen terkunci. Buka kunci untuk mengubah bentuk dan warnanya.")
+                            } else {
+                            Text("Bentuk", style = MaterialTheme.typography.labelLarge)
+                            Row(
+                                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                listOf(
+                                    "rectangle" to "Persegi",
+                                    "rounded-rect" to "Sudut bulat",
+                                    "circle" to "Lingkaran"
+                                ).forEach { (shape, label) ->
+                                    OutlinedButton(
+                                        modifier = Modifier.testTag("extension-shape-$shape"),
+                                        onClick = { updateTextSetting("shape", shape) }
+                                    ) { Text(label) }
+                                }
+                            }
+                            Text("Warna bentuk", style = MaterialTheme.typography.labelLarge)
+                            Row(
+                                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                listOf(
+                                    "#FFFFFFFF" to "Putih",
+                                    "#FF202124" to "Hitam",
+                                    "#FF4CAF50" to "Hijau",
+                                    "#FF2196F3" to "Biru",
+                                    "#FFE91E63" to "Merah muda",
+                                    "#FFFFC107" to "Kuning"
+                                ).forEach { (color, label) ->
+                                    OutlinedButton(
+                                        modifier = Modifier.testTag("extension-shape-color-$color"),
+                                        onClick = { updateTextSetting("fillColor", color) }
+                                    ) { Text(label) }
+                                }
+                            }
+                            val cornerRadius = (selectedSource.settings["cornerRadius"]?.toFloatOrNull() ?: 18f)
+                                .coerceIn(0f, 128f)
+                            Text("Radius sudut: ${cornerRadius.toInt()} px")
+                            Slider(
+                                modifier = Modifier.testTag("extension-shape-corner-radius"),
+                                value = cornerRadius,
+                                onValueChange = { updateTextSetting("cornerRadius", it.toInt().toString()) },
+                                valueRange = 0f..128f,
+                                enabled = selectedSource.settings["shape"] == "rounded-rect" ||
+                                    selectedSource.settings["shape"] == "roundrect"
+                            )
                             }
                         }
                         val orderedElements = scene.elements.sortedBy { it.zIndex }
@@ -1128,6 +1640,7 @@ fun SceneEditorScreen(
                 modifier = Modifier.testTag("scene-multiselect-toggle"),
                 onClick = {
                     val enteringMultiSelect = !multiSelectMode
+                    android.util.Log.i("OSSSceneSelection", "toggle multi-select: entering=$enteringMultiSelect")
                     multiSelectMode = enteringMultiSelect
                     selectedElementIds = if (enteringMultiSelect) emptySet() else selectedElementIds
                 }
@@ -1136,6 +1649,109 @@ fun SceneEditorScreen(
                 .filter { it.id in selectedElementIds }
                 .mapNotNull { it.groupId }
                 .distinct()
+            val selectedElementsForAlignment = scene.elements.filter { it.id in selectedElementIds }
+            val canAlignSelection = selectedElementsForAlignment.size >= 2 &&
+                selectedElementsForAlignment.none { it.locked }
+            if (canAlignSelection) {
+                fun alignSelection(horizontal: String? = null, vertical: String? = null) {
+                    var updated = currentProject
+                    val timestamp = System.currentTimeMillis()
+                    val original = selectedElementsForAlignment.map { it.transform }
+                    var aligned = original
+                    if (horizontal != null) {
+                        aligned = alignTransformsByRotatedBounds(
+                            aligned, true,
+                            when (horizontal) {
+                                "left" -> ElementBoundsAlignment.START
+                                "center" -> ElementBoundsAlignment.CENTER
+                                else -> ElementBoundsAlignment.END
+                            }, scene.canvas
+                        )
+                    }
+                    if (vertical != null) {
+                        aligned = alignTransformsByRotatedBounds(
+                            aligned, false,
+                            when (vertical) {
+                                "top" -> ElementBoundsAlignment.START
+                                "center" -> ElementBoundsAlignment.CENTER
+                                else -> ElementBoundsAlignment.END
+                            }, scene.canvas
+                        )
+                    }
+                    selectedElementsForAlignment.zip(aligned).forEach { (selected, transform) ->
+                        updated = SceneProjectEditor.updateTransform(
+                            updated, scene.id, selected.id, transform, timestamp
+                        )
+                    }
+                    applyProject(updated)
+                }
+                val horizontalDistribution = if (selectedElementsForAlignment.size >= 3) {
+                    distributeTransformsByRotatedBounds(
+                        selectedElementsForAlignment.map { it.transform }, true, scene.canvas
+                    )
+                } else null
+                val verticalDistribution = if (selectedElementsForAlignment.size >= 3) {
+                    distributeTransformsByRotatedBounds(
+                        selectedElementsForAlignment.map { it.transform }, false, scene.canvas
+                    )
+                } else null
+                Text("Ratakan pilihan", style = MaterialTheme.typography.labelLarge)
+                Row(
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    OutlinedButton(modifier = Modifier.testTag("scene-multi-align-left"), onClick = { alignSelection(horizontal = "left") }) { Text("Kiri") }
+                    OutlinedButton(modifier = Modifier.testTag("scene-multi-align-center-x"), onClick = { alignSelection(horizontal = "center") }) { Text("Tengah X") }
+                    OutlinedButton(modifier = Modifier.testTag("scene-multi-align-right"), onClick = { alignSelection(horizontal = "right") }) { Text("Kanan") }
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    OutlinedButton(modifier = Modifier.testTag("scene-multi-align-top"), onClick = { alignSelection(vertical = "top") }) { Text("Atas") }
+                    OutlinedButton(modifier = Modifier.testTag("scene-multi-align-center-y"), onClick = { alignSelection(vertical = "center") }) { Text("Tengah Y") }
+                    OutlinedButton(modifier = Modifier.testTag("scene-multi-align-bottom"), onClick = { alignSelection(vertical = "bottom") }) { Text("Bawah") }
+                }
+                if (selectedElementsForAlignment.size >= 3) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        OutlinedButton(
+                            modifier = Modifier.testTag("scene-distribute-horizontal"),
+                            enabled = horizontalDistribution != null,
+                            onClick = {
+                                horizontalDistribution?.let { transforms ->
+                                    var updated = currentProject
+                                    val timestamp = System.currentTimeMillis()
+                                    selectedElementsForAlignment.zip(transforms).forEach { (item, transform) ->
+                                        updated = SceneProjectEditor.updateTransform(
+                                            updated, scene.id, item.id, transform, timestamp
+                                        )
+                                    }
+                                    applyProject(updated)
+                                }
+                            }
+                        ) { Text("Sebar horizontal") }
+                        OutlinedButton(
+                            modifier = Modifier.testTag("scene-distribute-vertical"),
+                            enabled = verticalDistribution != null,
+                            onClick = {
+                                verticalDistribution?.let { transforms ->
+                                    var updated = currentProject
+                                    val timestamp = System.currentTimeMillis()
+                                    selectedElementsForAlignment.zip(transforms).forEach { (item, transform) ->
+                                        updated = SceneProjectEditor.updateTransform(
+                                            updated, scene.id, item.id, transform, timestamp
+                                        )
+                                    }
+                                    applyProject(updated)
+                                }
+                            }
+                        ) { Text("Sebar vertikal") }
+                    }
+                }
+            }
             val canGroup = selectedElementIds.size >= 2 &&
                 scene.elements.filter { it.id in selectedElementIds }.all { it.groupId == null }
             if (canGroup || selectedGroupIds.size == 1) {
@@ -1155,6 +1771,22 @@ fun SceneEditorScreen(
                         }) { Text("Kelompokkan (" + selectedElementIds.size + ")") }
                     }
                     if (selectedGroupIds.size == 1) {
+                        OutlinedButton(
+                            modifier = Modifier.testTag("scene-group-scale-up"),
+                            onClick = {
+                                applyProject(SceneProjectEditor.scaleGroup(
+                                    currentProject, scene.id, selectedGroupIds.single(), 1.15f, System.currentTimeMillis()
+                                ))
+                            }
+                        ) { Text("Perbesar grup") }
+                        OutlinedButton(
+                            modifier = Modifier.testTag("scene-group-scale-down"),
+                            onClick = {
+                                applyProject(SceneProjectEditor.scaleGroup(
+                                    currentProject, scene.id, selectedGroupIds.single(), 0.87f, System.currentTimeMillis()
+                                ))
+                            }
+                        ) { Text("Perkecil grup") }
                         OutlinedButton(onClick = {
                             applyProject(SceneProjectEditor.ungroupElements(
                                 currentProject, scene.id, selectedGroupIds.single(), System.currentTimeMillis()
@@ -1178,24 +1810,110 @@ fun SceneEditorScreen(
                 scene.elements.sortedBy { it.zIndex }.forEach { element ->
                     val source = currentProject.sources.firstOrNull { it.id == element.sourceId }
                     val chosen = element.id in selectedElementIds
-                    OutlinedButton(
-                        modifier = Modifier.fillMaxWidth().testTag("scene-element-item"),
-                        onClick = {
-                            if (multiSelectMode) {
-                                selectedElementIds = if (chosen) {
-                                    selectedElementIds - element.id
-                                } else {
-                                    selectedElementIds + element.id
-                                }
-                                selectedElementId = element.id
-                            } else {
-                                selectedElementId = element.id
-                                selectedElementIds = setOf(element.id)
-                            }
-                            editingText = source?.text.orEmpty()
-                        }
+                    val layerPosition = scene.elements.sortedBy { it.zIndex }.indexOfFirst { it.id == element.id }
+                    val layerCount = scene.elements.size
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        Text((if (chosen && multiSelectMode) "✓ " else "") + (source?.displayName ?: "Element"))
+                        OutlinedButton(
+                            modifier = Modifier.fillMaxWidth().testTag("scene-element-item"),
+                            onClick = {
+                                if (multiSelectMode) {
+                                    selectedElementIds = if (element.id in selectedElementIds) {
+                                        selectedElementIds - element.id
+                                    } else {
+                                        selectedElementIds + element.id
+                                    }
+                                    selectedElementId = element.id
+                                } else {
+                                    selectedElementId = element.id
+                                    selectedElementIds = setOf(element.id)
+                                }
+                                editingText = source?.text ?: source?.settings?.get("text").orEmpty()
+                            }
+                        ) {
+                            val state = buildString {
+                                if (chosen && multiSelectMode) append("✓ ")
+                                append(source?.displayName ?: "Element")
+                                if (element.locked) append(" · Terkunci")
+                                if (!element.visible) append(" · Tersembunyi")
+                            }
+                            Text(state)
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                        TextButton(
+                            modifier = Modifier.testTag("scene-layer-visibility-" + element.id),
+                            onClick = {
+                                applyProject(SceneProjectEditor.setElementVisibility(
+                                    currentProject, scene.id, element.id, !element.visible, System.currentTimeMillis()
+                                ))
+                            }
+                        ) { Text(if (element.visible) "Sembunyi" else "Tampil") }
+                        TextButton(
+                            modifier = Modifier.testTag("scene-layer-lock-" + element.id),
+                            onClick = {
+                                applyProject(SceneProjectEditor.setElementLocked(
+                                    currentProject, scene.id, element.id, !element.locked, System.currentTimeMillis()
+                                ))
+                            }
+                        ) { Text(if (element.locked) "Buka" else "Kunci") }
+                        TextButton(
+                            modifier = Modifier.testTag("scene-layer-duplicate-" + element.id),
+                            enabled = !element.locked,
+                            onClick = {
+                                val beforeIds = scene.elements.mapTo(mutableSetOf()) { it.id }
+                                val duplicated = SceneProjectEditor.duplicateElement(
+                                    currentProject, scene.id, element.id, System.currentTimeMillis()
+                                )
+                                val duplicateId = duplicated.scenes.first { it.id == scene.id }
+                                    .elements.first { it.id !in beforeIds }.id
+                                selectedElementId = duplicateId
+                                selectedElementIds = setOf(duplicateId)
+                                applyProject(duplicated)
+                            }
+                        ) { Text("Salin") }
+                        TextButton(
+                            modifier = Modifier.testTag("scene-layer-move-up-" + element.id),
+                            enabled = layerPosition > 0,
+                            onClick = {
+                                applyProject(SceneProjectEditor.moveElement(
+                                    currentProject, scene.id, element.id, layerPosition - 1, System.currentTimeMillis()
+                                ))
+                            }
+                        ) { Text("↑") }
+                        TextButton(
+                            modifier = Modifier.testTag("scene-layer-move-down-" + element.id),
+                            enabled = layerPosition < layerCount - 1,
+                            onClick = {
+                                applyProject(SceneProjectEditor.moveElement(
+                                    currentProject, scene.id, element.id, layerPosition + 1, System.currentTimeMillis()
+                                ))
+                            }
+                        ) { Text("↓") }
+                        TextButton(
+                            modifier = Modifier.testTag("scene-layer-send-back-" + element.id),
+                            enabled = layerPosition > 0,
+                            onClick = {
+                                applyProject(SceneProjectEditor.moveElement(
+                                    currentProject, scene.id, element.id, 0, System.currentTimeMillis()
+                                ))
+                            }
+                        ) { Text("Paling bawah") }
+                        TextButton(
+                            modifier = Modifier.testTag("scene-layer-bring-front-" + element.id),
+                            enabled = layerPosition < layerCount - 1,
+                            onClick = {
+                                applyProject(SceneProjectEditor.moveElement(
+                                    currentProject, scene.id, element.id, layerCount - 1, System.currentTimeMillis()
+                                ))
+                            }
+                        ) { Text("Paling atas") }
+                        }
                     }
                 }
             }

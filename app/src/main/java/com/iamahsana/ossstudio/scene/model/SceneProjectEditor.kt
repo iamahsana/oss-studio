@@ -173,7 +173,9 @@ object SceneProjectEditor {
         val sceneIndex = project.scenes.indexOfFirst { it.id == sceneId }
         require(sceneIndex >= 0) { "Scene does not exist" }
         val scene = project.scenes[sceneIndex]
-        require(scene.elements.any { it.id == elementId }) { "Element does not exist" }
+        val target = scene.elements.firstOrNull { it.id == elementId }
+            ?: throw IllegalArgumentException("Element does not exist")
+        if (target.locked) return project
         return project.copy(
             scenes = project.scenes.toMutableList().also { list ->
                 list[sceneIndex] = scene.copy(
@@ -195,7 +197,9 @@ object SceneProjectEditor {
         val sceneIndex = project.scenes.indexOfFirst { it.id == sceneId }
         require(sceneIndex >= 0) { "Scene does not exist" }
         val scene = project.scenes[sceneIndex]
-        require(scene.elements.any { it.id == elementId }) { "Element does not exist" }
+        val target = scene.elements.firstOrNull { it.id == elementId }
+            ?: throw IllegalArgumentException("Element does not exist")
+        if (target.locked) return project
         return project.copy(
             scenes = project.scenes.toMutableList().also { list ->
                 list[sceneIndex] = scene.copy(
@@ -261,7 +265,9 @@ object SceneProjectEditor {
         val sceneIndex = project.scenes.indexOfFirst { it.id == sceneId }
         require(sceneIndex >= 0) { "Scene does not exist" }
         val scene = project.scenes[sceneIndex]
-        require(scene.elements.any { it.id == elementId }) { "Element does not exist" }
+        val target = scene.elements.firstOrNull { it.id == elementId }
+            ?: throw IllegalArgumentException("Element does not exist")
+        if (target.locked) return project
         val updatedScene = scene.copy(
             elements = scene.elements.map {
                 if (it.id == elementId) it.copy(transform = transform) else it
@@ -322,10 +328,13 @@ object SceneProjectEditor {
         require(members.isNotEmpty()) { "Group does not exist" }
         val movable = members.filterNot { it.locked }
         if (movable.isEmpty()) return project
-        val minDeltaX = movable.maxOf { -it.transform.x }
-        val maxDeltaX = movable.minOf { scene.canvas.width - it.transform.x - it.transform.width }
-        val minDeltaY = movable.maxOf { -it.transform.y }
-        val maxDeltaY = movable.minOf { scene.canvas.height - it.transform.y - it.transform.height }
+        // Clamp against the visible, rotated footprint rather than the stored
+        // unrotated rectangle. This keeps rotated members inside the LIVE canvas.
+        val bounds = movable.map { it.transform.rotatedBounds() }
+        val minDeltaX = bounds.maxOf { -it.left }
+        val maxDeltaX = bounds.minOf { scene.canvas.width - it.right }
+        val minDeltaY = bounds.maxOf { -it.top }
+        val maxDeltaY = bounds.minOf { scene.canvas.height - it.bottom }
         // A scene may have been resized after its elements were positioned. If a
         // member is larger than the canvas, no shared translation can fit the group.
         if (minDeltaX > maxDeltaX || minDeltaY > maxDeltaY) return project
@@ -337,6 +346,65 @@ object SceneProjectEditor {
                     element.copy(transform = element.transform.copy(
                         x = element.transform.x + boundedX,
                         y = element.transform.y + boundedY
+                    ))
+                } else element
+            }
+        )
+        return project.copy(
+            scenes = project.scenes.toMutableList().also { it[sceneIndex] = updatedScene },
+            updatedAtEpochMillis = nextTimestamp(project, nowEpochMillis)
+        )
+    }
+
+    fun scaleGroup(
+        project: SceneProject,
+        sceneId: String,
+        groupId: String,
+        scaleFactor: Float,
+        nowEpochMillis: Long
+    ): SceneProject {
+        require(groupId.isNotBlank()) { "Group ID must not be blank" }
+        require(scaleFactor.isFinite() && scaleFactor > 0f) { "Group scale must be positive and finite" }
+        val sceneIndex = project.scenes.indexOfFirst { it.id == sceneId }
+        require(sceneIndex >= 0) { "Scene does not exist" }
+        val scene = project.scenes[sceneIndex]
+        val members = scene.elements.filter { it.groupId == groupId }
+        require(members.isNotEmpty()) { "Group does not exist" }
+        val movable = members.filterNot { it.locked }
+        if (movable.isEmpty()) return project
+        // Use the group's rotated visual footprint as the scaling frame. Scaling
+        // each element around its unrotated top-left causes rotated layers to drift
+        // and can push their visible corners outside the LIVE canvas.
+        val memberBounds = members.map { it.transform.rotatedBounds() }
+        val originX = memberBounds.minOf { it.left }
+        val originY = memberBounds.minOf { it.top }
+        val right = memberBounds.maxOf { it.right }
+        val bottom = memberBounds.maxOf { it.bottom }
+        val minScale = movable.maxOf {
+            maxOf(16f / it.transform.width, 16f / it.transform.height)
+        }
+        val maxScaleX = if (right > originX) (scene.canvas.width - originX) / (right - originX) else 2f
+        val maxScaleY = if (bottom > originY) (scene.canvas.height - originY) / (bottom - originY) else 2f
+        val boundedScale = scaleFactor.coerceIn(
+            minScale,
+            minOf(maxScaleX, maxScaleY).coerceAtLeast(minScale)
+        )
+        val updatedScene = scene.copy(
+            elements = scene.elements.map { element ->
+                if (element.groupId == groupId && !element.locked) {
+                    val transform = element.transform
+                    val bounds = transform.rotatedBounds()
+                    val centerX = (bounds.left + bounds.right) / 2f
+                    val centerY = (bounds.top + bounds.bottom) / 2f
+                    val scaledWidth = transform.width * boundedScale
+                    val scaledHeight = transform.height * boundedScale
+                    val scaledCenterX = originX + (centerX - originX) * boundedScale
+                    val scaledCenterY = originY + (centerY - originY) * boundedScale
+                    element.copy(transform = transform.copy(
+                        x = scaledCenterX - scaledWidth / 2f,
+                        y = scaledCenterY - scaledHeight / 2f,
+                        width = scaledWidth,
+                        height = scaledHeight
                     ))
                 } else element
             }

@@ -69,3 +69,16 @@ Before enabling production auto-update:
 
 ## Current decision
 Implement the update architecture and Settings UI contract early, but defer production download/install integration until the release channel, signing ownership, and distribution route are established. This avoids coupling OSS to temporary GitHub Actions artifacts or locking the project into a store decision prematurely.
+
+## Current beta signing workflow
+
+The repository provides a manually triggered GitHub Actions workflow at `.github/workflows/release-beta.yml`. It produces a signed release APK only when all four repository Actions secrets are configured:
+
+- `OSS_RELEASE_KEYSTORE_BASE64`: base64-encoded Java keystore file;
+- `OSS_RELEASE_STORE_PASSWORD`: keystore password;
+- `OSS_RELEASE_KEY_ALIAS`: signing key alias;
+- `OSS_RELEASE_KEY_PASSWORD`: signing key password.
+
+The keystore must be generated and backed up securely by the project owner. Never commit the keystore or passwords, and do not regenerate the production key after beta distribution begins. Configure these values under GitHub repository Settings → Secrets and variables → Actions. Then run **Signed beta APK** manually from the Actions tab. The workflow validates that the secrets exist, builds the release variant, and uploads `oss-studio-beta-signed`. The normal Android CI continues to publish debug APKs for development only.
+
+The release Gradle task intentionally fails when signing inputs are absent; an unsigned release must not be mistaken for a distributable beta. Before publishing, verify the artifact's package ID, versionCode, signing-certificate fingerprint, and installation/upgrade behavior on a physical Android device.

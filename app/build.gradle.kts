@@ -4,6 +4,22 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+val ossReleaseStoreFile = providers.gradleProperty("ossReleaseStoreFile").orNull
+    ?: System.getenv("OSS_RELEASE_STORE_FILE")
+val ossReleaseStorePassword = providers.gradleProperty("ossReleaseStorePassword").orNull
+    ?: System.getenv("OSS_RELEASE_STORE_PASSWORD")
+val ossReleaseKeyAlias = providers.gradleProperty("ossReleaseKeyAlias").orNull
+    ?: System.getenv("OSS_RELEASE_KEY_ALIAS")
+val ossReleaseKeyPassword = providers.gradleProperty("ossReleaseKeyPassword").orNull
+    ?: System.getenv("OSS_RELEASE_KEY_PASSWORD")
+
+val ossReleaseSigningConfigured = listOf(
+    ossReleaseStoreFile,
+    ossReleaseStorePassword,
+    ossReleaseKeyAlias,
+    ossReleaseKeyPassword
+).all { !it.isNullOrBlank() }
+
 android {
     namespace = "com.iamahsana.ossstudio"
     compileSdk = 36
@@ -15,6 +31,26 @@ android {
         versionCode = 1
         versionName = "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    signingConfigs {
+        create("release") {
+            if (ossReleaseSigningConfigured) {
+                storeFile = file(requireNotNull(ossReleaseStoreFile))
+                storePassword = requireNotNull(ossReleaseStorePassword)
+                keyAlias = requireNotNull(ossReleaseKeyAlias)
+                keyPassword = requireNotNull(ossReleaseKeyPassword)
+            }
+        }
+    }
+
+    buildTypes {
+        getByName("release") {
+            isMinifyEnabled = false
+            if (ossReleaseSigningConfigured) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+        }
     }
 
     buildFeatures {
@@ -36,6 +72,16 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
+    }
+}
+
+tasks.configureEach {
+    if (name == "assembleRelease" || name == "bundleRelease") {
+        doFirst {
+            check(ossReleaseSigningConfigured) {
+                "Release signing is not configured. Supply OSS_RELEASE_STORE_FILE, OSS_RELEASE_STORE_PASSWORD, OSS_RELEASE_KEY_ALIAS, and OSS_RELEASE_KEY_PASSWORD."
+            }
         }
     }
 }
