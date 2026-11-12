@@ -15,6 +15,8 @@ Each destination displays its own state and error. The primary action changes fr
 The Scene Editor must achieve PixelLab functional and workflow parity, not merely borrow its general style. Reproduce the editor's screen organization, tool placement, object manipulation, contextual controls, and complete user-facing feature set as closely as practical, while retaining OSS branding and original code/assets. The [PixelLab Feature Parity Matrix](15-PIXELLAB-FEATURE-PARITY.md) is a release acceptance requirement; the checklist below is a minimum, not an exhaustive cap.
 
 - Canvas is the dominant work area and scales to the available editor space.
+- Canvas remains continuously visible in the main editor workspace; tool and property controls live in a bottom horizontal rail that can be swiped left/right, not in a long vertical stack that pushes the canvas off-screen.
+- Long contextual panels may scroll vertically inside their own bounded panel, but the canvas itself must remain visible while those panels are used.
 - Canvas logical aspect ratio follows the selected LIVE output orientation, not the phone's physical display orientation.
 - Initial canvas is empty.
 - Portrait (9:16) and Landscape (16:9) are the only initial canvas modes.
