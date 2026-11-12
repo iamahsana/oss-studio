@@ -215,6 +215,37 @@ class MainActivitySmokeTest {
     }
 
     @Test
+    fun sceneEditorPreciseGeometryInputsSupportUndoAndRedo() {
+        createdSmokeProject = true
+        composeRule.onNodeWithText("Project baru").performClick()
+        composeRule.onNodeWithText("Nama project").performTextInput("OSS UI Smoke")
+        composeRule.onNodeWithText("Buat").performClick()
+        composeRule.waitUntil("new project opens its editor", 15_000L) {
+            composeRule.onAllNodesWithText("Canvas kosong").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithTag("scene-add-text").performScrollTo().performClick()
+        composeRule.waitUntil("text source is added", 15_000L) {
+            composeRule.onAllNodesWithTag("scene-element-item").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onAllNodesWithTag("scene-canvas-element", useUnmergedTree = true)[0].performClick()
+        composeRule.onNodeWithTag("scene-panel-properties").performScrollTo().performClick()
+        composeRule.onNodeWithTag("scene-properties-panel").performScrollTo().assertIsDisplayed()
+
+        composeRule.onNodeWithTag("scene-geometry-x-input").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-geometry-y-input").assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-geometry-width-input").assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-geometry-height-input").assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-geometry-rotation-input").assertIsDisplayed()
+
+        composeRule.onNodeWithTag("scene-geometry-x-input").performTextReplacement("120")
+        composeRule.onNodeWithTag("scene-geometry-x-input").assert(hasText("120"))
+        composeRule.onNodeWithText("Undo").performScrollTo().performClick()
+        composeRule.onNodeWithTag("scene-geometry-x-input").assert(hasText("0"))
+        composeRule.onNodeWithText("Redo").performScrollTo().performClick()
+        composeRule.onNodeWithTag("scene-geometry-x-input").assert(hasText("120"))
+    }
+
+    @Test
     fun settingsPageShowsAppearanceStorageAndDiagnosticExport() {
         composeRule.onNodeWithTag("nav-settings").performClick()
         composeRule.onNodeWithText("Tema aplikasi").performScrollTo().assertIsDisplayed()
