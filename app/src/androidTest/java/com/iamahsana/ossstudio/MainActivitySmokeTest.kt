@@ -182,15 +182,15 @@ class MainActivitySmokeTest {
             return text.substringAfter("Dipilih: ", "-1").toIntOrNull() ?: -1
         }
         val layerRows = composeRule.onAllNodesWithTag("scene-element-item")
-        // The layer list may be below the fold on compact emulator screens.
-        // Exercise each row through its Compose click semantics instead of
-        // requiring an off-screen row to be physically displayed.
+        // Bring each layer into the viewport before tapping. Compose semantics
+        // can expose off-screen click actions, but those clicks do not guarantee
+        // that the underlying button receives a real interaction.
         for (index in 0..2) layerRows[index].assertExists().assertHasClickAction()
-        layerRows[0].performClick()
+        layerRows[0].performScrollTo().assertIsDisplayed().performClick()
         composeRule.waitUntil("first layer becomes selected", 5_000L) { selectedLayerCount() == 1 }
-        layerRows[1].performClick()
+        layerRows[1].performScrollTo().assertIsDisplayed().performClick()
         composeRule.waitUntil("second layer becomes selected", 5_000L) { selectedLayerCount() == 2 }
-        layerRows[2].performClick()
+        layerRows[2].performScrollTo().assertIsDisplayed().performClick()
         composeRule.waitUntil("third layer becomes selected", 5_000L) { selectedLayerCount() == 3 }
         composeRule.onNodeWithTag("scene-multi-align-left").performScrollTo().assertIsDisplayed().performClick()
         composeRule.onNodeWithTag("scene-multi-align-center-y").performScrollTo().assertIsDisplayed().performClick()
