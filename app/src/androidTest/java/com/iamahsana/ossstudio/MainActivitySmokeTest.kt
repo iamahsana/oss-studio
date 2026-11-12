@@ -184,18 +184,11 @@ class MainActivitySmokeTest {
             return text.substringAfter("Dipilih: ", "-1").toIntOrNull() ?: -1
         }
         val layerRows = composeRule.onAllNodesWithTag("scene-element-item")
-        repeat(8) {
-            val allVisible = runCatching {
-                for (index in 0..2) layerRows[index].assertIsDisplayed()
-            }.isSuccess
-            if (!allVisible) {
-                composeRule.onNodeWithTag("scene-editor-scroll")
-                    .performSemanticsAction(SemanticsActions.ScrollBy) { scrollBy ->
-                        scrollBy(0f, 900f)
-                    }
-            }
+        // Each row is intentionally brought into the viewport independently:
+        // the layer list can extend beyond the phone's visible editor area.
+        for (index in 0..2) {
+            layerRows[index].performScrollTo().assertIsDisplayed().assertHasClickAction()
         }
-        for (index in 0..2) layerRows[index].assertIsDisplayed().assertHasClickAction()
         layerRows[0].performTouchInput { click() }
         composeRule.waitUntil("first layer becomes selected", 5_000L) { selectedLayerCount() == 1 }
         composeRule.onAllNodesWithTag("scene-element-item")[1].performScrollTo()
