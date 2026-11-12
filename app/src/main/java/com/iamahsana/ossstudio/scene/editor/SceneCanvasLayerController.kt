@@ -428,6 +428,12 @@ class SceneCanvasLayerController(
                     val save = canvas.save()
                     canvas.translate(left, top)
                     canvas.rotate(transform.rotationDegrees, width / 2f, height / 2f)
+                    canvas.scale(
+                        if (transform.flipHorizontal) -1f else 1f,
+                        if (transform.flipVertical) -1f else 1f,
+                        width / 2f,
+                        height / 2f
+                    )
                     val destination = RectF(0f, 0f, width, height)
                     when (source.type) {
                         SceneSourceType.TEXT -> drawText(canvas, source, destination, element.opacity, scaleY)
