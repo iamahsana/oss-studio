@@ -203,6 +203,27 @@ class LiveSessionControllerTest {
     }
 
     @Test
+    fun failedSessionKeepsProjectLockedUntilAsynchronousCleanupCompletes() {
+        val fake = FakeRuntime().apply { deferAudioStop = true }
+        val controller = LiveSessionController(object : LiveSessionController.RuntimeFactory {
+            override fun create() = fake
+        })
+
+        assertTrue(controller.start("rtmp://stream.example/live/key"))
+        assertTrue(controller.isCleanupComplete)
+
+        fake.screenListener?.onFailure()
+
+        assertEquals(LiveSessionController.State.FAILED, controller.state)
+        assertFalse(controller.isCleanupComplete)
+
+        fake.completePendingAudioStop()
+
+        assertEquals(LiveSessionController.State.FAILED, controller.state)
+        assertTrue(controller.isCleanupComplete)
+    }
+
+    @Test
     fun projectionStopFailureIsReportedByTeardown() {
         val fake = FakeRuntime().apply { projectionStopResult = false }
         val controller = LiveSessionController(object : LiveSessionController.RuntimeFactory {
