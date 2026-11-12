@@ -17,6 +17,7 @@ import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
+import androidx.compose.ui.test.swipeRight
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onAllNodesWithTag
 import android.content.Context
@@ -161,7 +162,9 @@ class MainActivitySmokeTest {
         composeRule.onAllNodesWithTag("scene-canvas-element", useUnmergedTree = true)[0].performClick()
         composeRule.onNodeWithTag("scene-resize-handle", useUnmergedTree = true).assertExists().assertIsDisplayed()
 
-        composeRule.onNodeWithText("Tambah teks").performScrollTo().performClick()
+        // Return to the insertion shelf, which sits at the start of the horizontal tool rail.
+        composeRule.onNodeWithTag("scene-editor-tool-rail").performTouchInput { swipeRight() }
+        composeRule.onNodeWithTag("scene-add-text").assertIsDisplayed().performClick()
         composeRule.waitUntil("second scene layer is added before multi-select assertions", 10_000L) {
             composeRule.onAllNodesWithTag("scene-element-item").fetchSemanticsNodes().size == 2
         }
