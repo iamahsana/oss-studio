@@ -1780,14 +1780,13 @@ fun SceneEditorScreen(
                     val layerPosition = scene.elements.sortedBy { it.zIndex }.indexOfFirst { it.id == element.id }
                     val layerCount = scene.elements.size
                     Row(
-                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         OutlinedButton(
                             modifier = Modifier.width(180.dp).testTag("scene-element-item"),
                             onClick = {
-                                android.util.Log.i("OSSSceneSelection", "layer click: id=${element.id}, multiSelect=$multiSelectMode, before=${selectedElementIds.size}")
                                 if (multiSelectMode) {
                                     selectedElementIds = if (element.id in selectedElementIds) {
                                         selectedElementIds - element.id
@@ -1799,7 +1798,6 @@ fun SceneEditorScreen(
                                     selectedElementId = element.id
                                     selectedElementIds = setOf(element.id)
                                 }
-                                android.util.Log.i("OSSSceneSelection", "layer click complete: selected=${selectedElementIds.size}")
                                 editingText = source?.text ?: source?.settings?.get("text").orEmpty()
                             }
                         ) {
@@ -1811,6 +1809,11 @@ fun SceneEditorScreen(
                             }
                             Text(state)
                         }
+                        Row(
+                            modifier = Modifier.weight(1f).horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                         TextButton(
                             modifier = Modifier.testTag("scene-layer-visibility-" + element.id),
                             onClick = {
@@ -1878,6 +1881,7 @@ fun SceneEditorScreen(
                                 ))
                             }
                         ) { Text("Paling atas") }
+                        }
                     }
                 }
             }
