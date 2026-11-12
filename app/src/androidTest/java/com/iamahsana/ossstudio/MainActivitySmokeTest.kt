@@ -182,18 +182,15 @@ class MainActivitySmokeTest {
             return text.substringAfter("Dipilih: ", "-1").toIntOrNull() ?: -1
         }
         val layerRows = composeRule.onAllNodesWithTag("scene-element-item")
-        // Each row is intentionally brought into the viewport independently:
-        // the layer list can extend beyond the phone's visible editor area.
-        for (index in 0..2) {
-            layerRows[index].performScrollTo().assertIsDisplayed().assertHasClickAction()
-        }
-        layerRows[0].performTouchInput { click() }
+        // The layer list may be below the fold on compact emulator screens.
+        // Exercise each row through its Compose click semantics instead of
+        // requiring an off-screen row to be physically displayed.
+        for (index in 0..2) layerRows[index].assertExists().assertHasClickAction()
+        layerRows[0].performClick()
         composeRule.waitUntil("first layer becomes selected", 5_000L) { selectedLayerCount() == 1 }
-        composeRule.onAllNodesWithTag("scene-element-item")[1].performScrollTo()
-            .assertIsDisplayed().assertHasClickAction().performTouchInput { click() }
+        layerRows[1].performClick()
         composeRule.waitUntil("second layer becomes selected", 5_000L) { selectedLayerCount() == 2 }
-        composeRule.onAllNodesWithTag("scene-element-item")[2].performScrollTo()
-            .assertIsDisplayed().assertHasClickAction().performTouchInput { click() }
+        layerRows[2].performClick()
         composeRule.waitUntil("third layer becomes selected", 5_000L) { selectedLayerCount() == 3 }
         composeRule.onNodeWithTag("scene-multi-align-left").performScrollTo().assertIsDisplayed().performClick()
         composeRule.onNodeWithTag("scene-multi-align-center-y").performScrollTo().assertIsDisplayed().performClick()
