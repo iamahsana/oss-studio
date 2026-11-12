@@ -93,19 +93,10 @@ class MainActivitySmokeTest {
         composeRule.waitUntil("new text source appears in the scene layers", 15_000L) {
             composeRule.onAllNodesWithTag("scene-element-item").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithTag("scene-panel-layers").performScrollTo().assertIsDisplayed()
-        repeat(5) {
-            val visible = runCatching {
+        composeRule.waitUntil("selected layer is automatically brought into view", 5_000L) {
+            runCatching {
                 composeRule.onAllNodesWithTag("scene-element-item")[0].assertIsDisplayed()
             }.isSuccess
-            if (!visible) {
-                composeRule.onNodeWithTag("scene-editor-scroll").performTouchInput {
-                    swipeUp(
-                        start = center.copy(y = height * 0.95f),
-                        end = center.copy(y = height * 0.15f)
-                    )
-                }
-            }
         }
         composeRule.onAllNodesWithTag("scene-element-item")[0].assertIsDisplayed()
         composeRule.waitUntil("new text element is composed on the canvas", 15_000L) {
