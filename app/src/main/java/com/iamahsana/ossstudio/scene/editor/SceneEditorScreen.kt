@@ -1032,97 +1032,63 @@ fun SceneEditorScreen(
                     Column(Modifier.fillMaxSize().padding(14.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("Elemen dipilih: ${selectedSource.displayName}", style = MaterialTheme.typography.titleSmall)
                         val elementTransform = selectedElement.transform
+                        var numericTransformValues by remember(selectedElement.id) {
+                            mutableStateOf(
+                                listOf(
+                                    elementTransform.x.roundToInt().toString(),
+                                    elementTransform.y.roundToInt().toString(),
+                                    elementTransform.width.roundToInt().toString(),
+                                    elementTransform.height.roundToInt().toString(),
+                                    elementTransform.rotationDegrees.roundToInt().toString()
+                                )
+                            )
+                        }
+                        val parsedTransformValues = numericTransformValues.map { it.toFloatOrNull() }
                         Text("Transformasi presisi · px / derajat", style = MaterialTheme.typography.labelLarge)
                         Row(
                             modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            OutlinedTextField(
-                                value = elementTransform.x.roundToInt().toString(),
-                                onValueChange = { raw ->
-                                    raw.toFloatOrNull()?.let { value ->
-                                        if (!selectedElement.locked) applyProject(SceneProjectEditor.updateTransform(
-                                            currentProject, scene.id, selectedElement.id,
-                                            elementTransform.copy(x = value).clampedToCanvas(scene.canvas),
-                                            System.currentTimeMillis()
-                                        ))
-                                    }
-                                },
-                                modifier = Modifier.width(112.dp).testTag("scene-transform-x-number"),
-                                label = { Text("X") },
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                enabled = !selectedElement.locked
-                            )
-                            OutlinedTextField(
-                                value = elementTransform.y.roundToInt().toString(),
-                                onValueChange = { raw ->
-                                    raw.toFloatOrNull()?.let { value ->
-                                        if (!selectedElement.locked) applyProject(SceneProjectEditor.updateTransform(
-                                            currentProject, scene.id, selectedElement.id,
-                                            elementTransform.copy(y = value).clampedToCanvas(scene.canvas),
-                                            System.currentTimeMillis()
-                                        ))
-                                    }
-                                },
-                                modifier = Modifier.width(112.dp).testTag("scene-transform-y-number"),
-                                label = { Text("Y") },
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                enabled = !selectedElement.locked
-                            )
-                            OutlinedTextField(
-                                value = elementTransform.width.roundToInt().toString(),
-                                onValueChange = { raw ->
-                                    raw.toFloatOrNull()?.let { value ->
-                                        if (!selectedElement.locked) applyProject(SceneProjectEditor.updateTransform(
-                                            currentProject, scene.id, selectedElement.id,
-                                            elementTransform.copy(width = value.coerceAtLeast(16f)).clampedToCanvas(scene.canvas),
-                                            System.currentTimeMillis()
-                                        ))
-                                    }
-                                },
-                                modifier = Modifier.width(112.dp).testTag("scene-transform-width-number"),
-                                label = { Text("Lebar") },
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                enabled = !selectedElement.locked
-                            )
-                            OutlinedTextField(
-                                value = elementTransform.height.roundToInt().toString(),
-                                onValueChange = { raw ->
-                                    raw.toFloatOrNull()?.let { value ->
-                                        if (!selectedElement.locked) applyProject(SceneProjectEditor.updateTransform(
-                                            currentProject, scene.id, selectedElement.id,
-                                            elementTransform.copy(height = value.coerceAtLeast(16f)).clampedToCanvas(scene.canvas),
-                                            System.currentTimeMillis()
-                                        ))
-                                    }
-                                },
-                                modifier = Modifier.width(112.dp).testTag("scene-transform-height-number"),
-                                label = { Text("Tinggi") },
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                enabled = !selectedElement.locked
-                            )
-                            OutlinedTextField(
-                                value = elementTransform.rotationDegrees.roundToInt().toString(),
-                                onValueChange = { raw ->
-                                    raw.toFloatOrNull()?.let { value ->
-                                        if (!selectedElement.locked) applyProject(SceneProjectEditor.updateTransform(
-                                            currentProject, scene.id, selectedElement.id,
-                                            elementTransform.copy(rotationDegrees = value),
-                                            System.currentTimeMillis()
-                                        ))
-                                    }
-                                },
-                                modifier = Modifier.width(112.dp).testTag("scene-transform-rotation-number"),
-                                label = { Text("Rotasi °") },
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                enabled = !selectedElement.locked
-                            )
+                            listOf("X", "Y", "Lebar", "Tinggi", "Rotasi °").forEachIndexed { index, label ->
+                                OutlinedTextField(
+                                    value = numericTransformValues[index],
+                                    onValueChange = { raw ->
+                                        numericTransformValues = numericTransformValues.toMutableList().also { it[index] = raw }
+                                    },
+                                    modifier = Modifier.width(112.dp).testTag(
+                                        listOf(
+                                            "scene-transform-x-number",
+                                            "scene-transform-y-number",
+                                            "scene-transform-width-number",
+                                            "scene-transform-height-number",
+                                            "scene-transform-rotation-number"
+                                        )[index]
+                                    ),
+                                    label = { Text(label) },
+                                    singleLine = true,
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                    enabled = !selectedElement.locked
+                                )
+                            }
                         }
+                        OutlinedButton(
+                            modifier = Modifier.testTag("scene-transform-apply-numeric"),
+                            enabled = !selectedElement.locked && parsedTransformValues.all { it != null },
+                            onClick = {
+                                val values = parsedTransformValues.map { it!! }
+                                val preciseTransform = elementTransform.copy(
+                                    x = values[0],
+                                    y = values[1],
+                                    width = values[2].coerceAtLeast(16f),
+                                    height = values[3].coerceAtLeast(16f),
+                                    rotationDegrees = values[4]
+                                ).clampedToCanvas(scene.canvas)
+                                applyProject(SceneProjectEditor.updateTransform(
+                                    currentProject, scene.id, selectedElement.id,
+                                    preciseTransform, System.currentTimeMillis()
+                                ))
+                            }
+                        ) { Text("Terapkan ukuran & posisi") }
                         Text("Balik elemen", style = MaterialTheme.typography.labelLarge)
                         Row(
                             modifier = Modifier.fillMaxWidth(),
