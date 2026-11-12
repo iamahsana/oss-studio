@@ -349,9 +349,6 @@ fun SceneEditorScreen(
                 restoreHistory(history.redo())
             }) { Text("Redo") }
             OutlinedButton(onClick = { openCanvasSettings() }) { Text("Pengaturan canvas") }
-            Row(verticalAlignment = Alignment.CenterVertically) { Text("Snap grid"); Switch(checked = snapEnabled, onCheckedChange = { snapEnabled = it }) }
-            Row(verticalAlignment = Alignment.CenterVertically) { Text("Grid"); Switch(checked = gridVisible, onCheckedChange = { gridVisible = it }) }
-            Row(verticalAlignment = Alignment.CenterVertically) { Text("Safe area"); Switch(checked = safeAreaVisible, onCheckedChange = { safeAreaVisible = it }) }
         }
         if (scene == null) {
             Text("Project ini belum memiliki scene.")
@@ -968,6 +965,30 @@ fun SceneEditorScreen(
                                 Text("${extensionElement.name} · ${extensionElement.kind}")
                             }
                         }
+                    }
+                }
+            }
+            Surface(
+                modifier = Modifier.width(190.dp).height(220.dp).testTag("scene-canvas-view-tools"),
+                shape = RoundedCornerShape(14.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text("Tampilan canvas", style = MaterialTheme.typography.titleSmall)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Snap grid", modifier = Modifier.weight(1f))
+                        Switch(checked = snapEnabled, onCheckedChange = { snapEnabled = it })
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Grid", modifier = Modifier.weight(1f))
+                        Switch(checked = gridVisible, onCheckedChange = { gridVisible = it })
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Safe area", modifier = Modifier.weight(1f))
+                        Switch(checked = safeAreaVisible, onCheckedChange = { safeAreaVisible = it })
                     }
                 }
             }
