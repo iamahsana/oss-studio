@@ -181,15 +181,16 @@ class MainActivitySmokeTest {
             println("Multi-select status: $text")
             return text.substringAfter("Dipilih: ", "-1").toIntOrNull() ?: -1
         }
-        // Select each element directly on the canvas. The layer list may be
-        // outside the visible viewport on compact emulator configurations.
-        val canvasElements = composeRule.onAllNodesWithTag("scene-canvas-element", useUnmergedTree = true)
-        canvasElements.assertCountEquals(3)
-        canvasElements[0].performScrollTo().performClick()
+        // Use the explicit layer-list actions for multi-select. Canvas items
+        // overlap by design, so tapping their centers can hit the topmost layer
+        // instead of the requested lower layer.
+        val layerItems = composeRule.onAllNodesWithTag("scene-element-item")
+        layerItems.assertCountEquals(3)
+        layerItems[0].performScrollTo().performClick()
         composeRule.waitUntil("first layer becomes selected", 5_000L) { selectedLayerCount() == 1 }
-        canvasElements[1].performScrollTo().performClick()
+        layerItems[1].performScrollTo().performClick()
         composeRule.waitUntil("second layer becomes selected", 5_000L) { selectedLayerCount() == 2 }
-        canvasElements[2].performScrollTo().performClick()
+        layerItems[2].performScrollTo().performClick()
         composeRule.waitUntil("third layer becomes selected", 5_000L) { selectedLayerCount() == 3 }
         composeRule.onNodeWithTag("scene-multi-align-left").performScrollTo().assertIsDisplayed().performClick()
         composeRule.onNodeWithTag("scene-multi-align-center-y").performScrollTo().assertIsDisplayed().performClick()
