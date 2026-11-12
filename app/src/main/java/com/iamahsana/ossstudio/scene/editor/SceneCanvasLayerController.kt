@@ -452,7 +452,7 @@ class SceneCanvasLayerController(
         val hasVisibleGif = currentScene.elements.any { element ->
             if (!element.visible || !shouldRenderElement(element)) return@any false
             val source = sources[element.sourceId] ?: return@any false
-            if (!cachedMovies.containsKey(source.id)) return@any false
+            if (!source.enabled || !cachedMovies.containsKey(source.id)) return@any false
             source.type == SceneSourceType.GIF || (
                 source.type == SceneSourceType.EXTENSION &&
                     cachedExtensionElements[source.id]?.kind == "gif"
