@@ -923,7 +923,6 @@ fun SceneEditorScreen(
                 modifier = Modifier.fillMaxWidth().height(220.dp).horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-            mediaStatus?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
             Surface(
                 modifier = Modifier.width(260.dp).height(220.dp).testTag("scene-element-insertion-shelf"),
                 shape = RoundedCornerShape(14.dp),
@@ -934,6 +933,7 @@ fun SceneEditorScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text("Tambah elemen", style = MaterialTheme.typography.titleSmall)
+                    mediaStatus?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
                     Button(
                         modifier = Modifier.fillMaxWidth().testTag("scene-add-text"),
                         onClick = { addSource(SceneSourceType.TEXT, "Teks baru") }
