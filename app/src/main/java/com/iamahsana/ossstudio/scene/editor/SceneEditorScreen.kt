@@ -44,6 +44,8 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -57,6 +59,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -314,8 +317,7 @@ fun SceneEditorScreen(
     Column(
         modifier = Modifier.fillMaxSize()
             .padding(horizontal = 8.dp, vertical = 6.dp)
-            .verticalScroll(rememberScrollState())
-            .testTag("scene-editor-scroll"),
+            .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Row(
@@ -1751,10 +1753,16 @@ fun SceneEditorScreen(
                 )
             }
             Column(
-                modifier = Modifier.fillMaxWidth().testTag("scene-layer-list"),
+                modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 scene.elements.sortedBy { it.zIndex }.forEach { element ->
+                    val layerBringIntoView = remember(element.id) { BringIntoViewRequester() }
+                    LaunchedEffect(selectedElementId, editorPanel) {
+                        if (selectedElementId == element.id && editorPanel == "layers") {
+                            layerBringIntoView.bringIntoView()
+                        }
+                    }
                     val source = currentProject.sources.firstOrNull { it.id == element.sourceId }
                     val chosen = element.id in selectedElementIds
                     val layerPosition = scene.elements.sortedBy { it.zIndex }.indexOfFirst { it.id == element.id }
@@ -1765,7 +1773,7 @@ fun SceneEditorScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         OutlinedButton(
-                            modifier = Modifier.weight(1f).testTag("scene-element-item"),
+                            modifier = Modifier.weight(1f).bringIntoViewRequester(layerBringIntoView).testTag("scene-element-item"),
                             onClick = {
                                 android.util.Log.i("OSSSceneSelection", "layer click: id=${element.id}, multiSelect=$multiSelectMode, before=${selectedElementIds.size}")
                                 if (multiSelectMode) {
