@@ -1021,6 +1021,32 @@ fun SceneEditorScreen(
                     Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("Elemen dipilih: ${selectedSource.displayName}", style = MaterialTheme.typography.titleSmall)
                         val elementTransform = selectedElement.transform
+                        Text("Balik elemen", style = MaterialTheme.typography.labelLarge)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            OutlinedButton(
+                                modifier = Modifier.weight(1f).testTag("scene-flip-horizontal"),
+                                enabled = !selectedElement.locked,
+                                onClick = {
+                                    applyProject(SceneProjectEditor.updateTransform(
+                                        currentProject, scene.id, selectedElement.id,
+                                        elementTransform.copy(flipHorizontal = !elementTransform.flipHorizontal), System.currentTimeMillis()
+                                    ))
+                                }
+                            ) { Text(if (elementTransform.flipHorizontal) "Balik horizontal ✓" else "Balik horizontal") }
+                            OutlinedButton(
+                                modifier = Modifier.weight(1f).testTag("scene-flip-vertical"),
+                                enabled = !selectedElement.locked,
+                                onClick = {
+                                    applyProject(SceneProjectEditor.updateTransform(
+                                        currentProject, scene.id, selectedElement.id,
+                                        elementTransform.copy(flipVertical = !elementTransform.flipVertical), System.currentTimeMillis()
+                                    ))
+                                }
+                            ) { Text(if (elementTransform.flipVertical) "Balik vertikal ✓" else "Balik vertikal") }
+                        }
                         Text("Posisi horizontal: ${elementTransform.x.toInt()} px")
                         Slider(
                             modifier = Modifier.testTag("scene-transform-x"),
@@ -1130,32 +1156,6 @@ fun SceneEditorScreen(
                                     ))
                                 }
                             ) { Text("Reset") }
-                        }
-                        Text("Balik elemen", style = MaterialTheme.typography.labelLarge)
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            OutlinedButton(
-                                modifier = Modifier.weight(1f).testTag("scene-flip-horizontal"),
-                                enabled = !selectedElement.locked,
-                                onClick = {
-                                    applyProject(SceneProjectEditor.updateTransform(
-                                        currentProject, scene.id, selectedElement.id,
-                                        elementTransform.copy(flipHorizontal = !elementTransform.flipHorizontal), System.currentTimeMillis()
-                                    ))
-                                }
-                            ) { Text(if (elementTransform.flipHorizontal) "Balik horizontal ✓" else "Balik horizontal") }
-                            OutlinedButton(
-                                modifier = Modifier.weight(1f).testTag("scene-flip-vertical"),
-                                enabled = !selectedElement.locked,
-                                onClick = {
-                                    applyProject(SceneProjectEditor.updateTransform(
-                                        currentProject, scene.id, selectedElement.id,
-                                        elementTransform.copy(flipVertical = !elementTransform.flipVertical), System.currentTimeMillis()
-                                    ))
-                                }
-                            ) { Text(if (elementTransform.flipVertical) "Balik vertikal ✓" else "Balik vertikal") }
                         }
                         Text("Perataan ke canvas", style = MaterialTheme.typography.labelLarge)
                         Row(
