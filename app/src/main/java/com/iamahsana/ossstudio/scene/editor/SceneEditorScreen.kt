@@ -281,7 +281,9 @@ fun SceneEditorScreen(
         val withSource = SceneProjectEditor.addSource(currentProject, source, timestamp)
         val updated = SceneProjectEditor.addElement(withSource, activeScene.id, source.id, timestamp)
         selectedElementId = updated.scenes.first { it.id == activeScene.id }.elements.last().id
+        selectedElementIds = setOf(selectedElementId!!)
         editingText = text.orEmpty()
+        editorPanel = "layers"
         applyProject(updated)
     }
 
