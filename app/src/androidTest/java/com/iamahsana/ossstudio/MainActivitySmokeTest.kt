@@ -94,12 +94,13 @@ class MainActivitySmokeTest {
             composeRule.onAllNodesWithTag("scene-element-item").fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithTag("scene-panel-layers").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-layer-list").performScrollTo()
         repeat(5) {
             val visible = runCatching {
                 composeRule.onAllNodesWithTag("scene-element-item")[0].assertIsDisplayed()
             }.isSuccess
             if (!visible) {
-                composeRule.onNodeWithTag("scene-editor-scroll").performTouchInput { swipeUp() }
+                composeRule.onNodeWithTag("scene-layer-list").performTouchInput { swipeUp() }
             }
         }
         composeRule.onAllNodesWithTag("scene-element-item")[0].assertIsDisplayed()
