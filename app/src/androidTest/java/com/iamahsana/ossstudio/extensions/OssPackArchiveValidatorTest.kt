@@ -49,6 +49,15 @@ class OssPackArchiveValidatorTest {
         } finally { archive.delete() }
     }
 
+    @Test fun acceptsResourceFreeTextAndShapeElements() {
+        val manifest = """{"format":"oss-extension","formatVersion":1,"payloadType":"declarative","id":"com.example.textonly","name":"Text Only","version":"1.0.0","minOssVersion":"0.1.0","capabilities":["scene-overlay"],"files":[],"elements":[{"typeId":"com.example.textonly.title","name":"Title","kind":"text","defaults":{"text":"LIVE"}},{"typeId":"com.example.textonly.panel","name":"Panel","kind":"shape"}]}"""
+        val archive = createRawPackage(manifest)
+        try {
+            val result = OssPackArchiveValidator.validate(archive)
+            assertTrue(result.manifest.files.isEmpty())
+            assertEquals(2, result.manifest.elements.size)
+        } finally { archive.delete() }
+    }
     @Test fun acceptsDeclaredVideoResources() {
         val payload = byteArrayOf(0, 0, 0, 24, 102, 116, 121, 112)
         val manifest = """{"format":"oss-extension","formatVersion":1,"payloadType":"declarative","id":"com.example.video","name":"Video","version":"1.0.0","minOssVersion":"0.1.0","capabilities":["scene-overlay"],"files":[{"path":"assets/clip.mp4","sha256":"${sha256(payload)}","byteSize":${payload.size}}],"elements":[{"typeId":"com.example.video.clip","name":"Clip","kind":"video","resourcePath":"assets/clip.mp4"}]}"""
