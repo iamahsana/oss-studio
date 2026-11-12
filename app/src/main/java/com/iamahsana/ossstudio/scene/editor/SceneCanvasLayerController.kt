@@ -152,6 +152,12 @@ class SceneCanvasLayerController(
 
     private fun decodeSceneAssets(project: SceneProject, scene: Scene): DecodedAssets {
         val assets = project.assets.associateBy { it.id }
+        // Validate installed packages once per scene decode, then resolve every source
+        // from this immutable snapshot instead of rescanning/revalidating the full
+        // extension directory for each text/font/media element.
+        val installedElements = OssInstalledElementCatalog.listInstalled(
+            File(appContext.filesDir, "extensions")
+        ).associateBy { it.extensionId to it.typeId }
         val usedSourceIds = scene.elements.filter { it.visible && shouldRenderElement(it) }
             .mapTo(mutableSetOf()) { it.sourceId }
         val decoded = LinkedHashMap<String, Bitmap>()
@@ -169,11 +175,8 @@ class SceneCanvasLayerController(
             val fontExtensionId = source.settings["fontExtensionId"]
             val fontTypeId = source.settings["fontTypeId"]
             if (fontExtensionId != null && fontTypeId != null) {
-                val fontElement = OssInstalledElementCatalog.find(
-                    File(appContext.filesDir, "extensions"),
-                    fontExtensionId,
-                    fontTypeId
-                )?.takeIf { it.kind == "font" }
+                val fontElement = installedElements[fontExtensionId to fontTypeId]
+                    ?.takeIf { it.kind == "font" }
                 if (fontElement != null) {
                     fontElements[source.id] = fontElement
                     fontElement.resolveResource()?.let { fontFile ->
@@ -185,8 +188,7 @@ class SceneCanvasLayerController(
             val extension = if (source.type == SceneSourceType.EXTENSION) {
                 val extensionId = source.extensionId ?: return@forEach
                 val typeId = source.typeId ?: return@forEach
-                OssInstalledElementCatalog.find(File(appContext.filesDir, "extensions"), extensionId, typeId)
-                    ?: return@forEach
+                installedElements[extensionId to typeId] ?: return@forEach
             } else null
             if (extension != null) extensions[source.id] = extension
             val kind = extension?.kind ?: source.type.name.lowercase()
