@@ -668,7 +668,10 @@ fun SceneEditorScreen(
                                 style = MaterialTheme.typography.bodyLarge.copy(
                                     shadow = if (shadowRadius > 0f) Shadow(
                                         color = shadowColor,
-                                        offset = Offset(2f * scale, 2f * scale),
+                                        offset = Offset(
+                                            (source.settings["shadowDx"]?.toFloatOrNull() ?: 0f) * scale,
+                                            (source.settings["shadowDy"]?.toFloatOrNull() ?: 0f) * scale
+                                        ),
                                         blurRadius = shadowRadius * scale
                                     ) else null
                                 )
