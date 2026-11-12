@@ -103,6 +103,7 @@ class MainActivitySmokeTest {
         composeRule.onNodeWithText("Buka").performScrollTo().performClick()
         composeRule.onAllNodesWithTag("scene-canvas-element", useUnmergedTree = true)[0].performClick()
         composeRule.onNodeWithTag("scene-resize-handle", useUnmergedTree = true).assertExists().assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-rotation-handle", useUnmergedTree = true).assertExists().assertIsDisplayed()
         composeRule.onNodeWithTag("scene-resize-handle-top-start", useUnmergedTree = true).assertExists().assertIsDisplayed()
         composeRule.onNodeWithTag("scene-resize-handle-top-end", useUnmergedTree = true).assertExists().assertIsDisplayed()
         composeRule.onNodeWithTag("scene-resize-handle-bottom-start", useUnmergedTree = true).assertExists().assertIsDisplayed()
