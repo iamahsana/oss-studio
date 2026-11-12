@@ -535,7 +535,11 @@ fun SceneEditorScreen(
                                 with(density) { (transform.height * scale).toDp() }
                             )
                             .clipToBounds()
-                            .graphicsLayer { rotationZ = transform.rotationDegrees }
+                            .graphicsLayer {
+                                rotationZ = transform.rotationDegrees
+                                scaleX = if (transform.flipHorizontal) -1f else 1f
+                                scaleY = if (transform.flipVertical) -1f else 1f
+                            }
                             .then(
                                 if (element.id == selectedElementId) Modifier.border(2.dp, MaterialTheme.colorScheme.primary)
                                 else Modifier.border(1.dp, Color(0xFF777777))
@@ -1123,6 +1127,32 @@ fun SceneEditorScreen(
                                     ))
                                 }
                             ) { Text("Reset") }
+                        }
+                        Text("Balik elemen", style = MaterialTheme.typography.labelLarge)
+                        Row(
+                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            OutlinedButton(
+                                modifier = Modifier.testTag("scene-flip-horizontal"),
+                                enabled = !selectedElement.locked,
+                                onClick = {
+                                    applyProject(SceneProjectEditor.updateTransform(
+                                        currentProject, scene.id, selectedElement.id,
+                                        elementTransform.copy(flipHorizontal = !elementTransform.flipHorizontal), System.currentTimeMillis()
+                                    ))
+                                }
+                            ) { Text(if (elementTransform.flipHorizontal) "Balik horizontal ✓" else "Balik horizontal") }
+                            OutlinedButton(
+                                modifier = Modifier.testTag("scene-flip-vertical"),
+                                enabled = !selectedElement.locked,
+                                onClick = {
+                                    applyProject(SceneProjectEditor.updateTransform(
+                                        currentProject, scene.id, selectedElement.id,
+                                        elementTransform.copy(flipVertical = !elementTransform.flipVertical), System.currentTimeMillis()
+                                    ))
+                                }
+                            ) { Text(if (elementTransform.flipVertical) "Balik vertikal ✓" else "Balik vertikal") }
                         }
                         Text("Perataan ke canvas", style = MaterialTheme.typography.labelLarge)
                         Row(
