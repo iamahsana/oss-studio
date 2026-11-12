@@ -133,7 +133,9 @@ data class ElementTransform(
     val y: Float = 0f,
     val width: Float = 320f,
     val height: Float = 180f,
-    val rotationDegrees: Float = 0f
+    val rotationDegrees: Float = 0f,
+    val flipHorizontal: Boolean = false,
+    val flipVertical: Boolean = false
 ) {
     init {
         require(x.isFinite() && y.isFinite())
