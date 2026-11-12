@@ -41,6 +41,7 @@ object SceneProjectJsonCodec {
         put("elements",JSONArray().apply { s.elements.forEach { e -> put(JSONObject().apply {
             put("id",e.id);put("source",e.sourceId);put("x",e.transform.x);put("y",e.transform.y)
             put("w",e.transform.width);put("h",e.transform.height);put("rotation",e.transform.rotationDegrees)
+            put("flipH",e.transform.flipHorizontal);put("flipV",e.transform.flipVertical)
             put("cl",e.crop.left);put("ct",e.crop.top);put("cr",e.crop.right);put("cb",e.crop.bottom)
             put("opacity",e.opacity);put("visible",e.visible);put("locked",e.locked);put("z",e.zIndex)
             put("group",e.groupId ?: JSONObject.NULL)
@@ -49,7 +50,10 @@ object SceneProjectJsonCodec {
     private fun sceneFromJson(o: JSONObject): Scene {
         val elements=o.getJSONArray("elements").objects { e ->
             SceneElement(e.getString("id"),e.getString("source"),
-                ElementTransform(e.getDouble("x").toFloat(),e.getDouble("y").toFloat(),e.getDouble("w").toFloat(),e.getDouble("h").toFloat(),e.getDouble("rotation").toFloat()),
+                ElementTransform(
+                    e.getDouble("x").toFloat(),e.getDouble("y").toFloat(),e.getDouble("w").toFloat(),e.getDouble("h").toFloat(),e.getDouble("rotation").toFloat(),
+                    e.optBoolean("flipH", false),e.optBoolean("flipV", false)
+                ),
                 CropRect(e.getDouble("cl").toFloat(),e.getDouble("ct").toFloat(),e.getDouble("cr").toFloat(),e.getDouble("cb").toFloat()),
                 e.getDouble("opacity").toFloat(),e.getBoolean("visible"),e.getBoolean("locked"),e.getInt("z"),e.opt("group").nullableString())
         }
