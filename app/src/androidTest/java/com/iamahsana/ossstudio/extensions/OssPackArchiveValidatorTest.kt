@@ -49,6 +49,17 @@ class OssPackArchiveValidatorTest {
         } finally { archive.delete() }
     }
 
+    @Test fun acceptsDeclaredVideoResources() {
+        val payload = byteArrayOf(0, 0, 0, 24, 102, 116, 121, 112)
+        val manifest = """{"format":"oss-extension","formatVersion":1,"payloadType":"declarative","id":"com.example.video","name":"Video","version":"1.0.0","minOssVersion":"0.1.0","capabilities":["scene-overlay"],"files":[{"path":"assets/clip.mp4","sha256":"${sha256(payload)}","byteSize":${payload.size}}],"elements":[{"typeId":"com.example.video.clip","name":"Clip","kind":"video","resourcePath":"assets/clip.mp4"}]}"""
+        val archive = createRawPackage(manifest, "assets/clip.mp4" to payload)
+        try {
+            val result = OssPackArchiveValidator.validate(archive)
+            assertEquals("video", result.manifest.elements.single().kind)
+            assertEquals("assets/clip.mp4", result.manifest.elements.single().resourcePath)
+        } finally { archive.delete() }
+    }
+
     @Test fun rejectsElementTypeIdsOutsideExtensionNamespace() {
         val payload = byteArrayOf(1, 2, 3)
         val manifest = """{"format":"oss-extension","formatVersion":1,"payloadType":"declarative","id":"com.example.overlay","name":"Example","version":"1.0.0","minOssVersion":"0.1.0","capabilities":["scene-overlay"],"files":[{"path":"assets/icon.png","sha256":"${sha256(payload)}","byteSize":3}],"elements":[{"typeId":"com.other.badge","name":"Badge","kind":"sticker","resourcePath":"assets/icon.png"}]}"""
