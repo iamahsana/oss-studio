@@ -16,9 +16,31 @@ class SceneProjectJsonCodecTest {
         val asset=SceneAsset("asset","media/photo.png","image/png",12,"a".repeat(64),"CC0","created")
         val source=SceneSource("image",SceneSourceType.IMAGE,"Photo",assetId=asset.id,settings=mapOf("fit" to "cover"))
         val scene=Scene("main","project","Main",CanvasSize.DEFAULT_LANDSCAPE,0xFF112233,
-            listOf(SceneElement("element","image",ElementTransform(12f,24f,640f,360f,15f),CropRect(.1f,.2f,.9f,.8f),.75f,true,true,4,"group")))
+            listOf(SceneElement("element","image",ElementTransform(12f,24f,640f,360f,15f,flipHorizontal=true,flipVertical=true),CropRect(.1f,.2f,.9f,.8f),.75f,true,true,4,"group")))
         val p=SceneProject("project","Round trip",100,200,"main",listOf(scene),listOf(source),listOf(asset))
         assertEquals(p,SceneProjectJsonCodec.decode(SceneProjectJsonCodec.encode(p)))
+    }
+
+    @Test
+    fun readsLegacyElementsWithoutFlipFlagsAsUnflipped() {
+        val source = SceneSource(id = "text", type = SceneSourceType.TEXT, displayName = "Text", text = "Legacy")
+        val scene = Scene(
+            id = "main", projectId = "legacy-flip", name = "Main",
+            elements = listOf(SceneElement(id = "element", sourceId = "text", zIndex = 0))
+        )
+        val project = SceneProject(
+            id = "legacy-flip", name = "Legacy flip", createdAtEpochMillis = 1, updatedAtEpochMillis = 2,
+            activeSceneId = "main", scenes = listOf(scene), sources = listOf(source)
+        )
+        val encoded = JSONObject(SceneProjectJsonCodec.encode(project))
+        val element = encoded.getJSONArray("scenes").getJSONObject(0).getJSONArray("elements").getJSONObject(0)
+        element.remove("flipH")
+        element.remove("flipV")
+
+        val decoded = SceneProjectJsonCodec.decode(encoded.toString())
+        val transform = decoded.scenes.single().elements.single().transform
+        assertEquals(false, transform.flipHorizontal)
+        assertEquals(false, transform.flipVertical)
     }
 
     @Test fun readsLegacySchemaV1AndWritesCurrentSchemaV2() {
