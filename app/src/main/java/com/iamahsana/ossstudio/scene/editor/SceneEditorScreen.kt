@@ -677,6 +677,7 @@ fun SceneEditorScreen(
                                 if (outlineWidth > 0f) {
                                     Text(
                                         label.ifBlank { "Teks" },
+                                        modifier = Modifier.testTag("scene-text-outline-layer"),
                                         color = outlineColor,
                                         textAlign = alignment,
                                         fontWeight = resolvedFontWeight,
@@ -774,6 +775,7 @@ fun SceneEditorScreen(
                                         if (outlineWidth > 0f) {
                                             Text(
                                                 extensionText,
+                                                modifier = Modifier.testTag("scene-extension-text-outline-layer"),
                                                 color = outlineColor,
                                                 textAlign = alignment,
                                                 fontWeight = resolvedFontWeight,
