@@ -18,6 +18,9 @@ import androidx.activity.compose.setContent
 import com.iamahsana.ossstudio.logging.OssLogger
 import com.iamahsana.ossstudio.logging.OssLogLevel
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -28,7 +31,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -47,6 +49,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.width
 import androidx.core.content.ContextCompat
 import com.iamahsana.ossstudio.scene.source.screen.ShareScreenSessionService
 import com.iamahsana.ossstudio.scene.model.SceneProject
@@ -132,24 +135,55 @@ private fun OssApp() {
         Scaffold(
             bottomBar = {
                 if (page != AppPage.EDITOR) {
-                    NavigationBar {
-                        AppPage.entries.forEach { item ->
-                            NavigationBarItem(
-                                modifier = if (item == AppPage.SETTINGS) Modifier.testTag("nav-settings") else Modifier,
-                                selected = page == item,
-                                onClick = {
-                                    OssLogger.log(
-                                        level = OssLogLevel.INFO,
-                                        subsystem = "OSS/Navigation",
-                                        component = "BottomNavigation",
-                                        event = "page_changed",
-                                        message = "Navigation changed from $selectedPage to ${item.name}"
-                                    )
-                                    selectedPage = item.name
-                                },
-                                icon = { Text(item.symbol) },
-                                label = { Text(item.label) }
-                            )
+                    NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState())
+                                .padding(horizontal = 8.dp, vertical = 6.dp),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            AppPage.entries.forEach { item ->
+                                val selected = page == item
+                                Surface(
+                                    modifier = Modifier
+                                        .width(64.dp)
+                                        .then(if (item == AppPage.SETTINGS) Modifier.testTag("nav-settings") else Modifier)
+                                        .clickable {
+                                            OssLogger.log(
+                                                level = OssLogLevel.INFO,
+                                                subsystem = "OSS/Navigation",
+                                                component = "BottomNavigation",
+                                                event = "page_changed",
+                                                message = "Navigation changed from $selectedPage to ${item.name}"
+                                            )
+                                            selectedPage = item.name
+                                        },
+                                    shape = RoundedCornerShape(14.dp),
+                                    color = if (selected) MaterialTheme.colorScheme.secondaryContainer
+                                        else MaterialTheme.colorScheme.surface
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(vertical = 7.dp, horizontal = 4.dp),
+                                        horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                                    ) {
+                                        Text(
+                                            item.symbol,
+                                            style = MaterialTheme.typography.titleMedium,
+                                            color = if (selected) MaterialTheme.colorScheme.onSecondaryContainer
+                                                else MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Text(
+                                            item.label,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = if (selected) MaterialTheme.colorScheme.onSecondaryContainer
+                                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }
