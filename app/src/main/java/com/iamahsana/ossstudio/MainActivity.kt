@@ -231,30 +231,21 @@ private fun PageContent(page: AppPage, context: Context, activeProject: ScenePro
     ) {
         item {
             Column(
-                modifier = Modifier.fillMaxWidth().padding(top = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+                modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(3.dp)
             ) {
-                Text("OSS Studio", style = MaterialTheme.typography.headlineMedium)
                 Text(
-                    page.label,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.primary
+                    "OSS  /  STUDIO",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
                 )
-            }
-        }
-        item {
-            Surface(
-                shape = RoundedCornerShape(24.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier.padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Text(pageTitle(page), style = MaterialTheme.typography.titleLarge)
-                    Text(pageDescription(page), style = MaterialTheme.typography.bodyMedium)
-                }
+                Text(pageTitle(page), style = MaterialTheme.typography.headlineSmall)
+                Text(
+                    pageDescription(page),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
         if (page == AppPage.STUDIO) {
