@@ -535,11 +535,7 @@ fun SceneEditorScreen(
                                 with(density) { (transform.height * scale).toDp() }
                             )
                             .clipToBounds()
-                            .graphicsLayer {
-                                rotationZ = transform.rotationDegrees
-                                scaleX = if (transform.flipHorizontal) -1f else 1f
-                                scaleY = if (transform.flipVertical) -1f else 1f
-                            }
+                            .graphicsLayer { rotationZ = transform.rotationDegrees }
                             .then(
                                 if (element.id == selectedElementId) Modifier.border(2.dp, MaterialTheme.colorScheme.primary)
                                 else Modifier.border(1.dp, Color(0xFF777777))
@@ -598,7 +594,14 @@ fun SceneEditorScreen(
                             ),
                         contentAlignment = Alignment.Center
                     ) {
-                        Box(Modifier.fillMaxSize().graphicsLayer { alpha = element.opacity }, contentAlignment = Alignment.Center) {
+                        Box(
+                            Modifier.fillMaxSize().graphicsLayer {
+                                alpha = element.opacity
+                                scaleX = if (transform.flipHorizontal) -1f else 1f
+                                scaleY = if (transform.flipVertical) -1f else 1f
+                            },
+                            contentAlignment = Alignment.Center
+                        ) {
                         val label = when (source.type) {
                             SceneSourceType.TEXT -> source.text.orEmpty()
                             SceneSourceType.SHARE_SCREEN -> "Share Screen"
