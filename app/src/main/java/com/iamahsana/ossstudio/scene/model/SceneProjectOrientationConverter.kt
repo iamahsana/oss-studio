@@ -47,6 +47,6 @@ object SceneProjectOrientationConverter {
             }
         }
 
-        return project.copy(scenes = convertedScenes)
+        return project.copy(scenes = convertedScenes, liveOrientation = orientation)
     }
 }

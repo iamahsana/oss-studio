@@ -31,6 +31,8 @@ class SceneProjectOrientationConverterTest {
         val result = converted.scenes.single()
         val transform = result.elements.single().transform
 
+        assertEquals(CanvasOrientation.LANDSCAPE, converted.liveOrientation)
+
         assertEquals(CanvasSize.DEFAULT_LANDSCAPE, result.canvas)
         assertEquals(712.5f, transform.x, 0.001f)
         assertEquals(112.5f, transform.y, 0.001f)
@@ -68,6 +70,7 @@ class SceneProjectOrientationConverterTest {
         ).scenes.single()
 
         assertEquals(CanvasSize.DEFAULT_PORTRAIT, result.canvas)
+        assertEquals(CanvasOrientation.PORTRAIT, SceneProjectOrientationConverter.convert(projectWith(scene), CanvasOrientation.PORTRAIT).liveOrientation)
         assertEquals(112.5f, result.elements.single().transform.x, 0.001f)
         assertEquals(712.5f, result.elements.single().transform.y, 0.001f)
         assertEquals(225f, result.elements.single().transform.width, 0.001f)

@@ -49,6 +49,7 @@ fun StudioLiveControlScreen(
     }
     var sessionState by remember { mutableStateOf(LiveSessionControllerRegistry.state) }
     var detail by remember { mutableStateOf(LiveSessionControllerRegistry.detail) }
+    var cleanupComplete by remember { mutableStateOf(controller.isCleanupComplete) }
     val initialProfiles = remember(context) { loadProfiles(context) }
     var profiles by remember { mutableStateOf(initialProfiles.first) }
     var profileError by remember { mutableStateOf(initialProfiles.second) }
@@ -66,6 +67,7 @@ fun StudioLiveControlScreen(
         while (isActive) {
             sessionState = LiveSessionControllerRegistry.state
             detail = LiveSessionControllerRegistry.detail
+            cleanupComplete = controller.isCleanupComplete
             delay(200L)
         }
     }
@@ -88,8 +90,9 @@ fun StudioLiveControlScreen(
     )
     val orientationLocked = sessionState !in setOf(
         LiveSessionController.State.IDLE,
-        LiveSessionController.State.STOPPED
-    ) || orientationWorking
+        LiveSessionController.State.STOPPED,
+        LiveSessionController.State.FAILED
+    ) || !cleanupComplete || orientationWorking
     val portraitCanvas = CanvasSize.DEFAULT_PORTRAIT
     val landscapeCanvas = CanvasSize.DEFAULT_LANDSCAPE
     val portraitIsApplied = project?.scenes?.isNotEmpty() == true &&
@@ -99,7 +102,7 @@ fun StudioLiveControlScreen(
     val hasSingleCanonicalOrientation = portraitIsApplied || landscapeIsApplied
     val canStart = project != null && activeScene != null && hasSingleCanonicalOrientation &&
         enabledProfiles.isNotEmpty() && profileError == null && projectionReady && !busy &&
-        sessionState in setOf(
+        cleanupComplete && sessionState in setOf(
             LiveSessionController.State.IDLE,
             LiveSessionController.State.STOPPED,
             LiveSessionController.State.FAILED

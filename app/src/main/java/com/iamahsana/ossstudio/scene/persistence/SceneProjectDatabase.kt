@@ -76,7 +76,10 @@ class SceneProjectDatabase(
             val original = SceneProjectJsonCodec.decode(oldDocument.first)
             val convertedGeometry = SceneProjectOrientationConverter.convert(original, orientation)
             val now = maxOf(System.currentTimeMillis(), original.updatedAtEpochMillis)
-            val converted = convertedGeometry.copy(updatedAtEpochMillis = now)
+            val converted = convertedGeometry.copy(
+                updatedAtEpochMillis = now,
+                liveOrientation = orientation
+            )
             val recovery = ContentValues().apply {
                 put("project_id", projectId)
                 put("saved_at", oldDocument.second)
@@ -100,8 +103,58 @@ class SceneProjectDatabase(
         }
     }
 
-    fun get(id: String): SceneProject? = readableDatabase.query("projects",arrayOf("document"),"id=?",arrayOf(id),null,null,null,"1").use {
-        if (it.moveToFirst()) SceneProjectJsonCodec.decode(it.getString(0)) else null
+    fun get(id: String): SceneProject? {
+        val document = readableDatabase.query(
+            "projects", arrayOf("document"), "id=?", arrayOf(id), null, null, null, "1"
+        ).use { cursor ->
+            if (cursor.moveToFirst()) cursor.getString(0) else null
+        } ?: return null
+
+        val decoded = SceneProjectJsonCodec.decodeWithMetadata(document)
+        if (!decoded.migrated) return decoded.project
+        return migrateLegacyDocument(id)
+    }
+
+    /**
+     * Upgrade legacy JSON in one SQLite transaction. Preserve the untouched
+     * document before writing the canonical v4 document; failures roll back both.
+     */
+    private fun migrateLegacyDocument(id: String): SceneProject? {
+        val db = writableDatabase
+        db.beginTransaction()
+        try {
+            val currentDocument = db.query(
+                "projects", arrayOf("document"), "id=?", arrayOf(id), null, null, null, "1"
+            ).use { cursor ->
+                if (cursor.moveToFirst()) cursor.getString(0) else null
+            } ?: return null
+
+            val decoded = SceneProjectJsonCodec.decodeWithMetadata(currentDocument)
+            if (decoded.migrated) {
+                val project = decoded.project
+                val recovery = ContentValues().apply {
+                    put("project_id", id)
+                    put("saved_at", project.updatedAtEpochMillis)
+                    put("document", currentDocument)
+                }
+                check(db.insertWithOnConflict(
+                    "project_recovery", null, recovery, SQLiteDatabase.CONFLICT_REPLACE
+                ) != -1L) { "Unable to preserve legacy project recovery snapshot" }
+
+                val migratedValues = ContentValues().apply {
+                    put("name", project.name)
+                    put("updated_at", project.updatedAtEpochMillis)
+                    put("document", SceneProjectJsonCodec.encode(project))
+                }
+                check(db.update("projects", migratedValues, "id=?", arrayOf(id)) == 1) {
+                    "Unable to persist migrated scene project"
+                }
+            }
+            db.setTransactionSuccessful()
+            return decoded.project
+        } finally {
+            db.endTransaction()
+        }
     }
     fun listRecent(limit:Int=50):List<ProjectSummary> {
         require(limit in 1..500)
