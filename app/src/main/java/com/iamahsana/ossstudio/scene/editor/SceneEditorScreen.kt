@@ -734,43 +734,75 @@ fun SceneEditorScreen(
                                         Color(android.graphics.Color.parseColor(source.settings["color"] ?: "#FFFFFFFF"))
                                     }.getOrDefault(Color.White)
                                     val textSize = source.settings["fontSize"]?.toFloatOrNull() ?: 48f
-                            val decoration = when {
-                                source.settings["underline"] == "true" && source.settings["strikethrough"] == "true" ->
-                                    TextDecoration.combine(listOf(TextDecoration.Underline, TextDecoration.LineThrough))
-                                source.settings["underline"] == "true" -> TextDecoration.Underline
-                                source.settings["strikethrough"] == "true" -> TextDecoration.LineThrough
-                                else -> TextDecoration.None
-                            }
-                            val shadowRadius = (source.settings["shadowRadius"]?.toFloatOrNull() ?: 0f).coerceIn(0f, 32f)
-                            val shadowColor = runCatching {
-                                Color(android.graphics.Color.parseColor(source.settings["shadowColor"] ?: "#FF000000"))
-                            }.getOrDefault(Color.Black)
-                            val letterSpacing = (source.settings["letterSpacing"]?.toFloatOrNull() ?: 0f).coerceIn(-0.1f, 0.5f)
-                            val lineSpacing = (source.settings["lineSpacing"]?.toFloatOrNull() ?: 1.15f).coerceIn(1f, 2f)
+                                    val decoration = when {
+                                        source.settings["underline"] == "true" && source.settings["strikethrough"] == "true" ->
+                                            TextDecoration.combine(listOf(TextDecoration.Underline, TextDecoration.LineThrough))
+                                        source.settings["underline"] == "true" -> TextDecoration.Underline
+                                        source.settings["strikethrough"] == "true" -> TextDecoration.LineThrough
+                                        else -> TextDecoration.None
+                                    }
+                                    val shadowRadius = (source.settings["shadowRadius"]?.toFloatOrNull() ?: 0f).coerceIn(0f, 32f)
+                                    val shadowColor = runCatching {
+                                        Color(android.graphics.Color.parseColor(source.settings["shadowColor"] ?: "#FF000000"))
+                                    }.getOrDefault(Color.Black)
+                                    val outlineWidth = (source.settings["outlineWidth"]?.toFloatOrNull() ?: 0f).coerceIn(0f, 24f)
+                                    val outlineColor = runCatching {
+                                        Color(android.graphics.Color.parseColor(source.settings["outlineColor"] ?: "#FF000000"))
+                                    }.getOrDefault(Color.Black)
+                                    val letterSpacing = (source.settings["letterSpacing"]?.toFloatOrNull() ?: 0f).coerceIn(-0.1f, 1f)
+                                    val lineSpacing = (source.settings["lineSpacing"]?.toFloatOrNull() ?: 1.15f).coerceIn(1f, 2.5f)
                                     val alignment = when (source.settings["align"]) {
                                         "left" -> TextAlign.Start
                                         "right" -> TextAlign.End
                                         else -> TextAlign.Center
                                     }
-                                    Text(
-                                        source.settings["text"] ?: source.displayName,
-                                        color = textColor,
-                                        textAlign = alignment,
-                                        fontWeight = if (source.settings["bold"] == "true") FontWeight.Bold else FontWeight.Normal,
-                                        fontStyle = if (source.settings["italic"] == "true") FontStyle.Italic else FontStyle.Normal,
-                                        fontFamily = customFontFamily ?: FontFamily.Default,
-                                        fontSize = ((textSize * scale) / density.density).sp,
-                                        letterSpacing = (letterSpacing * textSize * scale / density.density).sp,
-                                        lineHeight = (textSize * lineSpacing * scale / density.density).sp,
-                                        textDecoration = decoration,
-                                        style = MaterialTheme.typography.bodyLarge.copy(
-                                            shadow = if (shadowRadius > 0f) Shadow(
-                                                color = shadowColor,
-                                                offset = Offset(2f * scale, 2f * scale),
-                                                blurRadius = shadowRadius * scale
-                                            ) else null
+                                    val extensionText = source.settings["text"] ?: source.displayName
+                                    val resolvedFontSize = ((textSize * scale) / density.density).sp
+                                    val resolvedLetterSpacing = (letterSpacing * textSize * scale / density.density).sp
+                                    val resolvedLineHeight = (textSize * lineSpacing * scale / density.density).sp
+                                    val resolvedFontWeight = if (source.settings["bold"] == "true") FontWeight.Bold else FontWeight.Normal
+                                    val resolvedFontStyle = if (source.settings["italic"] == "true") FontStyle.Italic else FontStyle.Normal
+                                    val resolvedShadow = if (shadowRadius > 0f) Shadow(
+                                        color = shadowColor,
+                                        offset = Offset(
+                                            (source.settings["shadowDx"]?.toFloatOrNull() ?: 0f) * scale,
+                                            (source.settings["shadowDy"]?.toFloatOrNull() ?: 0f) * scale
+                                        ),
+                                        blurRadius = shadowRadius * scale
+                                    ) else null
+                                    Box(Modifier.fillMaxSize()) {
+                                        if (outlineWidth > 0f) {
+                                            Text(
+                                                extensionText,
+                                                color = outlineColor,
+                                                textAlign = alignment,
+                                                fontWeight = resolvedFontWeight,
+                                                fontStyle = resolvedFontStyle,
+                                                fontFamily = customFontFamily ?: FontFamily.Default,
+                                                fontSize = resolvedFontSize,
+                                                letterSpacing = resolvedLetterSpacing,
+                                                lineHeight = resolvedLineHeight,
+                                                textDecoration = decoration,
+                                                style = MaterialTheme.typography.bodyLarge.copy(
+                                                    shadow = null,
+                                                    drawStyle = Stroke(width = outlineWidth * scale)
+                                                )
+                                            )
+                                        }
+                                        Text(
+                                            extensionText,
+                                            color = textColor,
+                                            textAlign = alignment,
+                                            fontWeight = resolvedFontWeight,
+                                            fontStyle = resolvedFontStyle,
+                                            fontFamily = customFontFamily ?: FontFamily.Default,
+                                            fontSize = resolvedFontSize,
+                                            letterSpacing = resolvedLetterSpacing,
+                                            lineHeight = resolvedLineHeight,
+                                            textDecoration = decoration,
+                                            style = MaterialTheme.typography.bodyLarge.copy(shadow = resolvedShadow)
                                         )
-                                    )
+                                    }
                                 }
                                 "image", "sticker", "gif", "video", "background" -> {
                                     if (resource != null) {
