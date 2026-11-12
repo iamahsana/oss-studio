@@ -9,6 +9,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -68,10 +71,24 @@ fun ProjectHomeScreen(
         }
     }
 
-    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Button(onClick = { projectName = ""; errorMessage = null; showCreateDialog = true }) {
-                Text("Project baru")
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Button(
+            onClick = { projectName = ""; errorMessage = null; showCreateDialog = true },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp)
+        ) { Text("＋   Buat project baru") }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text("Project kamu", style = MaterialTheme.typography.titleLarge)
+                Text(
+                    "${projects.size} project tersimpan",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
             OutlinedButton(onClick = {
                 loading = true
@@ -83,9 +100,8 @@ fun ProjectHomeScreen(
                         )
                     }
                 }
-            }) { Text("Muat ulang") }
+            }) { Text("Segarkan") }
         }
-        Text("Project terbaru", style = MaterialTheme.typography.titleMedium)
         if (loading) CircularProgressIndicator()
         if (!loading && projects.isEmpty()) {
             Text("Belum ada project. Buat project pertama untuk mulai menyusun scene.")
