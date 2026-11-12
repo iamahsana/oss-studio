@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -100,16 +101,28 @@ fun OssExtensionCenterScreen(context: Context) {
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("Extension Center", style = MaterialTheme.typography.titleLarge)
-        Text(
-            "OSS hanya memasang paket deklaratif berisi resource. Paket executable seperti APK, DEX, JAR, script, dan WebAssembly ditolak.",
-            style = MaterialTheme.typography.bodySmall
-        )
-        Button(
-            enabled = !busy,
-            onClick = { packagePicker.launch(arrayOf("application/zip", "application/octet-stream", "*/*")) }
+        Text("Kelola modul", style = MaterialTheme.typography.titleLarge)
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            shape = RoundedCornerShape(20.dp)
         ) {
-            Text(if (busy) "Memasang…" else "Pasang file .osspack")
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("Pasang paket .osspack", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "OSS hanya memasang paket deklaratif berisi resource. Paket executable seperti APK, DEX, JAR, script, dan WebAssembly ditolak.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Button(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    enabled = !busy,
+                    onClick = { packagePicker.launch(arrayOf("application/zip", "application/octet-stream", "*/*")) }
+                ) {
+                    Text(if (busy) "Memasang…" else "Pilih file ekstensi")
+                }
+            }
         }
         Text(status, style = MaterialTheme.typography.bodySmall)
         Text("Ekstensi terpasang (${installed.size})", style = MaterialTheme.typography.titleMedium)
