@@ -1033,6 +1033,7 @@ fun SceneEditorScreen(
             }
             Row(
                 modifier = Modifier.fillMaxWidth().height(220.dp).horizontalScroll(toolRailScrollState),
+                    .testTag("scene-editor-tool-rail"),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
             Surface(
