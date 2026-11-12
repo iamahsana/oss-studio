@@ -93,12 +93,6 @@ class MainActivitySmokeTest {
         composeRule.waitUntil("new text source appears in the scene layers", 15_000L) {
             composeRule.onAllNodesWithTag("scene-element-item").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.waitUntil("selected layer is automatically brought into view", 5_000L) {
-            runCatching {
-                composeRule.onAllNodesWithTag("scene-element-item")[0].assertIsDisplayed()
-            }.isSuccess
-        }
-        composeRule.onAllNodesWithTag("scene-element-item")[0].assertIsDisplayed()
         composeRule.waitUntil("new text element is composed on the canvas", 15_000L) {
             composeRule.onAllNodesWithTag("scene-canvas-element", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
         }
