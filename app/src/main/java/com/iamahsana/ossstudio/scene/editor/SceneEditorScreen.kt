@@ -79,6 +79,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -643,6 +644,10 @@ fun SceneEditorScreen(
                             val shadowColor = runCatching {
                                 Color(android.graphics.Color.parseColor(source.settings["shadowColor"] ?: "#FF000000"))
                             }.getOrDefault(Color.Black)
+                            val outlineWidth = (source.settings["outlineWidth"]?.toFloatOrNull() ?: 0f).coerceIn(0f, 24f)
+                            val outlineColor = runCatching {
+                                Color(android.graphics.Color.parseColor(source.settings["outlineColor"] ?: "#FF000000"))
+                            }.getOrDefault(Color.Black)
                             val letterSpacing = (source.settings["letterSpacing"]?.toFloatOrNull() ?: 0f).coerceIn(-0.1f, 1f)
                             val lineSpacing = (source.settings["lineSpacing"]?.toFloatOrNull() ?: 1.15f).coerceIn(1f, 2.5f)
                             val alignment = when (source.settings["align"]) {
@@ -650,32 +655,57 @@ fun SceneEditorScreen(
                                 "right" -> TextAlign.End
                                 else -> TextAlign.Center
                             }
-                            Text(
-                                label.ifBlank { "Teks" },
-                                color = textColor,
-                                textAlign = alignment,
-                                fontWeight = if (source.settings["bold"] == "true") FontWeight.Bold else FontWeight.Normal,
-                                fontStyle = if (source.settings["italic"] == "true") FontStyle.Italic else FontStyle.Normal,
-                                fontFamily = customFontFamily ?: when (source.settings["fontFamily"]) {
-                                    "serif" -> FontFamily.Serif
-                                    "monospace" -> FontFamily.Monospace
-                                    else -> FontFamily.Default
-                                },
-                                fontSize = ((textSize * scale) / density.density).sp,
-                                letterSpacing = (letterSpacing * textSize * scale / density.density).sp,
-                                lineHeight = (textSize * lineSpacing * scale / density.density).sp,
-                                textDecoration = decoration,
-                                style = MaterialTheme.typography.bodyLarge.copy(
-                                    shadow = if (shadowRadius > 0f) Shadow(
-                                        color = shadowColor,
-                                        offset = Offset(
-                                            (source.settings["shadowDx"]?.toFloatOrNull() ?: 0f) * scale,
-                                            (source.settings["shadowDy"]?.toFloatOrNull() ?: 0f) * scale
-                                        ),
-                                        blurRadius = shadowRadius * scale
-                                    ) else null
+                            val resolvedFontFamily = customFontFamily ?: when (source.settings["fontFamily"]) {
+                                "serif" -> FontFamily.Serif
+                                "monospace" -> FontFamily.Monospace
+                                else -> FontFamily.Default
+                            }
+                            val resolvedFontWeight = if (source.settings["bold"] == "true") FontWeight.Bold else FontWeight.Normal
+                            val resolvedFontStyle = if (source.settings["italic"] == "true") FontStyle.Italic else FontStyle.Normal
+                            val resolvedFontSize = ((textSize * scale) / density.density).sp
+                            val resolvedLetterSpacing = (letterSpacing * textSize * scale / density.density).sp
+                            val resolvedLineHeight = (textSize * lineSpacing * scale / density.density).sp
+                            val resolvedShadow = if (shadowRadius > 0f) Shadow(
+                                color = shadowColor,
+                                offset = Offset(
+                                    (source.settings["shadowDx"]?.toFloatOrNull() ?: 0f) * scale,
+                                    (source.settings["shadowDy"]?.toFloatOrNull() ?: 0f) * scale
+                                ),
+                                blurRadius = shadowRadius * scale
+                            ) else null
+                            Box(Modifier.fillMaxSize()) {
+                                if (outlineWidth > 0f) {
+                                    Text(
+                                        label.ifBlank { "Teks" },
+                                        color = outlineColor,
+                                        textAlign = alignment,
+                                        fontWeight = resolvedFontWeight,
+                                        fontStyle = resolvedFontStyle,
+                                        fontFamily = resolvedFontFamily,
+                                        fontSize = resolvedFontSize,
+                                        letterSpacing = resolvedLetterSpacing,
+                                        lineHeight = resolvedLineHeight,
+                                        textDecoration = decoration,
+                                        style = MaterialTheme.typography.bodyLarge.copy(
+                                            shadow = null,
+                                            drawStyle = Stroke(width = outlineWidth * scale)
+                                        )
+                                    )
+                                }
+                                Text(
+                                    label.ifBlank { "Teks" },
+                                    color = textColor,
+                                    textAlign = alignment,
+                                    fontWeight = resolvedFontWeight,
+                                    fontStyle = resolvedFontStyle,
+                                    fontFamily = resolvedFontFamily,
+                                    fontSize = resolvedFontSize,
+                                    letterSpacing = resolvedLetterSpacing,
+                                    lineHeight = resolvedLineHeight,
+                                    textDecoration = decoration,
+                                    style = MaterialTheme.typography.bodyLarge.copy(shadow = resolvedShadow)
                                 )
-                            )
+                            }
                         } else if (source.type == SceneSourceType.EXTENSION) {
                             val extensionElement = installedElements.firstOrNull {
                                 it.extensionId == source.extensionId && it.typeId == source.typeId
