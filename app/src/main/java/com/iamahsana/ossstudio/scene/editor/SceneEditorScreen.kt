@@ -339,8 +339,8 @@ fun SceneEditorScreen(
                 history.endGroup()
                 restoreHistory(history.redo())
             }) { Text("Redo") }
-            OutlinedButton(onClick = { openCanvasSettings() }) { Text("Canvas") }
-            Row(verticalAlignment = Alignment.CenterVertically) { Text("Snap"); Switch(checked = snapEnabled, onCheckedChange = { snapEnabled = it }) }
+            OutlinedButton(onClick = { openCanvasSettings() }) { Text("Pengaturan canvas") }
+            Row(verticalAlignment = Alignment.CenterVertically) { Text("Snap grid"); Switch(checked = snapEnabled, onCheckedChange = { snapEnabled = it }) }
             Row(verticalAlignment = Alignment.CenterVertically) { Text("Grid"); Switch(checked = gridVisible, onCheckedChange = { gridVisible = it }) }
             Row(verticalAlignment = Alignment.CenterVertically) { Text("Safe area"); Switch(checked = safeAreaVisible, onCheckedChange = { safeAreaVisible = it }) }
         }
