@@ -244,7 +244,7 @@ fun SceneEditorScreen(
     var confirmRemoveSource by remember(selectedElementId) { mutableStateOf(false) }
     var editorPanel by remember(project.id) { mutableStateOf("layers") }
     LaunchedEffect(selectedElementId, editorPanel, scene?.elements?.size) {
-        if (selectedElementId != null && editorPanel == "layers") {
+        if (selectedElementId != null && editorPanel == "layers" && !multiSelectMode) {
             withFrameNanos { }
             editorScrollState.animateScrollTo(editorScrollState.maxValue)
         }
