@@ -73,7 +73,8 @@ class MainActivitySmokeTest {
         composeRule.waitUntil(15_000) {
             composeRule.onAllNodesWithText("Canvas kosong").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithText("Canvas kosong").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Canvas kosong").assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-canvas").assertIsDisplayed()
         composeRule.onNodeWithTag("scene-element-insertion-shelf").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithTag("scene-add-media").assertIsDisplayed()
         composeRule.onNodeWithTag("scene-add-share-screen").assertIsDisplayed()
@@ -101,10 +102,10 @@ class MainActivitySmokeTest {
         composeRule.onNodeWithText("Kunci").performScrollTo().performClick()
         composeRule.onNodeWithText("Buka").performScrollTo().performClick()
         composeRule.onAllNodesWithTag("scene-canvas-element", useUnmergedTree = true)[0].performClick()
-        composeRule.onNodeWithTag("scene-resize-handle", useUnmergedTree = true).performScrollTo().assertExists().assertIsDisplayed()
-        composeRule.onNodeWithTag("scene-resize-handle-top-start", useUnmergedTree = true).performScrollTo().assertExists().assertIsDisplayed()
-        composeRule.onNodeWithTag("scene-resize-handle-top-end", useUnmergedTree = true).performScrollTo().assertExists().assertIsDisplayed()
-        composeRule.onNodeWithTag("scene-resize-handle-bottom-start", useUnmergedTree = true).performScrollTo().assertExists().assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-resize-handle", useUnmergedTree = true).assertExists().assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-resize-handle-top-start", useUnmergedTree = true).assertExists().assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-resize-handle-top-end", useUnmergedTree = true).assertExists().assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-resize-handle-bottom-start", useUnmergedTree = true).assertExists().assertIsDisplayed()
         composeRule.onNodeWithTag("scene-panel-properties").performScrollTo().performClick()
         composeRule.onNodeWithTag("scene-properties-panel").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithTag("scene-flip-horizontal").performScrollTo().assertIsDisplayed().performClick()
@@ -138,12 +139,12 @@ class MainActivitySmokeTest {
         composeRule.onNodeWithText("Undo").performScrollTo().performClick()
         assertTrue("Undo should remove the resize handle when the new element is removed", composeRule.onAllNodesWithTag("scene-resize-handle", useUnmergedTree = true).fetchSemanticsNodes().isEmpty())
         composeRule.onNodeWithText("Redo").performScrollTo().performClick()
-        composeRule.onNodeWithText("Teks baru").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Teks baru").assertIsDisplayed()
         composeRule.waitUntil("redo restores the canvas element", 10_000L) {
             composeRule.onAllNodesWithTag("scene-canvas-element", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onAllNodesWithTag("scene-canvas-element", useUnmergedTree = true)[0].performClick()
-        composeRule.onNodeWithTag("scene-resize-handle", useUnmergedTree = true).performScrollTo().assertExists().assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-resize-handle", useUnmergedTree = true).assertExists().assertIsDisplayed()
 
         composeRule.onNodeWithText("Tambah teks").performScrollTo().performClick()
         composeRule.onNodeWithTag("scene-multiselect-toggle").performScrollTo().assertIsDisplayed().performClick()
@@ -282,7 +283,7 @@ class MainActivitySmokeTest {
             composeRule.onAllNodesWithText("Canvas kosong").fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithText("Scene Editor").assertIsDisplayed()
-        composeRule.onNodeWithText("Canvas kosong").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Canvas kosong").assertIsDisplayed()
     }
 
     @Test
