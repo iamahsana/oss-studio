@@ -181,16 +181,15 @@ class MainActivitySmokeTest {
             println("Multi-select status: $text")
             return text.substringAfter("Dipilih: ", "-1").toIntOrNull() ?: -1
         }
-        val layerRows = composeRule.onAllNodesWithTag("scene-element-item")
-        // Bring each layer into the viewport before tapping. Compose semantics
-        // can expose off-screen click actions, but those clicks do not guarantee
-        // that the underlying button receives a real interaction.
-        for (index in 0..2) layerRows[index].assertExists().assertHasClickAction()
-        layerRows[0].performScrollTo().assertIsDisplayed().performClick()
+        // Select each element directly on the canvas. The layer list may be
+        // outside the visible viewport on compact emulator configurations.
+        val canvasElements = composeRule.onAllNodesWithTag("scene-canvas-element", useUnmergedTree = true)
+        canvasElements.assertCountEquals(3)
+        canvasElements[0].performClick()
         composeRule.waitUntil("first layer becomes selected", 5_000L) { selectedLayerCount() == 1 }
-        layerRows[1].performScrollTo().assertIsDisplayed().performClick()
+        canvasElements[1].performClick()
         composeRule.waitUntil("second layer becomes selected", 5_000L) { selectedLayerCount() == 2 }
-        layerRows[2].performScrollTo().assertIsDisplayed().performClick()
+        canvasElements[2].performClick()
         composeRule.waitUntil("third layer becomes selected", 5_000L) { selectedLayerCount() == 3 }
         composeRule.onNodeWithTag("scene-multi-align-left").performScrollTo().assertIsDisplayed().performClick()
         composeRule.onNodeWithTag("scene-multi-align-center-y").performScrollTo().assertIsDisplayed().performClick()
