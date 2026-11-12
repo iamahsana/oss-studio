@@ -1133,11 +1133,11 @@ fun SceneEditorScreen(
                         }
                         Text("Balik elemen", style = MaterialTheme.typography.labelLarge)
                         Row(
-                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             OutlinedButton(
-                                modifier = Modifier.testTag("scene-flip-horizontal"),
+                                modifier = Modifier.weight(1f).testTag("scene-flip-horizontal"),
                                 enabled = !selectedElement.locked,
                                 onClick = {
                                     applyProject(SceneProjectEditor.updateTransform(
@@ -1147,7 +1147,7 @@ fun SceneEditorScreen(
                                 }
                             ) { Text(if (elementTransform.flipHorizontal) "Balik horizontal ✓" else "Balik horizontal") }
                             OutlinedButton(
-                                modifier = Modifier.testTag("scene-flip-vertical"),
+                                modifier = Modifier.weight(1f).testTag("scene-flip-vertical"),
                                 enabled = !selectedElement.locked,
                                 onClick = {
                                     applyProject(SceneProjectEditor.updateTransform(
