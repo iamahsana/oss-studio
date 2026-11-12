@@ -2268,7 +2268,6 @@ private fun decodeVideoPreview(path: String): Bitmap? {
     }
 }
 
-@Composable
 private fun sceneColorAlpha(color: String): Float {
     val normalized = if (color.matches(Regex("^#[A-Fa-f0-9]{6}$"))) "#FF${color.drop(1)}" else color
     return runCatching {
