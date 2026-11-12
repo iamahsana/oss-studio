@@ -540,7 +540,15 @@ fun SceneEditorScreen(
                                 else Modifier.border(1.dp, Color(0xFF777777))
                             )
                             .background(if (element.id == selectedElementId) Color(0x553B82F6) else Color(0x33222222))
-                            .clickable { selectedElementId = element.id }
+                            .clickable {
+                                selectedElementId = element.id
+                                selectedElementIds = if (multiSelectMode) {
+                                    if (element.id in selectedElementIds) selectedElementIds - element.id
+                                    else selectedElementIds + element.id
+                                } else {
+                                    setOf(element.id)
+                                }
+                            }
                             .testTag("scene-canvas-element")
                             .then(
                                 if (element.locked) Modifier else Modifier.pointerInput(element.id, scale, snapEnabled) {
