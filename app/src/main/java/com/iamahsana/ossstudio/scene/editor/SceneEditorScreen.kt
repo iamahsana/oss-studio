@@ -643,8 +643,8 @@ fun SceneEditorScreen(
                             val shadowColor = runCatching {
                                 Color(android.graphics.Color.parseColor(source.settings["shadowColor"] ?: "#FF000000"))
                             }.getOrDefault(Color.Black)
-                            val letterSpacing = (source.settings["letterSpacing"]?.toFloatOrNull() ?: 0f).coerceIn(-0.1f, 0.5f)
-                            val lineSpacing = (source.settings["lineSpacing"]?.toFloatOrNull() ?: 1.15f).coerceIn(1f, 2f)
+                            val letterSpacing = (source.settings["letterSpacing"]?.toFloatOrNull() ?: 0f).coerceIn(-0.1f, 1f)
+                            val lineSpacing = (source.settings["lineSpacing"]?.toFloatOrNull() ?: 1.15f).coerceIn(1f, 2.5f)
                             val alignment = when (source.settings["align"]) {
                                 "left" -> TextAlign.Start
                                 "right" -> TextAlign.End
@@ -1560,18 +1560,18 @@ fun SceneEditorScreen(
                             )
                             Text("Jarak huruf")
                             Slider(
-                                value = (selectedSource.settings["letterSpacing"]?.toFloatOrNull() ?: 0f).coerceIn(-0.1f, 0.5f),
+                                value = (selectedSource.settings["letterSpacing"]?.toFloatOrNull() ?: 0f).coerceIn(-0.1f, 1f),
                                 onValueChange = { updateTextSetting("letterSpacing", it.toString()) },
-                                valueRange = -0.1f..0.5f,
-                                steps = 11,
+                                valueRange = -0.1f..1f,
+                                steps = 21,
                                 modifier = Modifier.testTag("text-letter-spacing")
                             )
                             Text("Jarak baris")
                             Slider(
-                                value = (selectedSource.settings["lineSpacing"]?.toFloatOrNull() ?: 1.15f).coerceIn(1f, 2f),
+                                value = (selectedSource.settings["lineSpacing"]?.toFloatOrNull() ?: 1.15f).coerceIn(1f, 2.5f),
                                 onValueChange = { updateTextSetting("lineSpacing", it.toString()) },
-                                valueRange = 1f..2f,
-                                steps = 9,
+                                valueRange = 1f..2.5f,
+                                steps = 14,
                                 modifier = Modifier.testTag("text-line-spacing")
                             )
                             Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
