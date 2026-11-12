@@ -1588,11 +1588,23 @@ fun SceneEditorScreen(
                                 OutlinedButton(onClick = { updateTextSetting("outlineColor", "#FFFFFFFF") }) { Text("Putih") }
                             }
                             Slider(
-                                value = (selectedSource.settings["outlineWidth"]?.toFloatOrNull() ?: 0f).coerceIn(0f, 12f),
+                                value = (selectedSource.settings["outlineWidth"]?.toFloatOrNull() ?: 0f).coerceIn(0f, 24f),
                                 onValueChange = { updateTextSetting("outlineWidth", it.toString()) },
-                                valueRange = 0f..12f,
-                                steps = 23,
+                                valueRange = 0f..24f,
+                                steps = 47,
                                 modifier = Modifier.testTag("text-outline-width")
+                            )
+                            Text("Opasitas outline: ${(sceneColorAlpha(selectedSource.settings["outlineColor"] ?: "#FF000000") * 100f).toInt()}%")
+                            Slider(
+                                value = sceneColorAlpha(selectedSource.settings["outlineColor"] ?: "#FF000000"),
+                                onValueChange = {
+                                    updateTextSetting(
+                                        "outlineColor",
+                                        sceneColorWithAlpha(selectedSource.settings["outlineColor"] ?: "#FF000000", it)
+                                    )
+                                },
+                                valueRange = 0f..1f,
+                                modifier = Modifier.testTag("text-outline-opacity")
                             )
                             Text("Bayangan: " + (selectedSource.settings["shadowRadius"]?.toFloatOrNull() ?: 0f).toInt() + " px")
                             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -1606,6 +1618,26 @@ fun SceneEditorScreen(
                                 }) { Text("Bayangan ungu") }
                                 OutlinedButton(onClick = { updateTextSetting("shadowRadius", "0") }) { Text("Matikan") }
                             }
+                            Text("Blur bayangan: ${(selectedSource.settings["shadowRadius"]?.toFloatOrNull() ?: 0f).toInt()} px")
+                            Slider(
+                                value = (selectedSource.settings["shadowRadius"]?.toFloatOrNull() ?: 0f).coerceIn(0f, 32f),
+                                onValueChange = { updateTextSetting("shadowRadius", it.toInt().toString()) },
+                                valueRange = 0f..32f,
+                                steps = 31,
+                                modifier = Modifier.testTag("text-shadow-blur")
+                            )
+                            Text("Opasitas bayangan: ${(sceneColorAlpha(selectedSource.settings["shadowColor"] ?: "#FF000000") * 100f).toInt()}%")
+                            Slider(
+                                value = sceneColorAlpha(selectedSource.settings["shadowColor"] ?: "#FF000000"),
+                                onValueChange = {
+                                    updateTextSetting(
+                                        "shadowColor",
+                                        sceneColorWithAlpha(selectedSource.settings["shadowColor"] ?: "#FF000000", it)
+                                    )
+                                },
+                                valueRange = 0f..1f,
+                                modifier = Modifier.testTag("text-shadow-opacity")
+                            )
                             Text("Offset bayangan X: ${(selectedSource.settings["shadowDx"]?.toFloatOrNull() ?: 0f).toInt()} px")
                             Slider(
                                 value = (selectedSource.settings["shadowDx"]?.toFloatOrNull() ?: 0f).coerceIn(-64f, 64f),
@@ -2237,6 +2269,19 @@ private fun decodeVideoPreview(path: String): Bitmap? {
 }
 
 @Composable
+private fun sceneColorAlpha(color: String): Float {
+    val normalized = if (color.matches(Regex("^#[A-Fa-f0-9]{6}$"))) "#FF${color.drop(1)}" else color
+    return runCatching {
+        (android.graphics.Color.alpha(android.graphics.Color.parseColor(normalized)) / 255f)
+    }.getOrDefault(1f)
+}
+
+private fun sceneColorWithAlpha(color: String, alpha: Float): String {
+    val normalized = if (color.matches(Regex("^#[A-Fa-f0-9]{6}$"))) "#FF${color.drop(1)}" else color
+    val alphaHex = (alpha.coerceIn(0f, 1f) * 255f).roundToInt().toString(16).padStart(2, '0')
+    return "#${alphaHex}${normalized.drop(3)}".uppercase()
+}
+
 private fun SceneAnimatedGif(filePath: String, contentDescription: String, crop: CropRect) {
     val context = LocalContext.current
     val drawable = produceState<Drawable?>(initialValue = null, key1 = filePath) {
