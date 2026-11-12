@@ -1779,13 +1779,12 @@ fun SceneEditorScreen(
                     val chosen = element.id in selectedElementIds
                     val layerPosition = scene.elements.sortedBy { it.zIndex }.indexOfFirst { it.id == element.id }
                     val layerCount = scene.elements.size
-                    Row(
+                    Column(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         OutlinedButton(
-                            modifier = Modifier.width(180.dp).testTag("scene-element-item"),
+                            modifier = Modifier.fillMaxWidth().testTag("scene-element-item"),
                             onClick = {
                                 if (multiSelectMode) {
                                     selectedElementIds = if (element.id in selectedElementIds) {
@@ -1810,7 +1809,7 @@ fun SceneEditorScreen(
                             Text(state)
                         }
                         Row(
-                            modifier = Modifier.weight(1f).horizontalScroll(rememberScrollState()),
+                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
