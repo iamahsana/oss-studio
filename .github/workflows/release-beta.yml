@@ -25,6 +25,19 @@ jobs:
         with:
           gradle-version: '8.13'
 
+      - name: Prepare Android SDK
+        env:
+          ANDROID_HOME: /usr/local/lib/android/sdk
+          ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(find "$ANDROID_SDK_ROOT/cmdline-tools" -type f -name sdkmanager -print -quit)"
+          test -n "$SDKMANAGER"
+          set +o pipefail
+          yes | "$SDKMANAGER" --licenses
+          "$SDKMANAGER" "platforms;android-36" "build-tools;36.0.0"
+
       - name: Validate signing secrets and decode keystore
         env:
           OSS_RELEASE_KEYSTORE_BASE64: ${{ secrets.OSS_RELEASE_KEYSTORE_BASE64 }}
@@ -48,10 +61,19 @@ jobs:
           OSS_RELEASE_KEY_PASSWORD: ${{ secrets.OSS_RELEASE_KEY_PASSWORD }}
         run: gradle assembleRelease
 
-      - name: Upload signed beta APK
+      - name: Verify APK signature and create checksum
+        run: |
+          set -euo pipefail
+          APK="app/build/outputs/apk/release/app-release.apk"
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs "$APK"
+          sha256sum "$APK" > "$APK.sha256"
+
+      - name: Upload signed beta APK and checksum
         uses: actions/upload-artifact@v4
         with:
           name: oss-studio-beta-signed
-          path: app/build/outputs/apk/release/app-release.apk
+          path: |
+            app/build/outputs/apk/release/app-release.apk
+            app/build/outputs/apk/release/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
