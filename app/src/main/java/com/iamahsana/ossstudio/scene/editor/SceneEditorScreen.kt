@@ -374,24 +374,30 @@ fun SceneEditorScreen(
                     selectedElementId = null
                 }) { Text("＋ Scene") }
             }
-            Text(scene.name, style = MaterialTheme.typography.titleMedium)
-            Text(
-                "${scene.canvas.width} × ${scene.canvas.height} px",
-                modifier = Modifier.testTag("scene-canvas-dimensions"),
-                style = MaterialTheme.typography.labelSmall
-            )
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                OutlinedButton(onClick = {
-                    viewportZoom = (viewportZoom - 0.25f).coerceAtLeast(1f)
-                    if (viewportZoom == 1f) { viewportPanX = 0f; viewportPanY = 0f }
-                }, enabled = viewportZoom > 1f) { Text("−") }
-                Text("${(viewportZoom * 100).roundToInt()}%", modifier = Modifier.weight(1f), textAlign = TextAlign.Center, style = MaterialTheme.typography.labelMedium)
-                OutlinedButton(onClick = { viewportZoom = (viewportZoom + 0.25f).coerceAtMost(4f) }, enabled = viewportZoom < 4f) { Text("＋") }
-                TextButton(onClick = { viewportZoom = 1f; viewportPanX = 0f; viewportPanY = 0f }) { Text("Reset") }
+                Column(Modifier.weight(1f)) {
+                    Text(scene.name, style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        "${scene.canvas.width} × ${scene.canvas.height} px",
+                        modifier = Modifier.testTag("scene-canvas-dimensions"),
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                }
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedButton(onClick = {
+                        viewportZoom = (viewportZoom - 0.25f).coerceAtLeast(1f)
+                        if (viewportZoom == 1f) { viewportPanX = 0f; viewportPanY = 0f }
+                    }, enabled = viewportZoom > 1f) { Text("−") }
+                    Text("${(viewportZoom * 100).roundToInt()}%", textAlign = TextAlign.Center, style = MaterialTheme.typography.labelMedium)
+                    OutlinedButton(onClick = { viewportZoom = (viewportZoom + 0.25f).coerceAtMost(4f) }, enabled = viewportZoom < 4f) { Text("＋") }
+                    TextButton(onClick = { viewportZoom = 1f; viewportPanX = 0f; viewportPanY = 0f }) { Text("Reset") }
+                }
             }
             BoxWithConstraints(modifier = Modifier.fillMaxWidth().weight(1f)) {
                 val canvasRatio = scene.canvas.width.toFloat() / scene.canvas.height.toFloat()
