@@ -162,6 +162,9 @@ class MainActivitySmokeTest {
         composeRule.onNodeWithTag("scene-resize-handle", useUnmergedTree = true).assertExists().assertIsDisplayed()
 
         composeRule.onNodeWithText("Tambah teks").performScrollTo().performClick()
+        composeRule.waitUntil("second scene layer is added before multi-select assertions", 10_000L) {
+            composeRule.onAllNodesWithTag("scene-element-item").fetchSemanticsNodes().size == 2
+        }
         composeRule.onNodeWithTag("scene-multiselect-toggle").performScrollTo().assertIsDisplayed().performClick()
         composeRule.onNodeWithText("Selesai memilih").assertIsDisplayed()
         composeRule.onNodeWithTag("scene-multiselect-status").performScrollTo().assertExists().assertIsDisplayed()
