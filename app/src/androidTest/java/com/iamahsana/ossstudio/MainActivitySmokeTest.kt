@@ -185,11 +185,11 @@ class MainActivitySmokeTest {
         // outside the visible viewport on compact emulator configurations.
         val canvasElements = composeRule.onAllNodesWithTag("scene-canvas-element", useUnmergedTree = true)
         canvasElements.assertCountEquals(3)
-        canvasElements[0].performClick()
+        canvasElements[0].performScrollTo().performClick()
         composeRule.waitUntil("first layer becomes selected", 5_000L) { selectedLayerCount() == 1 }
-        canvasElements[1].performClick()
+        canvasElements[1].performScrollTo().performClick()
         composeRule.waitUntil("second layer becomes selected", 5_000L) { selectedLayerCount() == 2 }
-        canvasElements[2].performClick()
+        canvasElements[2].performScrollTo().performClick()
         composeRule.waitUntil("third layer becomes selected", 5_000L) { selectedLayerCount() == 3 }
         composeRule.onNodeWithTag("scene-multi-align-left").performScrollTo().assertIsDisplayed().performClick()
         composeRule.onNodeWithTag("scene-multi-align-center-y").performScrollTo().assertIsDisplayed().performClick()
