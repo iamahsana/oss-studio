@@ -1539,6 +1539,22 @@ fun SceneEditorScreen(
                                 }) { Text("Bayangan ungu") }
                                 OutlinedButton(onClick = { updateTextSetting("shadowRadius", "0") }) { Text("Matikan") }
                             }
+                            Text("Offset bayangan X: ${(selectedSource.settings["shadowDx"]?.toFloatOrNull() ?: 0f).toInt()} px")
+                            Slider(
+                                value = (selectedSource.settings["shadowDx"]?.toFloatOrNull() ?: 0f).coerceIn(-64f, 64f),
+                                onValueChange = { updateTextSetting("shadowDx", it.toInt().toString()) },
+                                valueRange = -64f..64f,
+                                steps = 31,
+                                modifier = Modifier.testTag("text-shadow-offset-x")
+                            )
+                            Text("Offset bayangan Y: ${(selectedSource.settings["shadowDy"]?.toFloatOrNull() ?: 0f).toInt()} px")
+                            Slider(
+                                value = (selectedSource.settings["shadowDy"]?.toFloatOrNull() ?: 0f).coerceIn(-64f, 64f),
+                                onValueChange = { updateTextSetting("shadowDy", it.toInt().toString()) },
+                                valueRange = -64f..64f,
+                                steps = 31,
+                                modifier = Modifier.testTag("text-shadow-offset-y")
+                            )
                             Text("Jarak huruf")
                             Slider(
                                 value = (selectedSource.settings["letterSpacing"]?.toFloatOrNull() ?: 0f).coerceIn(-0.1f, 0.5f),
