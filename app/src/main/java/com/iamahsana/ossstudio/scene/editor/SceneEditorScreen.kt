@@ -22,6 +22,7 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -1779,12 +1780,12 @@ fun SceneEditorScreen(
                     val layerPosition = scene.elements.sortedBy { it.zIndex }.indexOfFirst { it.id == element.id }
                     val layerCount = scene.elements.size
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         OutlinedButton(
-                            modifier = Modifier.weight(1f).testTag("scene-element-item"),
+                            modifier = Modifier.width(180.dp).testTag("scene-element-item"),
                             onClick = {
                                 android.util.Log.i("OSSSceneSelection", "layer click: id=${element.id}, multiSelect=$multiSelectMode, before=${selectedElementIds.size}")
                                 if (multiSelectMode) {
