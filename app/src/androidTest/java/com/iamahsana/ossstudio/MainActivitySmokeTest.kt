@@ -17,6 +17,7 @@ import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
+import androidx.compose.ui.test.swipeRight
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onAllNodesWithTag
 import android.content.Context
@@ -73,7 +74,8 @@ class MainActivitySmokeTest {
         composeRule.waitUntil(15_000) {
             composeRule.onAllNodesWithText("Canvas kosong").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithText("Canvas kosong").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Canvas kosong").assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-canvas").assertIsDisplayed()
         composeRule.onNodeWithTag("scene-element-insertion-shelf").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithTag("scene-add-media").assertIsDisplayed()
         composeRule.onNodeWithTag("scene-add-share-screen").assertIsDisplayed()
@@ -101,12 +103,19 @@ class MainActivitySmokeTest {
         composeRule.onNodeWithText("Kunci").performScrollTo().performClick()
         composeRule.onNodeWithText("Buka").performScrollTo().performClick()
         composeRule.onAllNodesWithTag("scene-canvas-element", useUnmergedTree = true)[0].performClick()
-        composeRule.onNodeWithTag("scene-resize-handle", useUnmergedTree = true).performScrollTo().assertExists().assertIsDisplayed()
-        composeRule.onNodeWithTag("scene-resize-handle-top-start", useUnmergedTree = true).performScrollTo().assertExists().assertIsDisplayed()
-        composeRule.onNodeWithTag("scene-resize-handle-top-end", useUnmergedTree = true).performScrollTo().assertExists().assertIsDisplayed()
-        composeRule.onNodeWithTag("scene-resize-handle-bottom-start", useUnmergedTree = true).performScrollTo().assertExists().assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-resize-handle", useUnmergedTree = true).assertExists().assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-rotation-handle", useUnmergedTree = true).assertExists().assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-resize-handle-top-start", useUnmergedTree = true).assertExists().assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-resize-handle-top-end", useUnmergedTree = true).assertExists().assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-resize-handle-bottom-start", useUnmergedTree = true).assertExists().assertIsDisplayed()
         composeRule.onNodeWithTag("scene-panel-properties").performScrollTo().performClick()
         composeRule.onNodeWithTag("scene-properties-panel").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-transform-x-number").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-transform-y-number").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-transform-width-number").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-transform-height-number").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-transform-rotation-number").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-transform-apply-numeric").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithTag("scene-flip-horizontal").performScrollTo().assertIsDisplayed().performClick()
         composeRule.onNodeWithText("Balik horizontal ✓").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithTag("scene-flip-horizontal").performScrollTo().performClick()
@@ -119,6 +128,14 @@ class MainActivitySmokeTest {
         composeRule.onNodeWithTag("scene-rotate-left-90").performScrollTo().assertIsDisplayed().assert(SemanticsMatcher("control is enabled") { !it.config.contains(SemanticsProperties.Disabled) })
         composeRule.onNodeWithTag("scene-rotate-right-90").performScrollTo().assertIsDisplayed().assert(SemanticsMatcher("control is enabled") { !it.config.contains(SemanticsProperties.Disabled) })
         composeRule.onNodeWithTag("scene-rotate-reset").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("text-outline-opacity").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("text-shadow-blur").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("text-shadow-opacity").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("text-shadow-offset-x").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("text-shadow-offset-y").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("text-outline-width").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("text-outline-width").performTouchInput { click(center) }
+        composeRule.onNodeWithTag("scene-text-outline-layer", useUnmergedTree = true).assertExists()
         composeRule.onNodeWithTag("text-letter-spacing").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithTag("text-line-spacing").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithTag("text-reset-formatting").performScrollTo().assertIsDisplayed().performClick()
@@ -138,14 +155,19 @@ class MainActivitySmokeTest {
         composeRule.onNodeWithText("Undo").performScrollTo().performClick()
         assertTrue("Undo should remove the resize handle when the new element is removed", composeRule.onAllNodesWithTag("scene-resize-handle", useUnmergedTree = true).fetchSemanticsNodes().isEmpty())
         composeRule.onNodeWithText("Redo").performScrollTo().performClick()
-        composeRule.onNodeWithText("Teks baru").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Teks baru").assertIsDisplayed()
         composeRule.waitUntil("redo restores the canvas element", 10_000L) {
             composeRule.onAllNodesWithTag("scene-canvas-element", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onAllNodesWithTag("scene-canvas-element", useUnmergedTree = true)[0].performClick()
-        composeRule.onNodeWithTag("scene-resize-handle", useUnmergedTree = true).performScrollTo().assertExists().assertIsDisplayed()
+        composeRule.onNodeWithTag("scene-resize-handle", useUnmergedTree = true).assertExists().assertIsDisplayed()
 
-        composeRule.onNodeWithText("Tambah teks").performScrollTo().performClick()
+        // Return to the insertion shelf, which sits at the start of the horizontal tool rail.
+        composeRule.onNodeWithTag("scene-editor-tool-rail").performTouchInput { swipeRight() }
+        composeRule.onNodeWithTag("scene-add-text").assertIsDisplayed().performClick()
+        composeRule.waitUntil("second scene layer is added before multi-select assertions", 10_000L) {
+            composeRule.onAllNodesWithTag("scene-element-item").fetchSemanticsNodes().size == 2
+        }
         composeRule.onNodeWithTag("scene-multiselect-toggle").performScrollTo().assertIsDisplayed().performClick()
         composeRule.onNodeWithText("Selesai memilih").assertIsDisplayed()
         composeRule.onNodeWithTag("scene-multiselect-status").performScrollTo().assertExists().assertIsDisplayed()
@@ -282,7 +304,7 @@ class MainActivitySmokeTest {
             composeRule.onAllNodesWithText("Canvas kosong").fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithText("Scene Editor").assertIsDisplayed()
-        composeRule.onNodeWithText("Canvas kosong").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Canvas kosong").assertIsDisplayed()
     }
 
     @Test

@@ -27,10 +27,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -59,7 +58,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -81,9 +79,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -138,7 +139,6 @@ fun SceneEditorScreen(
         }
     }
     var selectedElementId by remember(project.id) { mutableStateOf<String?>(null) }
-    val editorScrollState = rememberScrollState()
     var multiSelectMode by remember(project.id) { mutableStateOf(false) }
     var selectedElementIds by remember(project.id) { mutableStateOf<Set<String>>(emptySet()) }
     val history = remember(project.id) { SceneProjectHistory(project) }
@@ -243,14 +243,15 @@ fun SceneEditorScreen(
     val selectedSource = currentProject.sources.firstOrNull { it.id == selectedElement?.sourceId }
     var editingText by remember(selectedElementId) { mutableStateOf(selectedSource?.text ?: selectedSource?.settings?.get("text").orEmpty()) }
     var confirmRemoveSource by remember(selectedElementId) { mutableStateOf(false) }
-    var editorPanel by remember(project.id) { mutableStateOf("layers") }
-    LaunchedEffect(selectedElementId, editorPanel, scene?.elements?.size) {
-        if (selectedElementId != null && editorPanel == "layers" && !multiSelectMode) {
-            withFrameNanos { }
-            editorScrollState.animateScrollTo(editorScrollState.maxValue)
+    var editorPanel by remember(project.id) { mutableStateOf("elements") }
+    val toolRailScrollState = rememberScrollState()
+    LaunchedEffect(editorPanel, toolRailScrollState.maxValue) {
+        if (editorPanel == "properties" || editorPanel == "layers") {
+            toolRailScrollState.animateScrollTo(toolRailScrollState.maxValue)
+        } else {
+            toolRailScrollState.animateScrollTo(0)
         }
     }
-
     fun updateTextSettings(values: Map<String, String?>) {
         if (selectedElement?.locked == true) return
         val sourceId = selectedSource?.id ?: return
@@ -283,7 +284,9 @@ fun SceneEditorScreen(
         val withSource = SceneProjectEditor.addSource(currentProject, source, timestamp)
         val updated = SceneProjectEditor.addElement(withSource, activeScene.id, source.id, timestamp)
         selectedElementId = updated.scenes.first { it.id == activeScene.id }.elements.last().id
+        selectedElementIds = setOf(selectedElementId!!)
         editingText = text.orEmpty()
+        editorPanel = "layers"
         applyProject(updated)
     }
 
@@ -326,7 +329,6 @@ fun SceneEditorScreen(
     Column(
         modifier = Modifier.fillMaxSize()
             .padding(horizontal = 8.dp, vertical = 6.dp)
-            .verticalScroll(editorScrollState)
             .testTag("scene-editor-scroll"),
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
@@ -338,7 +340,11 @@ fun SceneEditorScreen(
             Text(currentProject.name, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
             Text("Autosave", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             OutlinedButton(enabled = historyVersion >= 0 && history.canUndo, onClick = {
                 history.endGroup()
                 restoreHistory(history.undo())
@@ -347,6 +353,7 @@ fun SceneEditorScreen(
                 history.endGroup()
                 restoreHistory(history.redo())
             }) { Text("Redo") }
+            OutlinedButton(onClick = { openCanvasSettings() }) { Text("Pengaturan canvas") }
         }
         if (scene == null) {
             Text("Project ini belum memiliki scene.")
@@ -372,59 +379,39 @@ fun SceneEditorScreen(
                     selectedElementId = null
                 }) { Text("＋ Scene") }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = { openCanvasSettings() }) {
-                    Text("Pengaturan canvas")
-                }
-            }
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Snap grid")
-                    Switch(checked = snapEnabled, onCheckedChange = { snapEnabled = it })
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Grid")
-                    Switch(checked = gridVisible, onCheckedChange = { gridVisible = it })
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Safe area")
-                    Switch(checked = safeAreaVisible, onCheckedChange = { safeAreaVisible = it })
-                }
-            }
-            Text(scene.name, style = MaterialTheme.typography.titleMedium)
-            Text(
-                "${scene.canvas.width} × ${scene.canvas.height} px",
-                modifier = Modifier.testTag("scene-canvas-dimensions"),
-                style = MaterialTheme.typography.labelSmall
-            )
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                OutlinedButton(onClick = {
-                    viewportZoom = (viewportZoom - 0.25f).coerceAtLeast(1f)
-                    if (viewportZoom == 1f) { viewportPanX = 0f; viewportPanY = 0f }
-                }, enabled = viewportZoom > 1f) { Text("−") }
-                Text("${(viewportZoom * 100).roundToInt()}%", modifier = Modifier.weight(1f), textAlign = TextAlign.Center, style = MaterialTheme.typography.labelMedium)
-                OutlinedButton(onClick = { viewportZoom = (viewportZoom + 0.25f).coerceAtMost(4f) }, enabled = viewportZoom < 4f) { Text("＋") }
-                TextButton(onClick = { viewportZoom = 1f; viewportPanX = 0f; viewportPanY = 0f }) { Text("Reset") }
+                Column(Modifier.weight(1f)) {
+                    Text(scene.name, style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        "${scene.canvas.width} × ${scene.canvas.height} px",
+                        modifier = Modifier.testTag("scene-canvas-dimensions"),
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                }
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedButton(onClick = {
+                        viewportZoom = (viewportZoom - 0.25f).coerceAtLeast(1f)
+                        if (viewportZoom == 1f) { viewportPanX = 0f; viewportPanY = 0f }
+                    }, enabled = viewportZoom > 1f) { Text("−") }
+                    Text("${(viewportZoom * 100).roundToInt()}%", textAlign = TextAlign.Center, style = MaterialTheme.typography.labelMedium)
+                    OutlinedButton(onClick = { viewportZoom = (viewportZoom + 0.25f).coerceAtMost(4f) }, enabled = viewportZoom < 4f) { Text("＋") }
+                    TextButton(onClick = { viewportZoom = 1f; viewportPanX = 0f; viewportPanY = 0f }) { Text("Reset") }
+                }
             }
-            BoxWithConstraints(
-                modifier = Modifier.fillMaxWidth()
-                    .aspectRatio(scene.canvas.width.toFloat() / scene.canvas.height.toFloat())
+            BoxWithConstraints(modifier = Modifier.fillMaxWidth().weight(1f)) {
+                val canvasRatio = scene.canvas.width.toFloat() / scene.canvas.height.toFloat()
+                val canvasWidth = minOf(maxWidth, maxHeight * canvasRatio)
+                val canvasHeight = canvasWidth / canvasRatio
+                BoxWithConstraints(
+                modifier = Modifier.align(Alignment.Center)
+                    .width(canvasWidth)
+                    .height(canvasHeight)
                     .clip(RoundedCornerShape(12.dp))
                     .background(Color(0xFF17191D))
                     .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
@@ -480,7 +467,7 @@ fun SceneEditorScreen(
                         transformOrigin = TransformOrigin.Center
                     }
                     .testTag("scene-canvas")
-            ) {
+                ) {
                 val scale = constraints.maxWidth.toFloat() / scene.canvas.width.toFloat()
                 val density = LocalDensity.current
                 if (gridVisible || safeAreaVisible) {
@@ -657,36 +644,69 @@ fun SceneEditorScreen(
                             val shadowColor = runCatching {
                                 Color(android.graphics.Color.parseColor(source.settings["shadowColor"] ?: "#FF000000"))
                             }.getOrDefault(Color.Black)
-                            val letterSpacing = (source.settings["letterSpacing"]?.toFloatOrNull() ?: 0f).coerceIn(-0.1f, 0.5f)
-                            val lineSpacing = (source.settings["lineSpacing"]?.toFloatOrNull() ?: 1.15f).coerceIn(1f, 2f)
+                            val outlineWidth = (source.settings["outlineWidth"]?.toFloatOrNull() ?: 0f).coerceIn(0f, 24f)
+                            val outlineColor = runCatching {
+                                Color(android.graphics.Color.parseColor(source.settings["outlineColor"] ?: "#FF000000"))
+                            }.getOrDefault(Color.Black)
+                            val letterSpacing = (source.settings["letterSpacing"]?.toFloatOrNull() ?: 0f).coerceIn(-0.1f, 1f)
+                            val lineSpacing = (source.settings["lineSpacing"]?.toFloatOrNull() ?: 1.15f).coerceIn(1f, 2.5f)
                             val alignment = when (source.settings["align"]) {
                                 "left" -> TextAlign.Start
                                 "right" -> TextAlign.End
                                 else -> TextAlign.Center
                             }
-                            Text(
-                                label.ifBlank { "Teks" },
-                                color = textColor,
-                                textAlign = alignment,
-                                fontWeight = if (source.settings["bold"] == "true") FontWeight.Bold else FontWeight.Normal,
-                                fontStyle = if (source.settings["italic"] == "true") FontStyle.Italic else FontStyle.Normal,
-                                fontFamily = customFontFamily ?: when (source.settings["fontFamily"]) {
-                                    "serif" -> FontFamily.Serif
-                                    "monospace" -> FontFamily.Monospace
-                                    else -> FontFamily.Default
-                                },
-                                fontSize = ((textSize * scale) / density.density).sp,
-                                letterSpacing = (letterSpacing * textSize * scale / density.density).sp,
-                                lineHeight = (textSize * lineSpacing * scale / density.density).sp,
-                                textDecoration = decoration,
-                                style = MaterialTheme.typography.bodyLarge.copy(
-                                    shadow = if (shadowRadius > 0f) Shadow(
-                                        color = shadowColor,
-                                        offset = Offset(2f * scale, 2f * scale),
-                                        blurRadius = shadowRadius * scale
-                                    ) else null
+                            val resolvedFontFamily = customFontFamily ?: when (source.settings["fontFamily"]) {
+                                "serif" -> FontFamily.Serif
+                                "monospace" -> FontFamily.Monospace
+                                else -> FontFamily.Default
+                            }
+                            val resolvedFontWeight = if (source.settings["bold"] == "true") FontWeight.Bold else FontWeight.Normal
+                            val resolvedFontStyle = if (source.settings["italic"] == "true") FontStyle.Italic else FontStyle.Normal
+                            val resolvedFontSize = ((textSize * scale) / density.density).sp
+                            val resolvedLetterSpacing = (letterSpacing * textSize * scale / density.density).sp
+                            val resolvedLineHeight = (textSize * lineSpacing * scale / density.density).sp
+                            val resolvedShadow = if (shadowRadius > 0f) Shadow(
+                                color = shadowColor,
+                                offset = Offset(
+                                    (source.settings["shadowDx"]?.toFloatOrNull() ?: 0f) * scale,
+                                    (source.settings["shadowDy"]?.toFloatOrNull() ?: 0f) * scale
+                                ),
+                                blurRadius = shadowRadius * scale
+                            ) else null
+                            Box(Modifier.fillMaxSize()) {
+                                if (outlineWidth > 0f) {
+                                    Text(
+                                        label.ifBlank { "Teks" },
+                                        modifier = Modifier.testTag("scene-text-outline-layer"),
+                                        color = outlineColor,
+                                        textAlign = alignment,
+                                        fontWeight = resolvedFontWeight,
+                                        fontStyle = resolvedFontStyle,
+                                        fontFamily = resolvedFontFamily,
+                                        fontSize = resolvedFontSize,
+                                        letterSpacing = resolvedLetterSpacing,
+                                        lineHeight = resolvedLineHeight,
+                                        textDecoration = decoration,
+                                        style = MaterialTheme.typography.bodyLarge.copy(
+                                            shadow = null,
+                                            drawStyle = Stroke(width = outlineWidth * scale)
+                                        )
+                                    )
+                                }
+                                Text(
+                                    label.ifBlank { "Teks" },
+                                    color = textColor,
+                                    textAlign = alignment,
+                                    fontWeight = resolvedFontWeight,
+                                    fontStyle = resolvedFontStyle,
+                                    fontFamily = resolvedFontFamily,
+                                    fontSize = resolvedFontSize,
+                                    letterSpacing = resolvedLetterSpacing,
+                                    lineHeight = resolvedLineHeight,
+                                    textDecoration = decoration,
+                                    style = MaterialTheme.typography.bodyLarge.copy(shadow = resolvedShadow)
                                 )
-                            )
+                            }
                         } else if (source.type == SceneSourceType.EXTENSION) {
                             val extensionElement = installedElements.firstOrNull {
                                 it.extensionId == source.extensionId && it.typeId == source.typeId
@@ -715,43 +735,76 @@ fun SceneEditorScreen(
                                         Color(android.graphics.Color.parseColor(source.settings["color"] ?: "#FFFFFFFF"))
                                     }.getOrDefault(Color.White)
                                     val textSize = source.settings["fontSize"]?.toFloatOrNull() ?: 48f
-                            val decoration = when {
-                                source.settings["underline"] == "true" && source.settings["strikethrough"] == "true" ->
-                                    TextDecoration.combine(listOf(TextDecoration.Underline, TextDecoration.LineThrough))
-                                source.settings["underline"] == "true" -> TextDecoration.Underline
-                                source.settings["strikethrough"] == "true" -> TextDecoration.LineThrough
-                                else -> TextDecoration.None
-                            }
-                            val shadowRadius = (source.settings["shadowRadius"]?.toFloatOrNull() ?: 0f).coerceIn(0f, 32f)
-                            val shadowColor = runCatching {
-                                Color(android.graphics.Color.parseColor(source.settings["shadowColor"] ?: "#FF000000"))
-                            }.getOrDefault(Color.Black)
-                            val letterSpacing = (source.settings["letterSpacing"]?.toFloatOrNull() ?: 0f).coerceIn(-0.1f, 0.5f)
-                            val lineSpacing = (source.settings["lineSpacing"]?.toFloatOrNull() ?: 1.15f).coerceIn(1f, 2f)
+                                    val decoration = when {
+                                        source.settings["underline"] == "true" && source.settings["strikethrough"] == "true" ->
+                                            TextDecoration.combine(listOf(TextDecoration.Underline, TextDecoration.LineThrough))
+                                        source.settings["underline"] == "true" -> TextDecoration.Underline
+                                        source.settings["strikethrough"] == "true" -> TextDecoration.LineThrough
+                                        else -> TextDecoration.None
+                                    }
+                                    val shadowRadius = (source.settings["shadowRadius"]?.toFloatOrNull() ?: 0f).coerceIn(0f, 32f)
+                                    val shadowColor = runCatching {
+                                        Color(android.graphics.Color.parseColor(source.settings["shadowColor"] ?: "#FF000000"))
+                                    }.getOrDefault(Color.Black)
+                                    val outlineWidth = (source.settings["outlineWidth"]?.toFloatOrNull() ?: 0f).coerceIn(0f, 24f)
+                                    val outlineColor = runCatching {
+                                        Color(android.graphics.Color.parseColor(source.settings["outlineColor"] ?: "#FF000000"))
+                                    }.getOrDefault(Color.Black)
+                                    val letterSpacing = (source.settings["letterSpacing"]?.toFloatOrNull() ?: 0f).coerceIn(-0.1f, 1f)
+                                    val lineSpacing = (source.settings["lineSpacing"]?.toFloatOrNull() ?: 1.15f).coerceIn(1f, 2.5f)
                                     val alignment = when (source.settings["align"]) {
                                         "left" -> TextAlign.Start
                                         "right" -> TextAlign.End
                                         else -> TextAlign.Center
                                     }
-                                    Text(
-                                        source.settings["text"] ?: source.displayName,
-                                        color = textColor,
-                                        textAlign = alignment,
-                                        fontWeight = if (source.settings["bold"] == "true") FontWeight.Bold else FontWeight.Normal,
-                                        fontStyle = if (source.settings["italic"] == "true") FontStyle.Italic else FontStyle.Normal,
-                                        fontFamily = customFontFamily ?: FontFamily.Default,
-                                        fontSize = ((textSize * scale) / density.density).sp,
-                                        letterSpacing = (letterSpacing * textSize * scale / density.density).sp,
-                                        lineHeight = (textSize * lineSpacing * scale / density.density).sp,
-                                        textDecoration = decoration,
-                                        style = MaterialTheme.typography.bodyLarge.copy(
-                                            shadow = if (shadowRadius > 0f) Shadow(
-                                                color = shadowColor,
-                                                offset = Offset(2f * scale, 2f * scale),
-                                                blurRadius = shadowRadius * scale
-                                            ) else null
+                                    val extensionText = source.settings["text"] ?: source.displayName
+                                    val resolvedFontSize = ((textSize * scale) / density.density).sp
+                                    val resolvedLetterSpacing = (letterSpacing * textSize * scale / density.density).sp
+                                    val resolvedLineHeight = (textSize * lineSpacing * scale / density.density).sp
+                                    val resolvedFontWeight = if (source.settings["bold"] == "true") FontWeight.Bold else FontWeight.Normal
+                                    val resolvedFontStyle = if (source.settings["italic"] == "true") FontStyle.Italic else FontStyle.Normal
+                                    val resolvedShadow = if (shadowRadius > 0f) Shadow(
+                                        color = shadowColor,
+                                        offset = Offset(
+                                            (source.settings["shadowDx"]?.toFloatOrNull() ?: 0f) * scale,
+                                            (source.settings["shadowDy"]?.toFloatOrNull() ?: 0f) * scale
+                                        ),
+                                        blurRadius = shadowRadius * scale
+                                    ) else null
+                                    Box(Modifier.fillMaxSize()) {
+                                        if (outlineWidth > 0f) {
+                                            Text(
+                                                extensionText,
+                                                modifier = Modifier.testTag("scene-extension-text-outline-layer"),
+                                                color = outlineColor,
+                                                textAlign = alignment,
+                                                fontWeight = resolvedFontWeight,
+                                                fontStyle = resolvedFontStyle,
+                                                fontFamily = customFontFamily ?: FontFamily.Default,
+                                                fontSize = resolvedFontSize,
+                                                letterSpacing = resolvedLetterSpacing,
+                                                lineHeight = resolvedLineHeight,
+                                                textDecoration = decoration,
+                                                style = MaterialTheme.typography.bodyLarge.copy(
+                                                    shadow = null,
+                                                    drawStyle = Stroke(width = outlineWidth * scale)
+                                                )
+                                            )
+                                        }
+                                        Text(
+                                            extensionText,
+                                            color = textColor,
+                                            textAlign = alignment,
+                                            fontWeight = resolvedFontWeight,
+                                            fontStyle = resolvedFontStyle,
+                                            fontFamily = customFontFamily ?: FontFamily.Default,
+                                            fontSize = resolvedFontSize,
+                                            letterSpacing = resolvedLetterSpacing,
+                                            lineHeight = resolvedLineHeight,
+                                            textDecoration = decoration,
+                                            style = MaterialTheme.typography.bodyLarge.copy(shadow = resolvedShadow)
                                         )
-                                    )
+                                    }
                                 }
                                 "image", "sticker", "gif", "video", "background" -> {
                                     if (resource != null) {
@@ -820,6 +873,40 @@ fun SceneEditorScreen(
                                                 System.currentTimeMillis()
                                             )
                                             applyProject(updated, "resize:${element.id}")
+                                        }
+                                    }
+                            )
+                        }
+                        if (element.id == selectedElementId && !element.locked) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopCenter)
+                                    .offset(y = 4.dp)
+                                    .size(20.dp)
+                                    .testTag("scene-rotation-handle")
+                                    .clip(RoundedCornerShape(50))
+                                    .background(MaterialTheme.colorScheme.tertiary)
+                                    .pointerInput(element.id, scale, scene.id) {
+                                        detectDragGestures(
+                                            onDragEnd = { history.endGroup(); historyVersion++ },
+                                            onDragCancel = { history.endGroup(); historyVersion++ }
+                                        ) { change, amount ->
+                                            change.consume()
+                                            val latest = latestProject.value
+                                            val latestTransform = latest.scenes
+                                                .firstOrNull { it.id == scene.id }
+                                                ?.elements?.firstOrNull { it.id == element.id }?.transform
+                                                ?: transform
+                                            val updated = SceneProjectEditor.updateTransform(
+                                                latest,
+                                                scene.id,
+                                                element.id,
+                                                latestTransform.copy(
+                                                    rotationDegrees = latestTransform.rotationDegrees + amount.x / scale
+                                                ),
+                                                System.currentTimeMillis()
+                                            )
+                                            applyProject(updated, "rotate:${element.id}")
                                         }
                                     }
                             )
@@ -942,22 +1029,24 @@ fun SceneEditorScreen(
                 if (scene.elements.none { it.visible }) {
                     Text("Canvas kosong", color = Color.White, modifier = Modifier.align(Alignment.Center))
                 }
+                }
             }
-            Text(
-                "Geser elemen untuk mengatur posisi. Canvas ini adalah area komposisi scene, bukan preview LIVE terpisah.",
-                style = MaterialTheme.typography.bodySmall
-            )
-            mediaStatus?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+            Row(
+                modifier = Modifier.fillMaxWidth().height(220.dp).horizontalScroll(toolRailScrollState),
+                    .testTag("scene-editor-tool-rail"),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
             Surface(
-                modifier = Modifier.fillMaxWidth().testTag("scene-element-insertion-shelf"),
+                modifier = Modifier.width(260.dp).height(220.dp).testTag("scene-element-insertion-shelf"),
                 shape = RoundedCornerShape(14.dp),
                 color = MaterialTheme.colorScheme.surfaceVariant
             ) {
                 Column(
-                    modifier = Modifier.fillMaxWidth().padding(10.dp),
+                    modifier = Modifier.fillMaxSize().padding(10.dp).verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text("Tambah elemen", style = MaterialTheme.typography.titleSmall)
+                    mediaStatus?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
                     Button(
                         modifier = Modifier.fillMaxWidth().testTag("scene-add-text"),
                         onClick = { addSource(SceneSourceType.TEXT, "Teks baru") }
@@ -992,35 +1081,116 @@ fun SceneEditorScreen(
                 }
             }
             Surface(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.width(190.dp).height(220.dp).testTag("scene-canvas-view-tools"),
                 shape = RoundedCornerShape(14.dp),
                 color = MaterialTheme.colorScheme.surfaceVariant
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
+                    Text("Tampilan canvas", style = MaterialTheme.typography.titleSmall)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Snap grid", modifier = Modifier.weight(1f))
+                        Switch(checked = snapEnabled, onCheckedChange = { snapEnabled = it })
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Grid", modifier = Modifier.weight(1f))
+                        Switch(checked = gridVisible, onCheckedChange = { gridVisible = it })
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Safe area", modifier = Modifier.weight(1f))
+                        Switch(checked = safeAreaVisible, onCheckedChange = { safeAreaVisible = it })
+                    }
+                }
+            }
+            Surface(
+                modifier = Modifier.width(220.dp).height(220.dp),
+                shape = RoundedCornerShape(14.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text("Panel editor", style = MaterialTheme.typography.titleSmall)
                     OutlinedButton(
-                        modifier = Modifier.testTag("scene-panel-layers"),
+                        modifier = Modifier.fillMaxWidth().testTag("scene-panel-layers"),
                         onClick = { editorPanel = "layers" }
                     ) { Text("Lapisan") }
                     OutlinedButton(
-                        modifier = Modifier.testTag("scene-panel-properties"),
+                        modifier = Modifier.fillMaxWidth().testTag("scene-panel-properties"),
                         enabled = selectedElement != null && selectedSource != null,
                         onClick = { editorPanel = "properties" }
                     ) { Text("Properti") }
-                    OutlinedButton(onClick = { openCanvasSettings() }) { Text("Canvas") }
                 }
             }
             if (editorPanel == "properties" && selectedElement != null && selectedSource != null) {
                 Surface(
-                    modifier = Modifier.fillMaxWidth().testTag("scene-properties-panel"),
+                    modifier = Modifier.width(340.dp).height(220.dp).testTag("scene-properties-panel"),
                     shape = RoundedCornerShape(16.dp),
                     color = MaterialTheme.colorScheme.surfaceVariant
                 ) {
-                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(Modifier.fillMaxSize().padding(14.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("Elemen dipilih: ${selectedSource.displayName}", style = MaterialTheme.typography.titleSmall)
                         val elementTransform = selectedElement.transform
+                        var numericTransformValues by remember(selectedElement.id) {
+                            mutableStateOf(
+                                listOf(
+                                    elementTransform.x.roundToInt().toString(),
+                                    elementTransform.y.roundToInt().toString(),
+                                    elementTransform.width.roundToInt().toString(),
+                                    elementTransform.height.roundToInt().toString(),
+                                    elementTransform.rotationDegrees.roundToInt().toString()
+                                )
+                            )
+                        }
+                        val parsedTransformValues = numericTransformValues.map { it.toFloatOrNull() }
+                        Text("Transformasi presisi · px / derajat", style = MaterialTheme.typography.labelLarge)
+                        Row(
+                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            listOf("X", "Y", "Lebar", "Tinggi", "Rotasi °").forEachIndexed { index, label ->
+                                OutlinedTextField(
+                                    value = numericTransformValues[index],
+                                    onValueChange = { raw ->
+                                        numericTransformValues = numericTransformValues.toMutableList().also { it[index] = raw }
+                                    },
+                                    modifier = Modifier.width(112.dp).testTag(
+                                        listOf(
+                                            "scene-transform-x-number",
+                                            "scene-transform-y-number",
+                                            "scene-transform-width-number",
+                                            "scene-transform-height-number",
+                                            "scene-transform-rotation-number"
+                                        )[index]
+                                    ),
+                                    label = { Text(label) },
+                                    singleLine = true,
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                    enabled = !selectedElement.locked
+                                )
+                            }
+                        }
+                        OutlinedButton(
+                            modifier = Modifier.testTag("scene-transform-apply-numeric"),
+                            enabled = !selectedElement.locked && parsedTransformValues.all { it != null },
+                            onClick = {
+                                val values = parsedTransformValues.map { it!! }
+                                val preciseTransform = elementTransform.copy(
+                                    x = values[0],
+                                    y = values[1],
+                                    width = values[2].coerceAtLeast(16f),
+                                    height = values[3].coerceAtLeast(16f),
+                                    rotationDegrees = values[4]
+                                ).clampedToCanvas(scene.canvas)
+                                applyProject(SceneProjectEditor.updateTransform(
+                                    currentProject, scene.id, selectedElement.id,
+                                    preciseTransform, System.currentTimeMillis()
+                                ))
+                            }
+                        ) { Text("Terapkan ukuran & posisi") }
                         Text("Balik elemen", style = MaterialTheme.typography.labelLarge)
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -1121,7 +1291,7 @@ fun SceneEditorScreen(
                             enabled = !selectedElement.locked
                         )
                         Row(
-                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             OutlinedButton(
@@ -1419,11 +1589,23 @@ fun SceneEditorScreen(
                                 OutlinedButton(onClick = { updateTextSetting("outlineColor", "#FFFFFFFF") }) { Text("Putih") }
                             }
                             Slider(
-                                value = (selectedSource.settings["outlineWidth"]?.toFloatOrNull() ?: 0f).coerceIn(0f, 12f),
+                                value = (selectedSource.settings["outlineWidth"]?.toFloatOrNull() ?: 0f).coerceIn(0f, 24f),
                                 onValueChange = { updateTextSetting("outlineWidth", it.toString()) },
-                                valueRange = 0f..12f,
-                                steps = 23,
+                                valueRange = 0f..24f,
+                                steps = 47,
                                 modifier = Modifier.testTag("text-outline-width")
+                            )
+                            Text("Opasitas outline: ${(sceneColorAlpha(selectedSource.settings["outlineColor"] ?: "#FF000000") * 100f).toInt()}%")
+                            Slider(
+                                value = sceneColorAlpha(selectedSource.settings["outlineColor"] ?: "#FF000000"),
+                                onValueChange = {
+                                    updateTextSetting(
+                                        "outlineColor",
+                                        sceneColorWithAlpha(selectedSource.settings["outlineColor"] ?: "#FF000000", it)
+                                    )
+                                },
+                                valueRange = 0f..1f,
+                                modifier = Modifier.testTag("text-outline-opacity")
                             )
                             Text("Bayangan: " + (selectedSource.settings["shadowRadius"]?.toFloatOrNull() ?: 0f).toInt() + " px")
                             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -1437,20 +1619,56 @@ fun SceneEditorScreen(
                                 }) { Text("Bayangan ungu") }
                                 OutlinedButton(onClick = { updateTextSetting("shadowRadius", "0") }) { Text("Matikan") }
                             }
+                            Text("Blur bayangan: ${(selectedSource.settings["shadowRadius"]?.toFloatOrNull() ?: 0f).toInt()} px")
+                            Slider(
+                                value = (selectedSource.settings["shadowRadius"]?.toFloatOrNull() ?: 0f).coerceIn(0f, 32f),
+                                onValueChange = { updateTextSetting("shadowRadius", it.toInt().toString()) },
+                                valueRange = 0f..32f,
+                                steps = 31,
+                                modifier = Modifier.testTag("text-shadow-blur")
+                            )
+                            Text("Opasitas bayangan: ${(sceneColorAlpha(selectedSource.settings["shadowColor"] ?: "#FF000000") * 100f).toInt()}%")
+                            Slider(
+                                value = sceneColorAlpha(selectedSource.settings["shadowColor"] ?: "#FF000000"),
+                                onValueChange = {
+                                    updateTextSetting(
+                                        "shadowColor",
+                                        sceneColorWithAlpha(selectedSource.settings["shadowColor"] ?: "#FF000000", it)
+                                    )
+                                },
+                                valueRange = 0f..1f,
+                                modifier = Modifier.testTag("text-shadow-opacity")
+                            )
+                            Text("Offset bayangan X: ${(selectedSource.settings["shadowDx"]?.toFloatOrNull() ?: 0f).toInt()} px")
+                            Slider(
+                                value = (selectedSource.settings["shadowDx"]?.toFloatOrNull() ?: 0f).coerceIn(-64f, 64f),
+                                onValueChange = { updateTextSetting("shadowDx", it.toInt().toString()) },
+                                valueRange = -64f..64f,
+                                steps = 31,
+                                modifier = Modifier.testTag("text-shadow-offset-x")
+                            )
+                            Text("Offset bayangan Y: ${(selectedSource.settings["shadowDy"]?.toFloatOrNull() ?: 0f).toInt()} px")
+                            Slider(
+                                value = (selectedSource.settings["shadowDy"]?.toFloatOrNull() ?: 0f).coerceIn(-64f, 64f),
+                                onValueChange = { updateTextSetting("shadowDy", it.toInt().toString()) },
+                                valueRange = -64f..64f,
+                                steps = 31,
+                                modifier = Modifier.testTag("text-shadow-offset-y")
+                            )
                             Text("Jarak huruf")
                             Slider(
-                                value = (selectedSource.settings["letterSpacing"]?.toFloatOrNull() ?: 0f).coerceIn(-0.1f, 0.5f),
+                                value = (selectedSource.settings["letterSpacing"]?.toFloatOrNull() ?: 0f).coerceIn(-0.1f, 1f),
                                 onValueChange = { updateTextSetting("letterSpacing", it.toString()) },
-                                valueRange = -0.1f..0.5f,
-                                steps = 11,
+                                valueRange = -0.1f..1f,
+                                steps = 21,
                                 modifier = Modifier.testTag("text-letter-spacing")
                             )
                             Text("Jarak baris")
                             Slider(
-                                value = (selectedSource.settings["lineSpacing"]?.toFloatOrNull() ?: 1.15f).coerceIn(1f, 2f),
+                                value = (selectedSource.settings["lineSpacing"]?.toFloatOrNull() ?: 1.15f).coerceIn(1f, 2.5f),
                                 onValueChange = { updateTextSetting("lineSpacing", it.toString()) },
-                                valueRange = 1f..2f,
-                                steps = 9,
+                                valueRange = 1f..2.5f,
+                                steps = 14,
                                 modifier = Modifier.testTag("text-line-spacing")
                             )
                             Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
@@ -1474,7 +1692,7 @@ fun SceneEditorScreen(
                                         "fontSize", "color", "align", "bold", "italic",
                                         "fontExtensionId", "fontTypeId", "fontFamily",
                                         "outlineWidth", "outlineColor", "shadowRadius", "shadowColor",
-                                        "letterSpacing", "lineSpacing", "underline", "strikethrough"
+                                        "shadowDx", "shadowDy", "letterSpacing", "lineSpacing", "underline", "strikethrough"
                                     ).associateWith { null })
                                 }
                             ) { Text("Reset gaya teks") }
@@ -1632,6 +1850,15 @@ fun SceneEditorScreen(
                 }
             }
             if (editorPanel == "layers") {
+            Surface(
+                modifier = Modifier.width(340.dp).height(220.dp).testTag("scene-layers-panel"),
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant
+            ) {
+            Column(
+                modifier = Modifier.fillMaxSize().padding(12.dp).verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
             Text("Elemen scene", style = MaterialTheme.typography.titleMedium)
             // Keep the mode toggle outside the horizontal action scroller.
             // A horizontally scrollable parent was preventing reliable taps in
@@ -1918,6 +2145,9 @@ fun SceneEditorScreen(
                 }
             }
             }
+            }
+            }
+            }
         }
     }
 
@@ -1993,7 +2223,7 @@ private fun SceneAssetImage(
         Image(
             bitmap = bitmap.asImageBitmap(),
             contentDescription = contentDescription,
-            contentScale = ContentScale.Crop,
+            contentScale = ContentScale.FillBounds,
             modifier = Modifier.fillMaxSize().graphicsLayer {
                 val cropWidth = (crop.right - crop.left).coerceAtLeast(0.001f)
                 val cropHeight = (crop.bottom - crop.top).coerceAtLeast(0.001f)
@@ -2039,6 +2269,19 @@ private fun decodeVideoPreview(path: String): Bitmap? {
     }
 }
 
+private fun sceneColorAlpha(color: String): Float {
+    val normalized = if (color.matches(Regex("^#[A-Fa-f0-9]{6}$"))) "#FF${color.drop(1)}" else color
+    return runCatching {
+        (android.graphics.Color.alpha(android.graphics.Color.parseColor(normalized)) / 255f)
+    }.getOrDefault(1f)
+}
+
+private fun sceneColorWithAlpha(color: String, alpha: Float): String {
+    val normalized = if (color.matches(Regex("^#[A-Fa-f0-9]{6}$"))) "#FF${color.drop(1)}" else color
+    val alphaHex = (alpha.coerceIn(0f, 1f) * 255f).roundToInt().toString(16).padStart(2, '0')
+    return "#${alphaHex}${normalized.drop(3)}".uppercase()
+}
+
 @Composable
 private fun SceneAnimatedGif(filePath: String, contentDescription: String, crop: CropRect) {
     val context = LocalContext.current
@@ -2059,7 +2302,7 @@ private fun SceneAnimatedGif(filePath: String, contentDescription: String, crop:
         AndroidView(
             factory = {
                 ImageView(it).apply {
-                    scaleType = ImageView.ScaleType.CENTER_CROP
+                    scaleType = ImageView.ScaleType.FIT_XY
                     this.contentDescription = contentDescription
                     setImageDrawable(drawable)
                 }
