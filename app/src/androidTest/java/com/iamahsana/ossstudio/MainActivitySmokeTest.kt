@@ -168,7 +168,7 @@ class MainActivitySmokeTest {
         composeRule.onNodeWithText("Selesai memilih").performScrollTo().performClick()
         // Spread the third element to the canvas edges so equal-spacing controls
         // have a non-negative gap and their actual action paths are exercised.
-        composeRule.onAllNodesWithTag("scene-element-item")[2].performScrollTo().performClick()
+        composeRule.onAllNodesWithTag("scene-canvas-element", useUnmergedTree = true)[2].performClick()
         composeRule.onNodeWithTag("scene-panel-properties").performScrollTo().performClick()
         composeRule.onNodeWithTag("scene-align-right").performScrollTo().performClick()
         composeRule.onNodeWithTag("scene-align-bottom").performScrollTo().performClick()
