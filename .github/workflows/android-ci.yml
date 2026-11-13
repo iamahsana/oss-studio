@@ -2,7 +2,7 @@ name: Android CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, feature/canvas-first-scene-editor ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:

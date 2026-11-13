@@ -31,13 +31,13 @@ object OssPackArchiveValidator {
         "scene-overlay", "media-source", "text-widget",
         "scene-element", "text-element", "image-element", "shape-element",
         "sticker-element", "emoji-element", "drawing-element", "gif-element",
-        "video-source", "template-pack", "share-screen-source", "camera-source",
+        "video-source", "template-pack", "share-screen-source", "camera-source", "usb-video-source",
         "font-family", "text-effect", "image-effect", "object-effect"
     )
     private val elementCapabilities = setOf(
         "scene-element", "text-element", "image-element", "shape-element",
         "sticker-element", "emoji-element", "drawing-element", "gif-element",
-        "video-source", "template-pack", "share-screen-source", "camera-source"
+        "video-source", "template-pack", "share-screen-source", "camera-source", "usb-video-source"
     )
     private val elementTypeIdPattern = Regex("""^[a-z][a-z0-9]*(?:[.-][a-z0-9]+){1,7}$""")
     private val allowedExtensions = setOf("json", "png", "jpg", "jpeg", "webp", "gif", "ttf", "otf", "mp3", "wav", "ogg")

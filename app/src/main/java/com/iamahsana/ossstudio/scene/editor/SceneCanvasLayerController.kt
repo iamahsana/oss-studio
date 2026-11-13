@@ -276,7 +276,7 @@ class SceneCanvasLayerController(
         val adapter = when (node.source.type) {
             SceneSourceType.VIDEO -> createVideoSource(node.source, surfaceTexture)
             SceneSourceType.CAMERA -> createCameraSource(node.source, surfaceTexture)
-            SceneSourceType.USB_VIDEO -> createUsbVideoSource(node.source, surfaceTexture)
+            SceneSourceType.USB_VIDEO -> createUsbVideoSource(surfaceTexture)
             else -> error("Unsupported live scene source: " + node.source.type)
         }
         activeLiveSources[node.element.id] = adapter
@@ -354,7 +354,6 @@ class SceneCanvasLayerController(
     }
 
     private fun createUsbVideoSource(
-        source: SceneSource,
         surfaceTexture: android.graphics.SurfaceTexture
     ): VideoSource {
         check(appContext.packageManager.hasSystemFeature(PackageManager.FEATURE_USB_HOST)) {

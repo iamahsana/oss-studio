@@ -49,6 +49,31 @@ class SceneRenderPlanTest {
     }
 
     @Test
+    fun usbVideoSourceGetsItsOwnLiveLayerBetweenCanvasSegments() {
+        val fixture = project(
+            sources = listOf(
+                source("usb", SceneSourceType.USB_VIDEO),
+                source("text", SceneSourceType.TEXT)
+            ),
+            elements = listOf(
+                element("usb-element", "usb", 0),
+                element("text-after", "text", 1)
+            )
+        )
+
+        val plan = SceneRenderPlan.build(
+            fixture.first,
+            fixture.second,
+            SceneCanvasLayerController.LayerPosition.ALL,
+            null
+        )
+
+        assertEquals(3, plan.size)
+        assertEquals(SceneSourceType.USB_VIDEO, (plan[1] as SceneRenderNode.LiveSource).source.type)
+        assertEquals(listOf("text-after"), (plan[2] as SceneRenderNode.CanvasSegment).elements.map { it.id })
+    }
+
+    @Test
     fun firstDynamicSourceStillReceivesAnOpaqueBackgroundSegmentBeforeIt() {
         val fixture = project(
             sources = listOf(source("video", SceneSourceType.VIDEO, "video-asset")),

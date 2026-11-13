@@ -1,8 +1,6 @@
 package com.iamahsana.ossstudio.scene.editor
 
-import android.Manifest
 import android.content.Context
-import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.ImageDecoder
@@ -75,7 +73,6 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
-import androidx.core.content.ContextCompat
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.font.FontStyle
@@ -227,8 +224,6 @@ fun SceneEditorScreen(
             displayName = when (type) {
                 SceneSourceType.TEXT -> "Text"
                 SceneSourceType.SHARE_SCREEN -> "Share Screen"
-                SceneSourceType.CAMERA -> "Camera"
-                SceneSourceType.USB_VIDEO -> "USB Video"
                 else -> type.name
             },
             text = text
@@ -244,17 +239,6 @@ fun SceneEditorScreen(
         editorPanel = "layers"
         editingText = text.orEmpty()
         applyProject(updated)
-    }
-
-    val cameraPermissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (granted) {
-            addSource(SceneSourceType.CAMERA)
-            mediaStatus = "Sumber kamera ditambahkan ke scene."
-        } else {
-            mediaStatus = "Izin kamera ditolak. Sumber kamera belum ditambahkan."
-        }
     }
 
     Column(
@@ -772,27 +756,6 @@ fun SceneEditorScreen(
                             modifier = Modifier.weight(1f).testTag("scene-add-share-screen"),
                             onClick = { addSource(SceneSourceType.SHARE_SCREEN) }
                         ) { Text("Share Screen") }
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        OutlinedButton(
-                            modifier = Modifier.weight(1f).testTag("scene-add-camera"),
-                            onClick = {
-                                if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
-                                    PackageManager.PERMISSION_GRANTED
-                                ) {
-                                    addSource(SceneSourceType.CAMERA)
-                                } else {
-                                    cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
-                                }
-                            }
-                        ) { Text("Kamera") }
-                        OutlinedButton(
-                            modifier = Modifier.weight(1f).testTag("scene-add-usb-video"),
-                            onClick = { addSource(SceneSourceType.USB_VIDEO) }
-                        ) { Text("USB video") }
                     }
                 }
             }

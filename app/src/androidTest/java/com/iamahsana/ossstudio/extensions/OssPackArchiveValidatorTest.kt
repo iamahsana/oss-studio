@@ -50,6 +50,22 @@ class OssPackArchiveValidatorTest {
     }
 
     @Test
+    fun acceptsUsbVideoCaptureAsADeclarativeHostCapability() {
+        val archive = createPackage(
+            byteArrayOf(2, 5, 8),
+            elementTypes = listOf("source.usb-video"),
+            capabilities = listOf("usb-video-source")
+        )
+        try {
+            val manifest = OssPackArchiveValidator.validate(archive).manifest
+            assertEquals(listOf("source.usb-video"), manifest.elementTypes)
+            assertTrue("usb-video-source" in manifest.capabilities)
+        } finally {
+            archive.delete()
+        }
+    }
+
+    @Test
     fun rejectsUnnamespacedAndDuplicateElementTypes() {
         val unnamespaced = createPackage(
             byteArrayOf(1, 2, 3),
