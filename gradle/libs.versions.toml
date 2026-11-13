@@ -24,6 +24,7 @@ androidx-compose-material3 = { module = "androidx.compose.material3:material3" }
 androidx-lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycle" }
 androidx-test-ext-junit = { module = "androidx.test.ext:junit", version.ref = "androidxTestJunit" }
 rootencoder-library = { module = "com.github.pedroSG94.RootEncoder:library", version.ref = "rootEncoder" }
+rootencoder-extra-sources = { module = "com.github.pedroSG94.RootEncoder:extra-sources", version.ref = "rootEncoder" }
 androidx-datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "dataStore" }
 
 junit = { module = "junit:junit", version.ref = "junit" }

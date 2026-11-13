@@ -1,6 +1,8 @@
 package com.iamahsana.ossstudio.scene.editor
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
@@ -11,7 +13,7 @@ import android.graphics.PorterDuff
 import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Typeface
-import android.media.MediaMetadataRetriever
+import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
@@ -20,16 +22,25 @@ import com.iamahsana.ossstudio.scene.model.Scene
 import com.iamahsana.ossstudio.scene.model.SceneProject
 import com.iamahsana.ossstudio.scene.model.SceneSource
 import com.iamahsana.ossstudio.scene.model.SceneSourceType
-import com.pedro.encoder.input.gl.render.filters.`object`.SurfaceFilterRender
+import com.pedro.encoder.input.gl.render.filters.\`object\`.SurfaceFilterRender
+import com.pedro.encoder.input.sources.video.Camera2Source
+import com.pedro.encoder.input.sources.video.VideoSource
+import com.pedro.encoder.input.video.CameraHelper
+import com.pedro.extrasources.CameraUvcSource
+import com.pedro.extrasources.Media3VideoSource
 import com.pedro.library.view.GlStreamInterface
 import java.io.File
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicLong
+import kotlin.math.roundToInt
 
 /**
- * Composites static scene elements into a transparent GL surface above Share Screen.
- * Asset decoding is kept off the UI/GL callbacks; only the final Surface draw is posted
- * to the main thread, matching RootEncoder SurfaceFilterRender's surface ownership rules.
+ * Composites a scene into ordered GL surface filters.
+ *
+ * Static objects are grouped into transparent Canvas segments. Video and
+ * capture sources use RootEncoder SurfaceFilterRender inputs at their exact
+ * scene z-order, so a video/camera layer does not incorrectly cover text or
+ * images that should appear above it.
  */
 class SceneCanvasLayerController(
     context: Context,
@@ -44,14 +55,18 @@ class SceneCanvasLayerController(
     private val appContext = context.applicationContext
     private val mainHandler = Handler(Looper.getMainLooper())
     @Volatile private var assetExecutor = Executors.newSingleThreadExecutor()
-    private var filter: SurfaceFilterRender? = null
-    private var outputSurface: Surface? = null
+    private val filters = mutableListOf<SurfaceFilterRender>()
+    private val canvasSurfaces = mutableMapOf<Int, Surface>()
+    private val activeLiveSources = mutableMapOf<String, VideoSource>()
+    private var renderPlan: List<SceneRenderNode> = emptyList()
+    private var liveSourceSignature: List<String> = emptyList()
+    private var surfacesReady = 0
     private var cachedBitmaps: Map<String, Bitmap> = emptyMap()
     private var cachedMovies: Map<String, Movie> = emptyMap()
     private var assetSignature: String = ""
     private val assetGeneration = AtomicLong(0L)
     private val gifStartTime = SystemClock.uptimeMillis()
-    private val gifFrameRunnable = Runnable { outputSurface?.let { drawFrame(it) } }
+    private val gifFrameRunnable = Runnable { renderGifFrames() }
     private var project: SceneProject? = null
     private var scene: Scene? = null
     private var outputWidth = 0
@@ -89,6 +104,7 @@ class SceneCanvasLayerController(
         readyCallback = onReady
         failureCallback = onFailure
         glAttempts = 0
+        surfacesReady = 0
         glCheck?.let(mainHandler::removeCallbacks)
         glCheck = null
         if (assetExecutor.isShutdown || assetExecutor.isTerminated) {
@@ -98,16 +114,22 @@ class SceneCanvasLayerController(
         operationId = java.util.UUID.randomUUID().toString()
 
         assetExecutor.execute {
-            val result = runCatching { decodeSceneAssets(project, scene) }
+            val result = runCatching {
+                val decoded = decodeSceneAssets(project, scene)
+                val plan = SceneRenderPlan.build(project, scene, layerPosition, shareScreenZIndex)
+                Triple(decoded, plan, assetSignature(project, scene))
+            }
             mainHandler.post {
                 if (state != State.LOADING_ASSETS) {
-                    result.getOrNull()?.bitmaps?.values?.forEach { if (!it.isRecycled) it.recycle() }
+                    result.getOrNull()?.first?.bitmaps?.values?.forEach { if (!it.isRecycled) it.recycle() }
                     return@post
                 }
-                result.onSuccess { decoded ->
+                result.onSuccess { (decoded, plan, signature) ->
                     cachedBitmaps = decoded.bitmaps
                     cachedMovies = decoded.movies
-                    assetSignature = assetSignature(project, scene)
+                    renderPlan = plan
+                    liveSourceSignature = SceneRenderPlan.liveSourceSignature(project, plan)
+                    assetSignature = signature
                     state = State.WAITING_FOR_GL
                     waitForGl()
                 }.onFailure { error ->
@@ -124,14 +146,15 @@ class SceneCanvasLayerController(
 
     private fun decodeSceneAssets(project: SceneProject, scene: Scene): DecodedAssets {
         val assets = project.assets.associateBy { it.id }
-        val usedSourceIds = scene.elements.filter { it.visible && shouldRenderElement(it) }
-            .mapTo(mutableSetOf()) { it.sourceId }
+        val sources = project.sources.associateBy { it.id }
+        val usedSourceIds = scene.elements.asSequence()
+            .filter { it.visible && shouldRenderElement(it) }
+            .mapNotNull { sources[it.sourceId] }
+            .filter { it.enabled && it.type in setOf(SceneSourceType.IMAGE, SceneSourceType.GIF) }
+            .mapTo(mutableSetOf()) { it.id }
         val decoded = LinkedHashMap<String, Bitmap>()
         val movies = LinkedHashMap<String, Movie>()
-        project.sources.filter {
-            it.id in usedSourceIds && it.enabled &&
-                it.type in setOf(SceneSourceType.IMAGE, SceneSourceType.GIF, SceneSourceType.VIDEO)
-        }.forEach { source ->
+        project.sources.filter { it.id in usedSourceIds }.forEach { source ->
             val asset = source.assetId?.let(assets::get) ?: return@forEach
             val file = File(appContext.filesDir, asset.relativePath)
             if (source.type == SceneSourceType.GIF) {
@@ -139,8 +162,7 @@ class SceneCanvasLayerController(
                 if (movie != null) movies[source.id] = movie
                 else decodeBitmap(file)?.let { decoded[source.id] = it }
             } else {
-                val bitmap = if (source.type == SceneSourceType.VIDEO) decodeVideoFrame(file) else decodeBitmap(file)
-                if (bitmap != null) decoded[source.id] = bitmap
+                decodeBitmap(file)?.let { decoded[source.id] = it }
             }
         }
         return DecodedAssets(decoded, movies)
@@ -159,19 +181,6 @@ class SceneCanvasLayerController(
         })
     }
 
-    private fun decodeVideoFrame(file: File): Bitmap? {
-        if (!file.isFile) return null
-        val retriever = MediaMetadataRetriever()
-        return try {
-            retriever.setDataSource(file.absolutePath)
-            retriever.getScaledFrameAtTime(0L, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, 1280, 1280)
-        } catch (_: Exception) {
-            null
-        } finally {
-            runCatching { retriever.release() }
-        }
-    }
-
     private fun waitForGl() {
         checkMainThread()
         if (state != State.WAITING_FOR_GL) return
@@ -186,49 +195,211 @@ class SceneCanvasLayerController(
             mainHandler.postDelayed(retry, GL_RETRY_MS)
             return
         }
-        installFilter()
+        installFilters()
     }
 
-    private fun installFilter() {
+    private fun installFilters() {
         checkMainThread()
-        state = State.WAITING_FOR_SURFACE
-        val newFilter = SurfaceFilterRender { surfaceTexture ->
-            checkMainThread()
-            if (state != State.WAITING_FOR_SURFACE) return@SurfaceFilterRender
-            try {
-                surfaceTexture.setDefaultBufferSize(outputWidth, outputHeight)
-                val surface = requireNotNull(newFilterSurface()) { "Scene canvas surface was not initialized" }
-                outputSurface = surface
-                drawFrame(surface)
-                state = State.READY
-                readyCallback?.invoke()
-                log("scene_canvas_ready", "Scene overlay canvas is ready")
-            } catch (error: Exception) {
-                fail(error.message ?: "Scene overlay surface initialization failed")
-            }
+        if (renderPlan.isEmpty()) {
+            fail("Scene render plan is empty")
+            return
         }
-        filter = newFilter
-        try {
-            glInterface.addFilter(newFilter)
-        } catch (error: Exception) {
-            fail(error.message ?: "Unable to add scene overlay filter")
+        state = State.WAITING_FOR_SURFACE
+        surfacesReady = 0
+        filters.clear()
+        canvasSurfaces.clear()
+        activeLiveSources.clear()
+        val currentScene = scene ?: run { fail("Scene is unavailable"); return }
+
+        renderPlan.forEachIndexed { index, node ->
+            lateinit var filter: SurfaceFilterRender
+            filter = SurfaceFilterRender { surfaceTexture ->
+                checkMainThread()
+                if (state != State.WAITING_FOR_SURFACE) return@SurfaceFilterRender
+                try {
+                    when (node) {
+                        is SceneRenderNode.CanvasSegment -> {
+                            surfaceTexture.setDefaultBufferSize(outputWidth, outputHeight)
+                            val surface = requireNotNull(filter.surface) {
+                                "Scene canvas segment surface was not initialized"
+                            }
+                            canvasSurfaces[index] = surface
+                            drawFrame(node, surface)
+                        }
+                        is SceneRenderNode.LiveSource -> startLiveSource(node, filter, surfaceTexture, currentScene)
+                    }
+                    if (state != State.WAITING_FOR_SURFACE) return@SurfaceFilterRender
+                    surfacesReady++
+                    if (surfacesReady == renderPlan.size) {
+                        state = State.READY
+                        readyCallback?.invoke()
+                        log("scene_canvas_ready", "Ordered scene compositor is ready")
+                        renderGifFrames()
+                    }
+                } catch (error: Exception) {
+                    fail(error.message ?: "Scene source initialization failed")
+                }
+            }
+            if (node is SceneRenderNode.LiveSource) {
+                configureLiveSourceFilter(filter, node, currentScene)
+            }
+            filters.add(filter)
+            glInterface.addFilter(filter)
         }
     }
 
-    private fun newFilterSurface(): Surface? = filter?.surface
+    private fun configureLiveSourceFilter(
+        filter: SurfaceFilterRender,
+        node: SceneRenderNode.LiveSource,
+        currentScene: Scene
+    ) {
+        val transform = node.element.transform
+        filter.setScale(
+            transform.width / currentScene.canvas.width.toFloat() * 100f,
+            transform.height / currentScene.canvas.height.toFloat() * 100f
+        )
+        filter.setPosition(
+            transform.x / currentScene.canvas.width.toFloat() * 100f,
+            transform.y / currentScene.canvas.height.toFloat() * 100f
+        )
+        val sourceRotation = node.source.settings["rotationDegrees"]?.toIntOrNull() ?: 0
+        filter.rotation = (transform.rotationDegrees.roundToInt() + sourceRotation).mod(360)
+        filter.alpha = node.element.opacity
+    }
+
+    private fun startLiveSource(
+        node: SceneRenderNode.LiveSource,
+        filter: SurfaceFilterRender,
+        surfaceTexture: android.graphics.SurfaceTexture,
+        currentScene: Scene
+    ) {
+        val adapter = when (node.source.type) {
+            SceneSourceType.VIDEO -> createVideoSource(node.source, surfaceTexture)
+            SceneSourceType.CAMERA -> createCameraSource(node.source, surfaceTexture)
+            SceneSourceType.USB_VIDEO -> createUsbVideoSource(node.source, surfaceTexture)
+            else -> error("Unsupported live scene source: " + node.source.type)
+        }
+        activeLiveSources[node.element.id] = adapter
+        configureLiveSourceFilter(filter, node, currentScene)
+        log(
+            "scene_live_source_started",
+            "Live source " + node.source.type + " attached to element " + node.element.id
+        )
+    }
+
+    private fun createVideoSource(
+        source: SceneSource,
+        surfaceTexture: android.graphics.SurfaceTexture
+    ): VideoSource {
+        val currentProject = project ?: error("Scene project is unavailable")
+        val asset = source.assetId?.let { id -> currentProject.assets.firstOrNull { it.id == id } }
+            ?: error("Video asset is missing from the active project")
+        val file = File(appContext.filesDir, asset.relativePath)
+        require(file.isFile) { "Video asset file is missing: " + asset.relativePath }
+        surfaceTexture.setDefaultBufferSize(outputWidth, outputHeight)
+        val speed = source.settings["speed"]?.toFloatOrNull()?.coerceIn(0.25f, 2f) ?: 1f
+        val loop = source.settings["loop"] != "false"
+        val adapter = Media3VideoSource(
+            context = appContext,
+            path = Uri.fromFile(file),
+            speed = speed,
+            loopMode = loop
+        )
+        check(adapter.init(outputWidth, outputHeight, 30, 0)) {
+            "Media3 could not initialize the selected video"
+        }
+        try {
+            adapter.start(surfaceTexture)
+        } catch (error: Exception) {
+            runCatching { adapter.stop() }
+            runCatching { adapter.release() }
+            throw error
+        }
+        return adapter
+    }
+
+    private fun createCameraSource(
+        source: SceneSource,
+        surfaceTexture: android.graphics.SurfaceTexture
+    ): VideoSource {
+        check(appContext.checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+            "Camera permission is required before this scene can go LIVE"
+        }
+        val facing = if (source.settings["facing"] == "front") {
+            CameraHelper.Facing.FRONT
+        } else {
+            CameraHelper.Facing.BACK
+        }
+        val adapter = Camera2Source(appContext)
+        if (facing == CameraHelper.Facing.FRONT) adapter.switchCamera()
+        val resolutions = adapter.getCameraResolutions(facing)
+        val preferred = resolutions
+            .filter { it.width <= 1920 && it.height <= 1080 }
+            .maxByOrNull { it.width.toLong() * it.height.toLong() }
+            ?: resolutions.maxByOrNull { it.width.toLong() * it.height.toLong() }
+            ?: error("No supported camera resolution is available")
+        adapter.setRequiredResolution(preferred)
+        surfaceTexture.setDefaultBufferSize(preferred.width, preferred.height)
+        check(adapter.init(preferred.width, preferred.height, 30, 0)) {
+            "Camera source could not be initialized"
+        }
+        try {
+            adapter.start(surfaceTexture)
+        } catch (error: Exception) {
+            runCatching { adapter.stop() }
+            runCatching { adapter.release() }
+            throw error
+        }
+        return adapter
+    }
+
+    private fun createUsbVideoSource(
+        source: SceneSource,
+        surfaceTexture: android.graphics.SurfaceTexture
+    ): VideoSource {
+        check(appContext.packageManager.hasSystemFeature(PackageManager.FEATURE_USB_HOST)) {
+            "This Android device does not support USB host mode"
+        }
+        val adapter = CameraUvcSource()
+        surfaceTexture.setDefaultBufferSize(outputWidth, outputHeight)
+        check(adapter.init(outputWidth, outputHeight, 30, 0)) {
+            "USB camera source could not be initialized"
+        }
+        try {
+            adapter.start(surfaceTexture)
+        } catch (error: Exception) {
+            runCatching { adapter.stop() }
+            runCatching { adapter.release() }
+            throw error
+        }
+        log(
+            "usb_video_waiting_for_device",
+            "USB video source is listening for an attached UVC camera"
+        )
+        return adapter
+    }
 
     /** Re-render the active scene after a property or source update. */
     fun update(project: SceneProject, scene: Scene) {
         checkMainThread()
         check(state == State.READY) { "Scene canvas must be ready before update" }
-        this.project = project
-        this.scene = scene
-        val surface = outputSurface ?: error("Scene canvas surface is unavailable")
-        val nextSignature = assetSignature(project, scene)
-        if (nextSignature == assetSignature) {
-            drawFrame(surface)
+        val nextPlan = SceneRenderPlan.build(project, scene, layerPosition, shareScreenZIndex)
+        val nextLiveSignature = SceneRenderPlan.liveSourceSignature(project, nextPlan)
+        if (nextLiveSignature != liveSourceSignature) {
+            log(
+                "live_source_topology_change_requires_restart",
+                "Adding, removing, replacing, or reordering a live decoder/capture source requires restarting LIVE"
+            )
             return
         }
+        this.project = project
+        this.scene = scene
+        val surfaceSignature = assetSignature(project, scene)
+        if (surfaceSignature == assetSignature) {
+            applyRenderPlan(nextPlan)
+            return
+        }
+
         val generation = assetGeneration.incrementAndGet()
         assetExecutor.execute {
             val result = runCatching { decodeSceneAssets(project, scene) }
@@ -241,8 +412,8 @@ class SceneCanvasLayerController(
                     cachedBitmaps.values.forEach { if (!it.isRecycled) it.recycle() }
                     cachedBitmaps = decoded.bitmaps
                     cachedMovies = decoded.movies
-                    assetSignature = nextSignature
-                    drawFrame(surface)
+                    assetSignature = surfaceSignature
+                    applyRenderPlan(nextPlan)
                 }.onFailure { error ->
                     log("scene_canvas_update_decode_failed", error.message ?: "Scene asset update failed")
                 }
@@ -250,96 +421,138 @@ class SceneCanvasLayerController(
         }
     }
 
+    private fun applyRenderPlan(nextPlan: List<SceneRenderNode>) {
+        renderPlan = nextPlan
+        val currentScene = scene ?: return
+        nextPlan.forEachIndexed { index, node ->
+            when (node) {
+                is SceneRenderNode.CanvasSegment -> {
+                    canvasSurfaces[index]?.let { surface -> drawFrame(node, surface) }
+                }
+                is SceneRenderNode.LiveSource -> {
+                    filters.getOrNull(index)?.let { filter ->
+                        configureLiveSourceFilter(filter, node, currentScene)
+                    }
+                }
+            }
+        }
+        renderGifFrames()
+    }
+
     private fun assetSignature(project: SceneProject, scene: Scene): String {
+        val sources = project.sources.associateBy { it.id }
+        val usedSourceIds = scene.elements.asSequence()
+            .filter { it.visible && shouldRenderElement(it) }
+            .mapNotNull { sources[it.sourceId] }
+            .filter { it.enabled && it.type in setOf(SceneSourceType.IMAGE, SceneSourceType.GIF) }
+            .mapTo(mutableSetOf()) { it.id }
         val assets = project.assets.associateBy { it.id }
-        val usedSourceIds = scene.elements.filter { it.visible && shouldRenderElement(it) }
-            .mapTo(mutableSetOf()) { it.sourceId }
         return project.sources
-            .filter { it.id in usedSourceIds && it.type in setOf(SceneSourceType.IMAGE, SceneSourceType.GIF, SceneSourceType.VIDEO) }
+            .filter { it.id in usedSourceIds }
             .sortedBy { it.id }
             .joinToString("|") { source ->
                 val asset = source.assetId?.let(assets::get)
-                "${source.id}:${source.type}:${source.enabled}:${source.assetId}:${asset?.sha256}:${asset?.relativePath}"
+                source.id + ":" + source.type + ":" + source.enabled + ":" +
+                    source.assetId + ":" + asset?.sha256 + ":" + asset?.relativePath
             }
     }
 
-    private fun drawFrame(surface: Surface) {
+    private fun drawFrame(node: SceneRenderNode.CanvasSegment, surface: Surface) {
         checkMainThread()
         val currentProject = project ?: return
         val currentScene = scene ?: return
         if (!surface.isValid) {
-            fail("Scene canvas output surface is no longer valid")
+            fail("Scene canvas segment surface is no longer valid")
             return
         }
         val sources = currentProject.sources.associateBy { it.id }
         val canvas = try {
             surface.lockCanvas(null)
         } catch (error: Exception) {
-            fail(error.message ?: "Unable to lock scene canvas surface")
+            fail(error.message ?: "Unable to lock scene canvas segment")
             return
         }
         try {
-            canvas.drawColor(
-                when (layerPosition) {
+            if (node.drawsBackground) {
+                val background = when (layerPosition) {
                     LayerPosition.ALL -> if (hasShareScreen) Color.TRANSPARENT else currentScene.backgroundArgb.toInt()
                     LayerPosition.BELOW_SHARE_SCREEN -> currentScene.backgroundArgb.toInt()
                     LayerPosition.ABOVE_SHARE_SCREEN -> Color.TRANSPARENT
-                },
-                if (layerPosition == LayerPosition.BELOW_SHARE_SCREEN || (layerPosition == LayerPosition.ALL && !hasShareScreen)) {
-                    PorterDuff.Mode.SRC
-                } else PorterDuff.Mode.CLEAR
-            )
+                }
+                val mode = if (
+                    layerPosition == LayerPosition.BELOW_SHARE_SCREEN ||
+                    (layerPosition == LayerPosition.ALL && !hasShareScreen)
+                ) PorterDuff.Mode.SRC else PorterDuff.Mode.CLEAR
+                canvas.drawColor(background, mode)
+            } else {
+                canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
+            }
+
             val scaleX = outputWidth.toFloat() / currentScene.canvas.width
             val scaleY = outputHeight.toFloat() / currentScene.canvas.height
-            currentScene.elements.asSequence()
-                .filter { it.visible && shouldRenderElement(it) }
-                .sortedBy { it.zIndex }
-                .forEach { element ->
-                    val source = sources[element.sourceId] ?: return@forEach
-                    if (!source.enabled || source.type == SceneSourceType.SHARE_SCREEN) return@forEach
-                    val transform = element.transform
-                    val left = transform.x * scaleX
-                    val top = transform.y * scaleY
-                    val width = transform.width * scaleX
-                    val height = transform.height * scaleY
-                    val save = canvas.save()
-                    canvas.translate(left, top)
-                    canvas.rotate(transform.rotationDegrees, width / 2f, height / 2f)
-                    val destination = RectF(0f, 0f, width, height)
-                    when (source.type) {
-                        SceneSourceType.TEXT -> drawText(canvas, source, destination, element.opacity, scaleY)
-                        SceneSourceType.GIF -> {
-                            val movie = cachedMovies[source.id]
-                            if (movie != null && movie.width() > 0 && movie.height() > 0) {
-                                val layer = canvas.saveLayer(destination, Paint().apply {
-                                    alpha = (element.opacity * 255f).toInt().coerceIn(0, 255)
-                                })
-                                val duration = movie.duration().takeIf { it > 0 } ?: 1000
-                                movie.setTime(((SystemClock.uptimeMillis() - gifStartTime) % duration).toInt())
-                                canvas.scale(width / movie.width().toFloat(), height / movie.height().toFloat())
-                                movie.draw(canvas, 0f, 0f)
-                                canvas.restoreToCount(layer)
-                            } else {
-                                drawCachedBitmap(canvas, source.id, element.crop, destination, element.opacity)
-                            }
-                        }
-                        SceneSourceType.IMAGE, SceneSourceType.VIDEO ->
+            node.elements.sortedBy { it.zIndex }.forEach { element ->
+                val source = sources[element.sourceId] ?: return@forEach
+                if (!element.visible || !source.enabled) return@forEach
+                val transform = element.transform
+                val left = transform.x * scaleX
+                val top = transform.y * scaleY
+                val width = transform.width * scaleX
+                val height = transform.height * scaleY
+                val save = canvas.save()
+                canvas.translate(left, top)
+                canvas.rotate(transform.rotationDegrees, width / 2f, height / 2f)
+                val destination = RectF(0f, 0f, width, height)
+                when (source.type) {
+                    SceneSourceType.TEXT -> drawText(canvas, source, destination, element.opacity, scaleY)
+                    SceneSourceType.GIF -> {
+                        val movie = cachedMovies[source.id]
+                        if (movie != null && movie.width() > 0 && movie.height() > 0) {
+                            val layer = canvas.saveLayer(destination, Paint().apply {
+                                alpha = (element.opacity * 255f).toInt().coerceIn(0, 255)
+                            })
+                            val duration = movie.duration().takeIf { it > 0 } ?: 1000
+                            movie.setTime(((SystemClock.uptimeMillis() - gifStartTime) % duration).toInt())
+                            canvas.scale(width / movie.width().toFloat(), height / movie.height().toFloat())
+                            movie.draw(canvas, 0f, 0f)
+                            canvas.restoreToCount(layer)
+                        } else {
                             drawCachedBitmap(canvas, source.id, element.crop, destination, element.opacity)
-                        SceneSourceType.CAMERA -> drawPlaceholder(canvas, destination, "Camera", element.opacity)
-                        SceneSourceType.USB_VIDEO -> drawPlaceholder(canvas, destination, "USB Video", element.opacity)
-                        SceneSourceType.SHARE_SCREEN -> Unit
+                        }
                     }
-                    canvas.restoreToCount(save)
+                    SceneSourceType.IMAGE ->
+                        drawCachedBitmap(canvas, source.id, element.crop, destination, element.opacity)
+                    SceneSourceType.VIDEO,
+                    SceneSourceType.CAMERA,
+                    SceneSourceType.USB_VIDEO,
+                    SceneSourceType.SHARE_SCREEN -> Unit
                 }
+                canvas.restoreToCount(save)
+            }
         } finally {
             surface.unlockCanvasAndPost(canvas)
         }
-        val hasVisibleGif = currentScene.elements.any { element ->
-            element.visible && shouldRenderElement(element) &&
-                sources[element.sourceId]?.type == SceneSourceType.GIF &&
-                cachedMovies.containsKey(element.sourceId)
+    }
+
+    private fun renderGifFrames() {
+        checkMainThread()
+        if (state != State.READY) return
+        var hasVisibleGif = false
+        renderPlan.forEachIndexed { index, node ->
+            if (node is SceneRenderNode.CanvasSegment) {
+                val containsGif = node.elements.any { element ->
+                    element.visible &&
+                        shouldRenderElement(element) &&
+                        cachedMovies.containsKey(element.sourceId)
+                }
+                if (containsGif) {
+                    canvasSurfaces[index]?.let { surface ->
+                        drawFrame(node, surface)
+                        hasVisibleGif = true
+                    }
+                }
+            }
         }
-        if (hasVisibleGif && state == State.READY) {
+        if (hasVisibleGif) {
             mainHandler.removeCallbacks(gifFrameRunnable)
             mainHandler.postDelayed(gifFrameRunnable, GIF_FRAME_INTERVAL_MS)
         } else {
@@ -444,49 +657,49 @@ class SceneCanvasLayerController(
         return output.ifEmpty { listOf("") }
     }
 
-    private fun drawPlaceholder(canvas: Canvas, bounds: RectF, label: String, opacity: Float) {
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.WHITE
-            textSize = 32f
-            alpha = (opacity * 255f).toInt().coerceIn(0, 255)
-        }
-        canvas.drawText(label, 8f, bounds.height() / 2f, paint)
-    }
-
     fun detach() {
         checkMainThread()
         glCheck?.let(mainHandler::removeCallbacks)
         glCheck = null
         assetGeneration.incrementAndGet()
         mainHandler.removeCallbacks(gifFrameRunnable)
+
+        activeLiveSources.values.toList().forEach { adapter ->
+            runCatching { adapter.stop() }
+            runCatching { adapter.release() }
+        }
+        activeLiveSources.clear()
+
         var failed = false
-        val oldFilter = filter
-        if (oldFilter != null) {
+        filters.toList().forEach { oldFilter ->
             try {
                 glInterface.removeFilter(oldFilter)
-                filter = null
-                outputSurface = null
             } catch (error: Exception) {
                 failed = true
-                log("scene_canvas_remove_failed", error.message ?: "Scene overlay filter removal failed")
+                log("scene_canvas_remove_failed", error.message ?: "Scene compositor filter removal failed")
             }
         }
         if (!failed) {
+            filters.clear()
+            canvasSurfaces.clear()
             cachedBitmaps.values.forEach { if (!it.isRecycled) it.recycle() }
             cachedBitmaps = emptyMap()
             cachedMovies = emptyMap()
             assetSignature = ""
+            liveSourceSignature = emptyList()
+            renderPlan = emptyList()
             project = null
             scene = null
             state = State.STOPPED
             assetExecutor.shutdownNow()
         } else {
             state = State.FAILED
-            throw IllegalStateException("Scene overlay cleanup is incomplete")
+            throw IllegalStateException("Scene compositor cleanup is incomplete")
         }
     }
 
     private fun fail(message: String) {
+        if (state == State.FAILED || state == State.STOPPED) return
         state = State.FAILED
         log("scene_canvas_failed", message)
         failureCallback?.invoke()
@@ -515,7 +728,6 @@ class SceneCanvasLayerController(
         private const val GIF_FRAME_INTERVAL_MS = 33L
     }
 }
-
 
 internal fun isSceneElementInLayer(
     zIndex: Int,

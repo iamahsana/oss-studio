@@ -1,12 +1,14 @@
-RootEncoder
+RootEncoder and RootEncoder extra-sources
 
 Copyright (C) 2024 pedroSG94 and contributors
 Source: https://github.com/pedroSG94/RootEncoder
 Version reviewed: 2.8.1
+Components used: library, extra-sources, encoder (transitive)
 License: Apache License 2.0
 License text: LICENSE.txt
 
-OSS currently includes RootEncoder 2.8.1 as a provisional dependency-resolution
-candidate. This attribution is retained for the dependency currently declared
-in the Android app. Runtime integration and production adoption remain subject
-to API, lifecycle, security, device, and performance acceptance tests.
+OSS integrates RootEncoder's shared GL filter chain and surface-backed
+source adapters. The extra-sources artifact provides Media3VideoSource and
+CameraUvcSource; built-in camera capture uses the core Camera2Source.
+Runtime playback, capture, device lifecycle, and performance remain subject
+to the documented CI and physical-device acceptance tests.

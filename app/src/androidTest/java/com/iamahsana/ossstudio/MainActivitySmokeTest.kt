@@ -75,6 +75,8 @@ class MainActivitySmokeTest {
         composeRule.onNodeWithTag("scene-element-insertion-shelf").assertExists()
         composeRule.onNodeWithTag("scene-add-media").assertExists()
         composeRule.onNodeWithTag("scene-add-share-screen").assertExists()
+        composeRule.onNodeWithTag("scene-add-camera").assertExists()
+        composeRule.onNodeWithTag("scene-add-usb-video").assertExists()
         composeRule.onNodeWithText("Snap grid").assertExists()
         composeRule.onNodeWithText("Grid").assertExists()
         composeRule.onNodeWithText("Safe area").assertExists()

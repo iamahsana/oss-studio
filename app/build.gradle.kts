@@ -51,8 +51,9 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.datastore.preferences)
 
-    // Provisional dependency-resolution probe; no RootEncoder APIs are used yet.
+    // RootEncoder owns the LIVE encoder/GL chain; extra-sources supplies Media3 video and UVC adapters.
     implementation(libs.rootencoder.library)
+    implementation(libs.rootencoder.extra.sources)
 
     testImplementation(libs.junit)
 

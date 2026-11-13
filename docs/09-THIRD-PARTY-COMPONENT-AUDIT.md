@@ -209,3 +209,18 @@ This section supersedes earlier chronological prototype-status notes where the c
 
 Source inspection confirms that the Share Screen-to-shared-GL integration is wired into the app runtime. It does not establish that the final composited output is stable on a physical device across Android versions/OEMs, nor does it establish production-level performance, frame pacing, or long-session reliability. Those remain device-level acceptance gates. Do not repeat the obsolete statement that the controller is not wired to the LIVE runtime; equally, do not overstate source integration as verified device behavior.
 
+
+
+## RootEncoder extra-sources integration spike (2026-11-13)
+
+The app now pins the matching `com.github.pedroSG94.RootEncoder:extra-sources:2.8.1` artifact alongside RootEncoder 2.8.1. The tagged upstream module is Apache-2.0 and includes:
+
+- `Media3VideoSource`, backed by Media3 ExoPlayer and a supplied `SurfaceTexture`, for real-time video-file playback rather than a single decoded poster frame.
+- `CameraUvcSource`, backed by the upstream UVC Android helper, for USB UVC camera capture.
+- `CameraXSource` and supporting Media3 extractors/renderers. OSS currently uses RootEncoder's core `Camera2Source` for built-in cameras and does not instantiate CameraXSource.
+
+The LIVE compositor now builds ordered render nodes: static Canvas segments are interleaved with surface-backed live sources at their scene z-index. This preserves static text/image/GIF layers above or below a video/camera source rather than flattening every static object into one filter that would cover the video. Decoder/capture source topology changes during an active LIVE session are explicitly rejected with a restart-required diagnostic; geometry and opacity changes are applied to existing filters without recreating capture sessions.
+
+The editor now exposes Camera and USB video source insertion. Camera insertion requests Android's CAMERA permission; USB capture relies on the Android USB host/device permission flow. The manifest declares both camera permission and optional camera/USB-host features.
+
+**Verification boundary:** this is an integration implementation and CI can verify compilation, render-plan ordering, and UI availability. It does not yet prove actual video frame playback, camera frames, UVC attach/permission behavior, per-device rotation, crop behavior for surface-backed sources, or thermal/decoder load on a physical phone. Do not mark those capabilities hardware-verified until a focused Android-device LIVE test succeeds. RootEncoder's surface-backed filters do not yet implement per-element source crop for video/camera; that remains an explicit compositor gap.
