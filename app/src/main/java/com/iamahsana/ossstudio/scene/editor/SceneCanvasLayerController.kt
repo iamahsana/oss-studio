@@ -524,6 +524,9 @@ class SceneCanvasLayerController(
                     SceneSourceType.CAMERA,
                     SceneSourceType.USB_VIDEO,
                     SceneSourceType.SHARE_SCREEN -> Unit
+                    SceneSourceType.EXTENSION -> drawUnavailableExtension(
+                        canvas, source, destination, element.opacity, scaleY
+                    )
                 }
                 canvas.restoreToCount(save)
             }
@@ -579,6 +582,53 @@ class SceneCanvasLayerController(
             alpha = (opacity * 255f).toInt().coerceIn(0, 255)
         }
         canvas.drawBitmap(bitmap, sourceRect, destination, paint)
+    }
+
+    private fun drawUnavailableExtension(
+        canvas: Canvas,
+        source: SceneSource,
+        bounds: RectF,
+        opacity: Float,
+        scaleY: Float
+    ) {
+        val alpha = (opacity * 255f).toInt().coerceIn(0, 255)
+        val radius = (16f * scaleY).coerceIn(4f, 28f)
+        val background = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.argb((alpha * 0.28f).toInt(), 96, 72, 40)
+        }
+        val outline = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.argb(alpha, 255, 190, 92)
+            style = Paint.Style.STROKE
+            strokeWidth = (3f * scaleY).coerceAtLeast(1f)
+        }
+        canvas.drawRoundRect(bounds, radius, radius, background)
+        canvas.drawRoundRect(bounds, radius, radius, outline)
+
+        val titlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.argb(alpha, 255, 242, 220)
+            textSize = (24f * scaleY).coerceIn(10f, 36f)
+            textAlign = Paint.Align.CENTER
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        }
+        val detailPaint = Paint(titlePaint).apply {
+            color = Color.argb(alpha, 230, 220, 204)
+            textSize = (14f * scaleY).coerceIn(8f, 22f)
+            typeface = Typeface.DEFAULT
+        }
+        val maxTextWidth = (bounds.width() - 24f * scaleY).coerceAtLeast(1f)
+        val titleLines = wrapText(source.displayName, titlePaint, maxTextWidth).take(2)
+        val detail = source.extensionRequirement?.elementTypeId.orEmpty()
+        val titleLineHeight = titlePaint.textSize * 1.2f
+        val detailHeight = if (detail.isBlank()) 0f else detailPaint.textSize * 1.4f
+        val totalHeight = titleLineHeight * titleLines.size + detailHeight
+        var baseline = bounds.centerY() - totalHeight / 2f - titlePaint.fontMetrics.ascent
+        titleLines.forEach { line ->
+            canvas.drawText(line, bounds.centerX(), baseline, titlePaint)
+            baseline += titleLineHeight
+        }
+        if (detail.isNotBlank()) {
+            canvas.drawText(detail, bounds.centerX(), baseline + detailPaint.textSize, detailPaint)
+        }
     }
 
     private fun drawText(

@@ -3,6 +3,7 @@ package com.iamahsana.ossstudio.scene.editor
 import com.iamahsana.ossstudio.scene.model.Scene
 import com.iamahsana.ossstudio.scene.model.SceneAsset
 import com.iamahsana.ossstudio.scene.model.SceneElement
+import com.iamahsana.ossstudio.scene.model.ExtensionRequirement
 import com.iamahsana.ossstudio.scene.model.SceneProject
 import com.iamahsana.ossstudio.scene.model.SceneSource
 import com.iamahsana.ossstudio.scene.model.SceneSourceType
@@ -11,6 +12,44 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SceneRenderPlanTest {
+    @Test
+    fun unknownExtensionElementRemainsInCanvasPlanForPlaceholderRendering() {
+        val requirement = ExtensionRequirement(
+            "com.community.stickers",
+            "1.2.0",
+            "element.sticker"
+        )
+        val source = SceneSource(
+            id = "sticker",
+            type = SceneSourceType.EXTENSION,
+            displayName = "Community sticker",
+            extensionRequirement = requirement
+        )
+        val fixture = project(
+            sources = listOf(source),
+            elements = listOf(
+                SceneElement(
+                    id = "sticker-element",
+                    sourceId = source.id,
+                    zIndex = 0,
+                    extensionRequirement = requirement
+                )
+            )
+        )
+
+        val plan = SceneRenderPlan.build(
+            fixture.first,
+            fixture.second,
+            SceneCanvasLayerController.LayerPosition.ALL,
+            null
+        )
+
+        val segment = plan.single() as SceneRenderNode.CanvasSegment
+        assertEquals(listOf("sticker-element"), segment.elements.map { it.id })
+        assertEquals(SceneSourceType.EXTENSION, fixture.first.sources.single().type)
+        assertEquals(requirement, fixture.first.sources.single().extensionRequirement)
+    }
+
     @Test
     fun interleavesStaticCanvasSegmentsAndLiveSourcesInExactLayerOrder() {
         val fixture = project(

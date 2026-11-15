@@ -5,11 +5,11 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * JSON persistence codec. Schema v1 remains readable; all subsequent writes
- * use v2 so old projects are upgraded only after a successful decode.
+ * JSON persistence codec. Legacy schemas remain readable; unknown namespaced
+ * extension types are preserved as non-executable placeholder sources.
  */
 object SceneProjectJsonCodec {
-    private const val CURRENT_SCHEMA_VERSION = 3
+    private const val CURRENT_SCHEMA_VERSION = 4
     private const val MIN_SUPPORTED_SCHEMA_VERSION = 1
 
     fun encode(p: SceneProject): String = JSONObject().apply {
@@ -60,17 +60,40 @@ object SceneProjectJsonCodec {
             o.getLong("background"),elements)
     }
     private fun sourceToJson(s: SceneSource)=JSONObject().apply {
-        put("id",s.id);put("type",s.type.name);put("name",s.displayName);put("enabled",s.enabled)
+        val serializedType = if (s.type == SceneSourceType.EXTENSION) {
+            requireNotNull(s.extensionRequirement).elementTypeId
+        } else s.type.name
+        put("id",s.id);put("type",serializedType);put("name",s.displayName);put("enabled",s.enabled)
         put("asset",s.assetId ?: JSONObject.NULL);put("text",s.text ?: JSONObject.NULL)
         put("settings",JSONObject().apply { s.settings.forEach { (k,v)->put(k,v) } })
         put("extension", extensionToJson(s.extensionRequirement))
     }
     private fun sourceFromJson(o: JSONObject): SceneSource {
         val settings=o.getJSONObject("settings")
-        return SceneSource(o.getString("id"),SceneSourceType.valueOf(o.getString("type")),o.getString("name"),
+        val serializedType = o.getString("type")
+        val extension = extensionFromJson(o.opt("extension"))
+        val knownType = runCatching { SceneSourceType.valueOf(serializedType) }.getOrNull()
+        val type = when {
+            knownType == SceneSourceType.EXTENSION -> {
+                require(extension?.elementTypeId == serializedType) {
+                    "Extension source type must match its namespaced requirement"
+                }
+                SceneSourceType.EXTENSION
+            }
+            knownType != null -> knownType
+            else -> {
+                require(extension != null) {
+                    "Unknown source type '$serializedType' has no extension requirement"
+                }
+                require(extension.elementTypeId == serializedType) {
+                    "Unknown source type must match its extension element type"
+                }
+                SceneSourceType.EXTENSION
+            }
+        }
+        return SceneSource(o.getString("id"),type,o.getString("name"),
             o.getBoolean("enabled"),o.opt("asset").nullableString(),o.opt("text").nullableString(),
-            buildMap { settings.keys().forEach { put(it,settings.getString(it)) } },
-            extensionFromJson(o.opt("extension")))
+            buildMap { settings.keys().forEach { put(it,settings.getString(it)) } }, extension)
     }
     private fun assetToJson(a: SceneAsset)=JSONObject().apply {
         put("id",a.id);put("path",a.relativePath);put("mime",a.mimeType);put("size",a.byteSize);put("sha",a.sha256)

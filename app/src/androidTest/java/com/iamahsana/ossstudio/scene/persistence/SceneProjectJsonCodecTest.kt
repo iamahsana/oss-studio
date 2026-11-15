@@ -52,6 +52,83 @@ class SceneProjectJsonCodecTest {
     }
 
     @Test
+    fun preservesUnknownNamespacedExtensionTypesAsRecoverableSources() {
+        val requirement = ExtensionRequirement(
+            "com.community.stickers",
+            "1.2.0",
+            "element.sticker"
+        )
+        val source = SceneSource(
+            id = "sticker-source",
+            type = SceneSourceType.TEXT,
+            displayName = "Community sticker",
+            extensionRequirement = requirement
+        )
+        val scene = Scene(
+            id = "main",
+            projectId = "unknown-extension",
+            name = "Main",
+            elements = listOf(
+                SceneElement(
+                    id = "sticker-element",
+                    sourceId = source.id,
+                    zIndex = 0,
+                    extensionRequirement = requirement
+                )
+            )
+        )
+        val project = SceneProject(
+            id = "unknown-extension",
+            name = "Unknown extension",
+            createdAtEpochMillis = 1L,
+            updatedAtEpochMillis = 1L,
+            activeSceneId = scene.id,
+            scenes = listOf(scene),
+            sources = listOf(source)
+        )
+        val document = JSONObject(SceneProjectJsonCodec.encode(project))
+        document.getJSONArray("sources").getJSONObject(0)
+            .put("type", requirement.elementTypeId)
+
+        val decoded = SceneProjectJsonCodec.decode(document.toString())
+        assertEquals(SceneSourceType.EXTENSION, decoded.sources.single().type)
+        assertEquals(requirement, decoded.sources.single().extensionRequirement)
+
+        val rewritten = JSONObject(SceneProjectJsonCodec.encode(decoded))
+        assertEquals(
+            requirement.elementTypeId,
+            rewritten.getJSONArray("sources").getJSONObject(0).getString("type")
+        )
+        assertEquals(decoded, SceneProjectJsonCodec.decode(rewritten.toString()))
+    }
+
+    @Test
+    fun rejectsUnknownSourceTypesWithoutExtensionRequirements() {
+        val source = SceneSource("source", SceneSourceType.TEXT, "Text")
+        val scene = Scene(
+            id = "main",
+            projectId = "unbound-extension",
+            name = "Main",
+            elements = listOf(SceneElement("element", source.id, zIndex = 0))
+        )
+        val project = SceneProject(
+            id = "unbound-extension",
+            name = "Unbound extension",
+            createdAtEpochMillis = 1L,
+            updatedAtEpochMillis = 1L,
+            activeSceneId = scene.id,
+            scenes = listOf(scene),
+            sources = listOf(source)
+        )
+        val document = JSONObject(SceneProjectJsonCodec.encode(project))
+        document.getJSONArray("sources").getJSONObject(0).put("type", "element.unknown")
+
+        assertThrows(IllegalArgumentException::class.java) {
+            SceneProjectJsonCodec.decode(document.toString())
+        }
+    }
+
+    @Test
     fun readsSchemaV2WithoutExtensionMetadata() {
         val source = SceneSource("source", SceneSourceType.TEXT, "Text", text = "Hello")
         val scene = Scene(
@@ -75,7 +152,7 @@ class SceneProjectJsonCodecTest {
         assertEquals(project, SceneProjectJsonCodec.decode(legacy.toString()))
     }
 
-    @Test fun readsLegacySchemaV1AndWritesCurrentSchemaV3() {
+    @Test fun readsLegacySchemaV1AndWritesCurrentSchemaV4() {
         val project=SceneProject(id="legacy",name="Legacy",createdAtEpochMillis=1,updatedAtEpochMillis=2)
         val legacy=JSONObject(SceneProjectJsonCodec.encode(project))
             .put("schemaVersion",1)
@@ -86,7 +163,7 @@ class SceneProjectJsonCodecTest {
 
         assertEquals(project.id,decoded.id)
         assertEquals(project.name,decoded.name)
-        assertEquals(3,rewritten.getInt("schemaVersion"))
+        assertEquals(4,rewritten.getInt("schemaVersion"))
     }
 
     @Test fun rejectsUnsupportedFutureDocumentSchemaBeforeDecoding() {

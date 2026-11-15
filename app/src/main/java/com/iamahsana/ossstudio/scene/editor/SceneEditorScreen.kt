@@ -527,6 +527,7 @@ fun SceneEditorScreen(
                             SceneSourceType.VIDEO -> "Video"
                             SceneSourceType.CAMERA -> "Camera"
                             SceneSourceType.USB_VIDEO -> "USB Video"
+                            SceneSourceType.EXTENSION -> source.displayName
                         }
                         if (source.type == SceneSourceType.IMAGE || source.type == SceneSourceType.GIF || source.type == SceneSourceType.VIDEO) {
                             val asset = currentProject.assets.firstOrNull { it.id == source.assetId }
@@ -559,6 +560,24 @@ fun SceneEditorScreen(
                                 fontStyle = if (source.settings["italic"] == "true") FontStyle.Italic else FontStyle.Normal,
                                 fontSize = ((textSize * scale) / density.density).sp
                             )
+                        } else if (source.type == SceneSourceType.EXTENSION) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(
+                                    "Elemen ekstensi tidak tersedia",
+                                    color = MaterialTheme.colorScheme.error,
+                                    textAlign = TextAlign.Center,
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                                Text(
+                                    source.extensionRequirement?.elementTypeId.orEmpty(),
+                                    color = Color.White,
+                                    textAlign = TextAlign.Center,
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                            }
                         } else {
                             Text(
                                 label,

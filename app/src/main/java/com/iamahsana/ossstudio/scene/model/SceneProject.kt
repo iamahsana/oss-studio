@@ -5,7 +5,7 @@ import java.util.UUID
 enum class CanvasOrientation { PORTRAIT, LANDSCAPE }
 
 enum class SceneSourceType {
-    TEXT, IMAGE, GIF, VIDEO, SHARE_SCREEN, CAMERA, USB_VIDEO
+    TEXT, IMAGE, GIF, VIDEO, SHARE_SCREEN, CAMERA, USB_VIDEO, EXTENSION
 }
 
 data class CanvasSize(
@@ -196,8 +196,11 @@ data class SceneSource(
         require(id.isNotBlank())
         require(displayName.isNotBlank())
         require(assetId == null || assetId.isNotBlank())
-        require(text == null || type == SceneSourceType.TEXT)
-        require(assetId != null || type in setOf(SceneSourceType.TEXT, SceneSourceType.SHARE_SCREEN, SceneSourceType.CAMERA, SceneSourceType.USB_VIDEO))
+        require(text == null || type in setOf(SceneSourceType.TEXT, SceneSourceType.EXTENSION))
+        require(assetId != null || type in setOf(SceneSourceType.TEXT, SceneSourceType.SHARE_SCREEN, SceneSourceType.CAMERA, SceneSourceType.USB_VIDEO, SceneSourceType.EXTENSION))
+        require(type != SceneSourceType.EXTENSION || extensionRequirement != null) {
+            "Extension sources must retain their namespaced extension requirement"
+        }
     }
 }
 
