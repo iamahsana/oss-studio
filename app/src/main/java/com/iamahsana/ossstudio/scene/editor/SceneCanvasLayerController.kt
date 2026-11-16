@@ -18,6 +18,8 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.view.Surface
+import androidx.media3.common.PlaybackException
+import androidx.media3.common.Player
 import com.iamahsana.ossstudio.scene.model.Scene
 import com.iamahsana.ossstudio.scene.model.SceneProject
 import com.iamahsana.ossstudio.scene.model.SceneSource
@@ -25,9 +27,10 @@ import com.iamahsana.ossstudio.scene.model.SceneSourceType
 import com.pedro.encoder.input.gl.render.filters.`object`.SurfaceFilterRender
 import com.pedro.encoder.input.sources.video.Camera2Source
 import com.pedro.encoder.input.sources.video.VideoSource
+import com.pedro.encoder.input.video.CameraCallbacks
 import com.pedro.encoder.input.video.CameraHelper
-import com.pedro.extrasources.CameraUvcSource
 import com.pedro.extrasources.Media3VideoSource
+import com.iamahsana.ossstudio.scene.source.usb.OssUvcVideoSource
 import com.pedro.library.view.GlStreamInterface
 import java.io.File
 import java.util.concurrent.Executors
@@ -58,9 +61,12 @@ class SceneCanvasLayerController(
     private val filters = mutableListOf<SurfaceFilterRender>()
     private val canvasSurfaces = mutableMapOf<Int, Surface>()
     private val activeLiveSources = mutableMapOf<String, VideoSource>()
+    private val media3Listeners = mutableMapOf<String, Player.Listener>()
+    private val cameraCallbacks = mutableMapOf<String, CameraCallbacks>()
+    private val pendingSourceTimeouts = mutableMapOf<String, Runnable>()
+    private var startupGate: SceneLiveSourceStartupGate? = null
     private var renderPlan: List<SceneRenderNode> = emptyList()
     private var liveSourceSignature: List<String> = emptyList()
-    private var surfacesReady = 0
     private var cachedBitmaps: Map<String, Bitmap> = emptyMap()
     private var cachedMovies: Map<String, Movie> = emptyMap()
     private var assetSignature: String = ""
@@ -104,7 +110,8 @@ class SceneCanvasLayerController(
         readyCallback = onReady
         failureCallback = onFailure
         glAttempts = 0
-        surfacesReady = 0
+        clearPendingSourceTimeouts()
+        clearLiveSourceCallbacks()
         glCheck?.let(mainHandler::removeCallbacks)
         glCheck = null
         if (assetExecutor.isShutdown || assetExecutor.isTerminated) {
@@ -205,7 +212,9 @@ class SceneCanvasLayerController(
             return
         }
         state = State.WAITING_FOR_SURFACE
-        surfacesReady = 0
+        clearPendingSourceTimeouts()
+        clearLiveSourceCallbacks()
+        startupGate = SceneLiveSourceStartupGate(renderPlan.size)
         filters.clear()
         canvasSurfaces.clear()
         activeLiveSources.clear()
@@ -229,13 +238,8 @@ class SceneCanvasLayerController(
                         is SceneRenderNode.LiveSource -> startLiveSource(node, filter, surfaceTexture, currentScene)
                     }
                     if (state != State.WAITING_FOR_SURFACE) return@SurfaceFilterRender
-                    surfacesReady++
-                    if (surfacesReady == renderPlan.size) {
-                        state = State.READY
-                        readyCallback?.invoke()
-                        log("scene_canvas_ready", "Ordered scene compositor is ready")
-                        renderGifFrames()
-                    }
+                    startupGate?.surfaceReady()
+                    maybeMarkReady()
                 } catch (error: Exception) {
                     fail(error.message ?: "Scene source initialization failed")
                 }
@@ -246,6 +250,54 @@ class SceneCanvasLayerController(
             filters.add(filter)
             glInterface.addFilter(filter)
         }
+    }
+
+    private fun awaitLiveSource(elementId: String, label: String, timeoutMs: Long) {
+        val gate = checkNotNull(startupGate) { "Scene source startup gate is unavailable" }
+        gate.awaitSource(elementId)
+        val timeout = Runnable {
+            if (startupGate === gate && state == State.WAITING_FOR_SURFACE && gate.isPending(elementId)) {
+                pendingSourceTimeouts.remove(elementId)
+                fail("$label did not become ready within ${timeoutMs / 1_000L} seconds")
+            }
+        }
+        pendingSourceTimeouts[elementId] = timeout
+        mainHandler.postDelayed(timeout, timeoutMs)
+    }
+
+    private fun markLiveSourceReady(elementId: String, label: String) {
+        if (state != State.WAITING_FOR_SURFACE) return
+        val gate = startupGate ?: return
+        if (!gate.sourceReady(elementId)) return
+        pendingSourceTimeouts.remove(elementId)?.let(mainHandler::removeCallbacks)
+        log("scene_live_source_ready", "$label source $elementId is producing frames")
+        maybeMarkReady()
+    }
+
+    private fun maybeMarkReady() {
+        if (state != State.WAITING_FOR_SURFACE || startupGate?.isReady != true) return
+        startupGate = null
+        state = State.READY
+        log("scene_canvas_ready", "Ordered scene compositor and all live sources are ready")
+        readyCallback?.invoke()
+        renderGifFrames()
+    }
+
+    private fun clearPendingSourceTimeouts() {
+        pendingSourceTimeouts.values.forEach(mainHandler::removeCallbacks)
+        pendingSourceTimeouts.clear()
+        startupGate = null
+    }
+
+    private fun clearLiveSourceCallbacks() {
+        media3Listeners.forEach { (elementId, listener) ->
+            (activeLiveSources[elementId] as? Media3VideoSource)?.getPlayer()?.removeListener(listener)
+        }
+        media3Listeners.clear()
+        cameraCallbacks.keys.forEach { elementId ->
+            (activeLiveSources[elementId] as? Camera2Source)?.setCameraCallback(null)
+        }
+        cameraCallbacks.clear()
     }
 
     private fun configureLiveSourceFilter(
@@ -273,17 +325,39 @@ class SceneCanvasLayerController(
         surfaceTexture: android.graphics.SurfaceTexture,
         currentScene: Scene
     ) {
+        val elementId = node.element.id
         val adapter = when (node.source.type) {
-            SceneSourceType.VIDEO -> createVideoSource(node.source, surfaceTexture)
-            SceneSourceType.CAMERA -> createCameraSource(node.source, surfaceTexture)
-            SceneSourceType.USB_VIDEO -> createUsbVideoSource(surfaceTexture)
+            SceneSourceType.VIDEO -> {
+                awaitLiveSource(elementId, "Video", VIDEO_FIRST_FRAME_TIMEOUT_MS)
+                createVideoSource(node.source, surfaceTexture)
+            }
+            SceneSourceType.CAMERA -> createCameraSource(elementId, node.source, surfaceTexture)
+            SceneSourceType.USB_VIDEO -> createUsbVideoSource(elementId, surfaceTexture)
             else -> error("Unsupported live scene source: " + node.source.type)
         }
-        activeLiveSources[node.element.id] = adapter
+        activeLiveSources[elementId] = adapter
+        if (adapter is Media3VideoSource) {
+            val player = requireNotNull(adapter.getPlayer()) { "Media3 player was not created" }
+            val listener = object : Player.Listener {
+                override fun onRenderedFirstFrame() {
+                    mainHandler.post { markLiveSourceReady(elementId, "Video") }
+                }
+
+                override fun onPlayerError(error: PlaybackException) {
+                    mainHandler.post {
+                        if (state != State.STOPPED && state != State.FAILED) {
+                            fail("Video source failed: ${error.message ?: "unknown decoder error"}")
+                        }
+                    }
+                }
+            }
+            player.addListener(listener)
+            media3Listeners[elementId] = listener
+        }
         configureLiveSourceFilter(filter, node, currentScene)
         log(
             "scene_live_source_started",
-            "Live source " + node.source.type + " attached to element " + node.element.id
+            "Live source " + node.source.type + " attached to element " + elementId
         )
     }
 
@@ -319,6 +393,7 @@ class SceneCanvasLayerController(
     }
 
     private fun createCameraSource(
+        elementId: String,
         source: SceneSource,
         surfaceTexture: android.graphics.SurfaceTexture
     ): VideoSource {
@@ -343,9 +418,39 @@ class SceneCanvasLayerController(
         check(adapter.init(preferred.width, preferred.height, 30, 0)) {
             "Camera source could not be initialized"
         }
+        awaitLiveSource(elementId, "Camera", CAMERA_OPEN_TIMEOUT_MS)
+        val callbacks = object : CameraCallbacks {
+            override fun onCameraChanged(facing: CameraHelper.Facing) {
+                log("scene_camera_changed", "Camera switched to $facing")
+            }
+
+            override fun onCameraError(error: String) {
+                mainHandler.post {
+                    if (state != State.STOPPED && state != State.FAILED) {
+                        fail("Camera source failed: $error")
+                    }
+                }
+            }
+
+            override fun onCameraOpened() {
+                mainHandler.post { markLiveSourceReady(elementId, "Camera") }
+            }
+
+            override fun onCameraDisconnected() {
+                mainHandler.post {
+                    if (state != State.STOPPED && state != State.FAILED) {
+                        fail("Camera disconnected while its scene source was active")
+                    }
+                }
+            }
+        }
+        adapter.setCameraCallback(callbacks)
+        cameraCallbacks[elementId] = callbacks
         try {
             adapter.start(surfaceTexture)
         } catch (error: Exception) {
+            cameraCallbacks.remove(elementId)
+            adapter.setCameraCallback(null)
             runCatching { adapter.stop() }
             runCatching { adapter.release() }
             throw error
@@ -354,12 +459,25 @@ class SceneCanvasLayerController(
     }
 
     private fun createUsbVideoSource(
+        elementId: String,
         surfaceTexture: android.graphics.SurfaceTexture
     ): VideoSource {
         check(appContext.packageManager.hasSystemFeature(PackageManager.FEATURE_USB_HOST)) {
             "This Android device does not support USB host mode"
         }
-        val adapter = CameraUvcSource()
+        awaitLiveSource(elementId, "USB camera", USB_CAMERA_OPEN_TIMEOUT_MS)
+        val adapter = OssUvcVideoSource(
+            onCameraReady = {
+                mainHandler.post { markLiveSourceReady(elementId, "USB camera") }
+            },
+            onCameraFailure = { message ->
+                mainHandler.post {
+                    if (state != State.STOPPED && state != State.FAILED) {
+                        fail("USB camera source failed: $message")
+                    }
+                }
+            }
+        )
         surfaceTexture.setDefaultBufferSize(outputWidth, outputHeight)
         check(adapter.init(outputWidth, outputHeight, 30, 0)) {
             "USB camera source could not be initialized"
@@ -373,7 +491,7 @@ class SceneCanvasLayerController(
         }
         log(
             "usb_video_waiting_for_device",
-            "USB video source is listening for an attached UVC camera"
+            "USB video source is waiting for a UVC camera and Android USB permission"
         )
         return adapter
     }
@@ -708,6 +826,8 @@ class SceneCanvasLayerController(
 
     fun detach() {
         checkMainThread()
+        clearPendingSourceTimeouts()
+        clearLiveSourceCallbacks()
         glCheck?.let(mainHandler::removeCallbacks)
         glCheck = null
         assetGeneration.incrementAndGet()
@@ -749,6 +869,8 @@ class SceneCanvasLayerController(
 
     private fun fail(message: String) {
         if (state == State.FAILED || state == State.STOPPED) return
+        clearPendingSourceTimeouts()
+        clearLiveSourceCallbacks()
         state = State.FAILED
         log("scene_canvas_failed", message)
         failureCallback?.invoke()
@@ -775,6 +897,9 @@ class SceneCanvasLayerController(
         private const val GL_RETRY_MS = 50L
         private const val MAX_GL_ATTEMPTS = 100
         private const val GIF_FRAME_INTERVAL_MS = 33L
+        private const val VIDEO_FIRST_FRAME_TIMEOUT_MS = 15_000L
+        private const val CAMERA_OPEN_TIMEOUT_MS = 10_000L
+        private const val USB_CAMERA_OPEN_TIMEOUT_MS = 15_000L
     }
 }
 

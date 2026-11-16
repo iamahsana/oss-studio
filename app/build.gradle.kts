@@ -54,6 +54,7 @@ dependencies {
     // RootEncoder owns the LIVE encoder/GL chain; extra-sources supplies Media3 video and UVC adapters.
     implementation(libs.rootencoder.library)
     implementation(libs.rootencoder.extra.sources)
+    implementation(libs.uvcandroid)
 
     testImplementation(libs.junit)
 

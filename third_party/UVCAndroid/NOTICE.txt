@@ -1,0 +1,11 @@
+UVCAndroid
+
+Source: https://github.com/shiyinghan/UVCAndroid
+Artifact: com.herohan:UVCAndroid:1.0.13
+License: Apache License 2.0
+License text: LICENSE.txt
+
+OSS uses the public UVCAndroid CameraHelper / ICameraHelper API through
+OssUvcVideoSource to detect UVC attach/open/permission/disconnect events and
+route the camera preview to the RootEncoder SurfaceTexture. No UVCAndroid
+source files are copied into this repository.

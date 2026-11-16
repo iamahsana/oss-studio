@@ -224,3 +224,18 @@ The LIVE compositor now builds ordered render nodes: static Canvas segments are 
 The editor now exposes Camera and USB video source insertion. Camera insertion requests Android's CAMERA permission; USB capture relies on the Android USB host/device permission flow. The manifest declares both camera permission and optional camera/USB-host features.
 
 **Verification boundary:** this is an integration implementation and CI can verify compilation, render-plan ordering, and declarative capability validation. The installed-extension registry is not yet connected to the editor/source factory, so Camera/USB insertion remains unavailable through the UI until that work is complete. It does not yet prove actual video frame playback, camera frames, UVC attach/permission behavior, per-device rotation, crop behavior for surface-backed sources, or thermal/decoder load on a physical phone. Do not mark those capabilities hardware-verified until a focused Android-device LIVE test succeeds. RootEncoder's surface-backed filters do not yet implement per-element source crop for video/camera; that remains an explicit compositor gap.
+
+
+## Media3 and UVC source readiness integration (2026-11-16)
+
+The LIVE scene compositor now treats a decoder/capture source as a readiness prerequisite rather than equating a constructed adapter with usable output:
+
+- Media3VideoSource must report Player.Listener.onRenderedFirstFrame() before the scene layer reports ready. Player errors fail the source/session, and a 15-second first-frame timeout prevents a black video layer from being accepted as ready.
+- RootEncoder Camera2Source readiness is gated on CameraCallbacks.onCameraOpened(). Camera errors, disconnects, and a 10-second open timeout are surfaced as LIVE source failures.
+- USB UVC capture now uses the UVCAndroid 1.0.13 API directly through a small OSS adapter. LIVE readiness waits for onCameraOpen, USB permission denial and detach are reported, and the adapter releases its preview surface and helper during teardown.
+- SceneLiveSourceStartupGate has unit tests for multi-surface/multi-source readiness ordering.
+- Media3VideoSourcePlaybackTest uses a small H.264 fixture and waits for a real onRenderedFirstFrame event; this is not a poster-only test.
+
+License/provenance: UVCAndroid 1.0.13 (https://github.com/shiyinghan/UVCAndroid) is Apache-2.0. Its license text and source/version notice are retained under third_party/UVCAndroid/. RootEncoder 2.8.1 remains Apache-2.0 and supplies the Media3 adapter and Camera2 source.
+
+Validation boundary: emulator CI can verify Media3 decoding and first-frame delivery to a SurfaceTexture, plus source-readiness state logic. It cannot prove the Realme camera hardware, USB OTG permission dialog, a specific UVC camera's format negotiation, hot-unplug behavior on OEM firmware, or thermal/decoder limits. Those require focused physical-device tests; no camera/USB hardware capability is declared complete from CI alone.
